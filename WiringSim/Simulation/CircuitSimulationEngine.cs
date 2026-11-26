@@ -223,6 +223,10 @@ public sealed class CircuitSimulationEngine
         var previouslyBurned = _components.Where(c => c.IsBurnedOut).ToHashSet();
 
         // 1. Đánh giá các tải tiêu thụ & điều khiển trước để biết tải nào đang hoạt động và tiêu thụ bao nhiêu Ampe
+        var vfdList = _components.OfType<VfdComponent>().ToList();
+        foreach (var plc in _components.OfType<PlcControllerComponent>())
+            plc.Runtime.ModbusBus.ConnectedVfds = vfdList;
+
         foreach (var comp in _components)
         {
             if (comp is AmmeterComponent or CurrentTransformerComponent or ThermalOverloadRelayComponent or FuseComponent)

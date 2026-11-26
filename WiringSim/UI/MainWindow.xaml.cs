@@ -85,6 +85,15 @@ public partial class MainWindow : Window
             UpdateCircuitStats();
             if (!_isApplyingHistory)
             {
+                CloseStaleVfdDialogs(closeAll: false);
+                if (_plcLadderWindow is { IsVisible: true } &&
+                    _plcLadderWindow.LadderEditor.ActivePlc is not null &&
+                    !WiringCanvas.Components.Contains(_plcLadderWindow.LadderEditor.ActivePlc))
+                {
+                    var fallbackPlc = WiringCanvas.Components.OfType<PlcControllerComponent>().FirstOrDefault();
+                    _plcLadderWindow.LadderEditor.BindPlc(fallbackPlc);
+                    _plcLadderWindow.UpdateWindowHeaderText();
+                }
                 _isDirty = true;
                 UpdateProjectTitleDisplay();
                 _history.RecordSnapshot(WiringCanvas.Components, WiringCanvas.Wires);
@@ -601,6 +610,7 @@ public partial class MainWindow : Window
         _isApplyingHistory = true;
         WiringCanvas.LoadCircuit(comps, wires, autoFit: true, raiseModified: false);
         _isApplyingHistory = false;
+        CloseStaleVfdDialogs(closeAll: true);
 
         _openedFileName = preset.Name;
         _isDirty = false;
@@ -640,6 +650,7 @@ public partial class MainWindow : Window
         _isApplyingHistory = true;
         WiringCanvas.ClearAll(raiseModified: false);
         _isApplyingHistory = false;
+        CloseStaleVfdDialogs(closeAll: true);
 
         _openedFileName = null;
         _isDirty = false;
@@ -709,6 +720,7 @@ public partial class MainWindow : Window
                 _isApplyingHistory = true;
                 WiringCanvas.LoadCircuit(comps, wires, autoFit: true, raiseModified: false);
                 _isApplyingHistory = false;
+                CloseStaleVfdDialogs(closeAll: true);
 
                 _openedFileName = Path.GetFileName(dlg.FileName);
                 _isDirty = false;
@@ -746,6 +758,7 @@ public partial class MainWindow : Window
         _isApplyingHistory = true;
         WiringCanvas.LoadCircuit(prev.Value.Components, prev.Value.Wires, autoFit: false, raiseModified: false);
         _isApplyingHistory = false;
+        ResyncFloatingWindowsAfterCircuitReplace();
         _isDirty = true;
         UpdateProjectTitleDisplay();
         UpdateCircuitStats();
@@ -761,10 +774,42 @@ public partial class MainWindow : Window
         _isApplyingHistory = true;
         WiringCanvas.LoadCircuit(next.Value.Components, next.Value.Wires, autoFit: false, raiseModified: false);
         _isApplyingHistory = false;
+        ResyncFloatingWindowsAfterCircuitReplace();
         _isDirty = true;
         UpdateProjectTitleDisplay();
         UpdateCircuitStats();
         TxtStatusMessage.Text = LocalizationManager.Get("Str.Status.Redone");
+    }
+
+    private void CloseStaleVfdDialogs(bool closeAll)
+    {
+        var liveIds = closeAll
+            ? new HashSet<string>()
+            : WiringCanvas.Components.OfType<VfdComponent>().Select(v => v.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var kv in _openVfdDialogs.ToList())
+        {
+            if (closeAll || !liveIds.Contains(kv.Key) || !ReferenceEquals(kv.Value.TargetVfd, WiringCanvas.Components.FirstOrDefault(c => c.Id == kv.Key)))
+            {
+                try { kv.Value.Close(); } catch { }
+                _openVfdDialogs.Remove(kv.Key);
+            }
+        }
+    }
+
+    private void ResyncFloatingWindowsAfterCircuitReplace()
+    {
+        CloseStaleVfdDialogs(closeAll: false);
+        if (_plcLadderWindow is not null)
+        {
+            string? oldId = _plcLadderWindow.LadderEditor.ActivePlc?.Id;
+            var matched = (!string.IsNullOrEmpty(oldId)
+                ? WiringCanvas.Components.OfType<PlcControllerComponent>().FirstOrDefault(p => p.Id == oldId)
+                : null) ?? WiringCanvas.Components.OfType<PlcControllerComponent>().FirstOrDefault();
+
+            _plcLadderWindow.LadderEditor.BindPlc(matched);
+            _plcLadderWindow.UpdateWindowHeaderText();
+        }
     }
 
     // =========================================================================

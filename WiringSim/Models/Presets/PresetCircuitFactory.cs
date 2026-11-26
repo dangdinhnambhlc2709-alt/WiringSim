@@ -266,11 +266,12 @@ public static class PresetCircuitFactory
         var prog = BuildSequentialLightsProgram();
         plc.CommitDownloadedProgram(prog);
 
-        var h1 = new PilotLightComponent(PilotLightColor.Green) { DisplayName = "H1 (Q0.0)", X = 220, Y = 500, VoltageRating = CoilVoltageRating.DC_24V };
-        var h2 = new PilotLightComponent(PilotLightColor.Yellow) { DisplayName = "H2 (Q0.1)", X = 360, Y = 500, VoltageRating = CoilVoltageRating.DC_24V };
-        var h3 = new PilotLightComponent(PilotLightColor.Red) { DisplayName = "H3 (Q0.2)", X = 500, Y = 500, VoltageRating = CoilVoltageRating.DC_24V };
+        var h1 = new PilotLightComponent(PilotLightColor.Green) { DisplayName = "H1 (Q0.0)", X = 180, Y = 500, VoltageRating = CoilVoltageRating.DC_24V };
+        var h2 = new PilotLightComponent(PilotLightColor.Yellow) { DisplayName = "H2 (Q0.1)", X = 310, Y = 500, VoltageRating = CoilVoltageRating.DC_24V };
+        var h3 = new PilotLightComponent(PilotLightColor.Red) { DisplayName = "H3 (Q0.2)", X = 440, Y = 500, VoltageRating = CoilVoltageRating.DC_24V };
+        var h4 = new PilotLightComponent(PilotLightColor.Blue) { DisplayName = "H4 1Hz (Q0.3)", X = 570, Y = 500, VoltageRating = CoilVoltageRating.DC_24V };
 
-        comps.AddRange([dc24, btnStart, btnStop, plc, h1, h2, h3]);
+        comps.AddRange([dc24, btnStart, btnStop, plc, h1, h2, h3, h4]);
 
         // Cấp nguồn 24VDC cho PLC (L+, M) & nối chân chung 1M về 0V (chế độ nhận tín hiệu PNP)
         Connect(wires, dc24.PlusTerminal, plc.SupplyLPlus, WireColorPreset.Red_L1_DCPlus);
@@ -284,52 +285,73 @@ public static class PresetCircuitFactory
         Connect(wires, dc24.PlusTerminal, btnStop.NcIn1!, WireColorPreset.Red_L1_DCPlus);
         Connect(wires, btnStop.NcOut2!, plc.DiTerminals[1], WireColorPreset.Blue_L3);
 
-        // Ngõ ra Q0.0, Q0.1, Q0.2 cấp nguồn 24VDC cho 3 đèn tuần tự H1, H2, H3
+        // Ngõ ra Q0.0, Q0.1, Q0.2 cấp nguồn 24VDC cho 3 đèn tuần tự H1..H3 và Q0.3 cho đèn nhịp 1Hz H4
         Connect(wires, plc.DqTerminals[0], h1.X1, WireColorPreset.Green_PE);
         Connect(wires, plc.DqTerminals[1], h2.X1, WireColorPreset.Yellow_L2);
         Connect(wires, plc.DqTerminals[2], h3.X1, WireColorPreset.Red_L1_DCPlus);
+        Connect(wires, plc.DqTerminals[3], h4.X1, WireColorPreset.Blue_L3);
 
         Connect(wires, h1.X2, plc.AuxM, WireColorPreset.Black_N_DCMinus);
         Connect(wires, h2.X2, plc.AuxM, WireColorPreset.Black_N_DCMinus);
         Connect(wires, h3.X2, plc.AuxM, WireColorPreset.Black_N_DCMinus);
+        Connect(wires, h4.X2, plc.AuxM, WireColorPreset.Black_N_DCMinus);
 
         return (comps, wires);
     }
 
     public static PlcProgramModel BuildSequentialLightsProgram()
     {
-        var prog = new PlcProgramModel();
+        var prog = new PlcProgramModel
+        {
+            EnableSystemMemory = true,
+            SystemMemoryByte = 1, // MB1: FirstScan (%M1.0), AlwaysTRUE (%M1.2), AlwaysFALSE (%M1.3)
+            EnableClockMemory = true,
+            ClockMemoryByte = 0   // MB0: Clock_10Hz (%M0.0) .. Clock_1Hz (%M0.5) .. Clock_0.5Hz (%M0.7)
+        };
+
+        // Tránh MB0 (Clock) & MB1 (System): đặt toàn bộ biến người dùng từ %M10.0 và %MW20 trở đi
         prog.Tags.AddRange([
-            new PlcTagEntry { Name = "START", Address = "%I0.0", DataType = "Bool" },
-            new PlcTagEntry { Name = "STOP", Address = "%I0.1", DataType = "Bool" },
-            new PlcTagEntry { Name = "RUN_SYS", Address = "%M0.0", DataType = "Bool" },
-            new PlcTagEntry { Name = "START_EDGE", Address = "%M0.1", DataType = "Bool" },
-            new PlcTagEntry { Name = "STEP_PULSE", Address = "%M0.2", DataType = "Bool" },
-            new PlcTagEntry { Name = "SEQUENCE", Address = "%MW2", DataType = "Int" },
-            new PlcTagEntry { Name = "TIMER1", Address = "%DB1", DataType = "IEC_Timer" },
-            new PlcTagEntry { Name = "LAMP1", Address = "%Q0.0", DataType = "Bool" },
-            new PlcTagEntry { Name = "LAMP2", Address = "%Q0.1", DataType = "Bool" },
-            new PlcTagEntry { Name = "LAMP3", Address = "%Q0.2", DataType = "Bool" }
+            new PlcTagEntry { Name = "START", Address = "%I0.0", DataType = "Bool", Comment = "Start pushbutton (NO)" },
+            new PlcTagEntry { Name = "STOP", Address = "%I0.1", DataType = "Bool", Comment = "Stop pushbutton (NC)" },
+            new PlcTagEntry { Name = "RUN_SYS", Address = "%M10.0", DataType = "Bool", Comment = "System running latch" },
+            new PlcTagEntry { Name = "START_EDGE", Address = "%M10.1", DataType = "Bool", Comment = "Start rising edge memory" },
+            new PlcTagEntry { Name = "STEP_PULSE", Address = "%M10.2", DataType = "Bool", Comment = "3s timer completion pulse" },
+            new PlcTagEntry { Name = "HALF_TIME", Address = "%M10.3", DataType = "Bool", Comment = "Elapsed time >= T#1500ms" },
+            new PlcTagEntry { Name = "SEQUENCE", Address = "%MW20", DataType = "Int", Comment = "Active lamp step (1..3)" },
+            new PlcTagEntry { Name = "AI0_RAW", Address = "%IW64", DataType = "Int", Comment = "Analog input AI0 (0..27648)" },
+            new PlcTagEntry { Name = "AI0_NORM", Address = "%MD24", DataType = "Real", Comment = "Normalized AI0 (0.0..1.0)" },
+            new PlcTagEntry { Name = "AI0_PERCENT", Address = "%MD28", DataType = "Real", Comment = "Scaled AI0 (0.0..100.0 %)" },
+            new PlcTagEntry { Name = "TIMER1", Address = "%DB1", DataType = "IEC_Timer", Comment = "3s step delay timer" },
+            new PlcTagEntry { Name = "LAMP1", Address = "%Q0.0", DataType = "Bool", Comment = "Green lamp H1" },
+            new PlcTagEntry { Name = "LAMP2", Address = "%Q0.1", DataType = "Bool", Comment = "Yellow lamp H2" },
+            new PlcTagEntry { Name = "LAMP3", Address = "%Q0.2", DataType = "Bool", Comment = "Red lamp H3" },
+            new PlcTagEntry { Name = "LAMP_1HZ", Address = "%Q0.3", DataType = "Bool", Comment = "Blue 1Hz heartbeat lamp H4" }
         ]);
 
-        // Network 1: Khởi động & Dừng hệ thống (Tự giữ với nhánh song song %I0.0 // %M0.0)
-        var nw1 = new LadderNetwork { Title = "Start / Stop System (Self-Holding)" };
-        nw1.MainBranch.Nodes.Add(new LadderNode
+        // Network 1: Khởi tạo an toàn ở vòng quét đầu tiên bằng biến hệ thống "FirstScan"
+        var nw1 = new LadderNetwork { Title = "FirstScan Initialization (System Memory)" };
+        nw1.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.ContactNO, Address = "\"FirstScan\"" });
+        nw1.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.Move, DataType = "Int", Param1 = "0", OutputAddress = "%MW20" });
+        prog.Networks.Add(nw1);
+
+        // Network 2: Khởi động & Dừng hệ thống (Tự giữ %I0.0 // %M10.0)
+        var nw2 = new LadderNetwork { Title = "Start / Stop System (Self-Holding)" };
+        nw2.MainBranch.Nodes.Add(new LadderNode
         {
             Kind = LadderElementKind.ParallelBlock,
             Branches =
             [
                 new LadderBranch { Nodes = [new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%I0.0" }] },
-                new LadderBranch { Nodes = [new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%M0.0" }] }
+                new LadderBranch { Nodes = [new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%M10.0" }] }
             ]
         });
-        nw1.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%I0.1" });
-        nw1.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.CoilOut, Address = "%M0.0" });
-        prog.Networks.Add(nw1);
+        nw2.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%I0.1" });
+        nw2.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.CoilOut, Address = "%M10.0" });
+        prog.Networks.Add(nw2);
 
-        // Network 2: Khởi tạo bước 1 khi bật (P-Trig) & Xóa bước về 0 khi dừng
-        var nw2 = new LadderNetwork { Title = "Init Step = 1 on Start / Reset = 0 on Stop" };
-        nw2.MainBranch.Nodes.Add(new LadderNode
+        // Network 3: Khởi tạo bước 1 khi bật (P-Trig) & Xóa bước về 0 khi dừng
+        var nw3 = new LadderNetwork { Title = "Init Step = 1 on Start / Reset = 0 on Stop" };
+        nw3.MainBranch.Nodes.Add(new LadderNode
         {
             Kind = LadderElementKind.ParallelBlock,
             Branches =
@@ -338,33 +360,25 @@ public static class PresetCircuitFactory
                 {
                     Nodes =
                     [
-                        new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%M0.0" },
-                        new LadderNode { Kind = LadderElementKind.EdgePositive, Address = "%M0.1" },
-                        new LadderNode { Kind = LadderElementKind.Move, Param1 = "1", OutputAddress = "%MW2" }
+                        new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%M10.0" },
+                        new LadderNode { Kind = LadderElementKind.PTrig, Address = "%M10.1" },
+                        new LadderNode { Kind = LadderElementKind.Move, DataType = "Int", Param1 = "1", OutputAddress = "%MW20" }
                     ]
                 },
                 new LadderBranch
                 {
                     Nodes =
                     [
-                        new LadderNode { Kind = LadderElementKind.ContactNC, Address = "%M0.0" },
-                        new LadderNode { Kind = LadderElementKind.Move, Param1 = "0", OutputAddress = "%MW2" }
+                        new LadderNode { Kind = LadderElementKind.ContactNC, Address = "%M10.0" },
+                        new LadderNode { Kind = LadderElementKind.Move, DataType = "Int", Param1 = "0", OutputAddress = "%MW20" }
                     ]
                 }
             ]
         });
-        prog.Networks.Add(nw2);
-
-        // Network 3: Bộ định thời TON 3 giây tạo xung chuyển bước
-        var nw3 = new LadderNetwork { Title = "3s Step Timer (TON %DB1)" };
-        nw3.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%M0.0" });
-        nw3.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.ContactNC, Address = "%M0.2" });
-        nw3.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.TimerTON, Address = "%DB1", Param1 = "T#3s" });
-        nw3.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.CoilOut, Address = "%M0.2" });
         prog.Networks.Add(nw3);
 
-        // Network 4: Tăng biến bước %MW2 (ADD +1) và quay vòng về 1 khi > 3
-        var nw4 = new LadderNetwork { Title = "Increment %MW2 (1 → 2 → 3 → 1)" };
+        // Network 4: Bộ định thời TON 3 giây tạo xung chuyển bước & so sánh trực tiếp hằng số thời gian T#1500ms
+        var nw4 = new LadderNetwork { Title = "3s Step Timer (TON %DB1) & Direct Time Compare (T#1500ms)" };
         nw4.MainBranch.Nodes.Add(new LadderNode
         {
             Kind = LadderElementKind.ParallelBlock,
@@ -374,24 +388,26 @@ public static class PresetCircuitFactory
                 {
                     Nodes =
                     [
-                        new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%M0.2" },
-                        new LadderNode { Kind = LadderElementKind.MathAdd, Param1 = "%MW2", Param2 = "1", OutputAddress = "%MW2" }
+                        new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%M10.0" },
+                        new LadderNode { Kind = LadderElementKind.ContactNC, Address = "%M10.2" },
+                        new LadderNode { Kind = LadderElementKind.TimerTON, Address = "%DB1", SymbolName = "TIMER1", Param1 = "T#3s" },
+                        new LadderNode { Kind = LadderElementKind.CoilOut, Address = "%M10.2" }
                     ]
                 },
                 new LadderBranch
                 {
                     Nodes =
                     [
-                        new LadderNode { Kind = LadderElementKind.CmpGreater, Param1 = "%MW2", Param2 = "3" },
-                        new LadderNode { Kind = LadderElementKind.Move, Param1 = "1", OutputAddress = "%MW2" }
+                        new LadderNode { Kind = LadderElementKind.CmpGreaterOrEqual, DataType = "Time", Param1 = "\"TIMER1\".ET", Param2 = "T#1500ms" },
+                        new LadderNode { Kind = LadderElementKind.CoilOut, Address = "%M10.3" }
                     ]
                 }
             ]
         });
         prog.Networks.Add(nw4);
 
-        // Network 5: So sánh %MW2 xuất 3 đèn tuần tự Q0.0, Q0.1, Q0.2
-        var nw5 = new LadderNetwork { Title = "Sequential Outputs (%MW2 == 1, 2, 3)" };
+        // Network 5: Tăng biến bước %MW20 (ADD +1) và quay vòng về 1 khi > 3
+        var nw5 = new LadderNetwork { Title = "Increment %MW20 (1 → 2 → 3 → 1)" };
         nw5.MainBranch.Nodes.Add(new LadderNode
         {
             Kind = LadderElementKind.ParallelBlock,
@@ -401,7 +417,34 @@ public static class PresetCircuitFactory
                 {
                     Nodes =
                     [
-                        new LadderNode { Kind = LadderElementKind.CmpEqual, Param1 = "%MW2", Param2 = "1" },
+                        new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%M10.2" },
+                        new LadderNode { Kind = LadderElementKind.MathAdd, DataType = "Int", Param1 = "%MW20", Param2 = "1", OutputAddress = "%MW20" }
+                    ]
+                },
+                new LadderBranch
+                {
+                    Nodes =
+                    [
+                        new LadderNode { Kind = LadderElementKind.CmpGreater, DataType = "Int", Param1 = "%MW20", Param2 = "3" },
+                        new LadderNode { Kind = LadderElementKind.Move, DataType = "Int", Param1 = "1", OutputAddress = "%MW20" }
+                    ]
+                }
+            ]
+        });
+        prog.Networks.Add(nw5);
+
+        // Network 6: So sánh %MW20 xuất 3 đèn tuần tự Q0.0..Q0.2 & đèn nhịp Clock_1Hz ra Q0.3
+        var nw6 = new LadderNetwork { Title = "Sequential Outputs & Clock_1Hz Heartbeat" };
+        nw6.MainBranch.Nodes.Add(new LadderNode
+        {
+            Kind = LadderElementKind.ParallelBlock,
+            Branches =
+            [
+                new LadderBranch
+                {
+                    Nodes =
+                    [
+                        new LadderNode { Kind = LadderElementKind.CmpEqual, DataType = "Int", Param1 = "%MW20", Param2 = "1" },
                         new LadderNode { Kind = LadderElementKind.CoilOut, Address = "%Q0.0" }
                     ]
                 },
@@ -409,7 +452,7 @@ public static class PresetCircuitFactory
                 {
                     Nodes =
                     [
-                        new LadderNode { Kind = LadderElementKind.CmpEqual, Param1 = "%MW2", Param2 = "2" },
+                        new LadderNode { Kind = LadderElementKind.CmpEqual, DataType = "Int", Param1 = "%MW20", Param2 = "2" },
                         new LadderNode { Kind = LadderElementKind.CoilOut, Address = "%Q0.1" }
                     ]
                 },
@@ -417,13 +460,39 @@ public static class PresetCircuitFactory
                 {
                     Nodes =
                     [
-                        new LadderNode { Kind = LadderElementKind.CmpEqual, Param1 = "%MW2", Param2 = "3" },
+                        new LadderNode { Kind = LadderElementKind.CmpEqual, DataType = "Int", Param1 = "%MW20", Param2 = "3" },
                         new LadderNode { Kind = LadderElementKind.CoilOut, Address = "%Q0.2" }
+                    ]
+                },
+                new LadderBranch
+                {
+                    Nodes =
+                    [
+                        new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%M10.0" },
+                        new LadderNode { Kind = LadderElementKind.ContactNO, Address = "\"Clock_1Hz\"" },
+                        new LadderNode { Kind = LadderElementKind.CoilOut, Address = "%Q0.3" }
                     ]
                 }
             ]
         });
-        prog.Networks.Add(nw5);
+        prog.Networks.Add(nw6);
+
+        // Network 7: Chuẩn hóa & quy đổi tuyến tính ngõ vào Analog AI0 (%IW64: 0..27648 -> 0.0..100.0 %)
+        var nw7 = new LadderNetwork { Title = "Analog Input Scaling (NORM_X & SCALE_X: 0..27648 → 0..100%)" };
+        nw7.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.ContactNO, Address = "\"AlwaysTRUE\"" });
+        nw7.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.NormX, DataType = "Int", Param1 = "%IW64", Param2 = "0", ExtraParam = "27648", OutputAddress = "%MD24" });
+        nw7.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.ScaleX, DataType = "Real", Param1 = "%MD24", Param2 = "0.0", ExtraParam = "100.0", OutputAddress = "%MD28" });
+        prog.Networks.Add(nw7);
+
+        // Cấu hình sẵn Watch Table mẫu để người dùng theo dõi & ép giá trị ngay lập tức
+        prog.WatchEntries.AddRange([
+            new PlcWatchEntry { Expression = "\"RUN_SYS\"", DisplayFormat = PlcWatchFormat.Bool },
+            new PlcWatchEntry { Expression = "\"SEQUENCE\"", DisplayFormat = PlcWatchFormat.Dec },
+            new PlcWatchEntry { Expression = "\"TIMER1\".ET", DisplayFormat = PlcWatchFormat.Time },
+            new PlcWatchEntry { Expression = "\"Clock_1Hz\"", DisplayFormat = PlcWatchFormat.Bool },
+            new PlcWatchEntry { Expression = "\"AI0_RAW\"", DisplayFormat = PlcWatchFormat.Dec, ModifyValue = "13824" },
+            new PlcWatchEntry { Expression = "\"AI0_PERCENT\"", DisplayFormat = PlcWatchFormat.Float }
+        ]);
 
         return prog;
     }

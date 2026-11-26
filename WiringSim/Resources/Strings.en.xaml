@@ -402,12 +402,13 @@
     <sys:String x:Key="Str.Vfd.PotLabel">Virtual Frequency Dial (P02 = 1):</sys:String>
     <sys:String x:Key="Str.Vfd.ExtPotLabel">External Potentiometer 10V–AI1–GND (P02 = 2):</sys:String>
     <sys:String x:Key="Str.Vfd.ParamTableTitle">DRIVE PARAMETERS (P01 – P06)</sys:String>
-    <sys:String x:Key="Str.Vfd.P01">P01 • Run Command Source (0: Keypad | 1: External FWD/REV-COM)</sys:String>
-    <sys:String x:Key="Str.Vfd.P02">P02 • Frequency Source (0: ▲/▼ Keys | 1: Dial | 2: External AI1)</sys:String>
+    <sys:String x:Key="Str.Vfd.P01">P01 • Run Command Source (0: Keypad | 1: External FWD/REV | 2: Modbus)</sys:String>
+    <sys:String x:Key="Str.Vfd.P02">P02 • Frequency Source (0: ▲/▼ | 1: Dial | 2: AI1 | 3: Modbus)</sys:String>
     <sys:String x:Key="Str.Vfd.P03">P03 • Maximum Frequency Max Freq (10.0 – 400.0 Hz)</sys:String>
     <sys:String x:Key="Str.Vfd.P04">P04 • Acceleration Time ACC (0.5 – 60.0 s)</sys:String>
     <sys:String x:Key="Str.Vfd.P05">P05 • Deceleration Time DEC (0.5 – 60.0 s)</sys:String>
     <sys:String x:Key="Str.Vfd.P06">P06 • Multi-Speed Presets DI1 / DI2 (Default 25.0 Hz / 40.0 Hz)</sys:String>
+    <sys:String x:Key="Str.Vfd.P07">P07 • Modbus Slave ID Address (1 – 247, direct PLC link)</sys:String>
     <sys:String x:Key="Str.Vfd.ModeBtn">MODE / PRG</sys:String>
     <sys:String x:Key="Str.Vfd.SetBtn">SET / ENTER</sys:String>
     <sys:String x:Key="Str.Vfd.DirBtn">Toggle FWD/REV</sys:String>
@@ -518,18 +519,20 @@
     <sys:String x:Key="Str.Preset4.Name">4. Intermediate Relay Control via 2-Wire AC 220V Proximity Sensor</sys:String>
     <sys:String x:Key="Str.Preset4.Guide">Switch to [▶ Simulate] → Click the 2-wire AC sensor (B1): current flows in series L → BN → BU → Relay K1 coil (~3.5V drop, Voltmeter reads ~216.5V) energizing K1 and lighting H1!</sys:String>
 
-    <!-- v1.3: PLC & TIA Portal Ladder Editor -->
+    <!-- v1.3: PLC & IEC 61131-3 Ladder Editor -->
     <sys:String x:Key="Str.Cat.Programmable">7. PROGRAMMABLE CONTROL (PLC)</sys:String>
     <sys:String x:Key="Str.Comp.Plc.Title">PLC (14 DI / 10 DQ / 2 AI)</sys:String>
     <sys:String x:Key="Str.Comp.Plc.Sub">14 DI • 10 DQ • 2 AI • Ladder OB1</sys:String>
     <sys:String x:Key="Str.Vis.PlcOpenLadder">Open Ladder Editor</sys:String>
     <sys:String x:Key="Str.Toolbar.PlcLadder">Ladder Editor</sys:String>
-    <sys:String x:Key="Str.Toolbar.PlcLadderTip">Show / Hide PLC Ladder Editor Panel (TIA Portal Style)</sys:String>
+    <sys:String x:Key="Str.Toolbar.PlcLadderTip">Show / Hide PLC Ladder Editor (IEC 61131-3)</sys:String>
 
     <sys:String x:Key="Str.Menu.PlcOpenLadder">💻 Open Ladder Editor (OB1)</sys:String>
     <sys:String x:Key="Str.Menu.PlcTagTable">🏷 Open PLC Tag Table</sys:String>
     <sys:String x:Key="Str.Menu.PlcRun">▶ Switch CPU to RUN</sys:String>
     <sys:String x:Key="Str.Menu.PlcStop">⏹ Switch CPU to STOP</sys:String>
+    <sys:String x:Key="Str.Menu.PlcSysMem">⚙ Enable System Memory (MB{0}: FirstScan, AlwaysTRUE/FALSE)</sys:String>
+    <sys:String x:Key="Str.Menu.PlcClkMem">⏱ Enable Clock Memory (MB{0}: 10Hz..0.5Hz)</sys:String>
 
     <sys:String x:Key="Str.Plc.EditorTitle">PLC Programmer — Ladder (OB1)</sys:String>
     <sys:String x:Key="Str.Plc.TabLadder">Ladder (OB1)</sys:String>
@@ -594,10 +597,10 @@
     <sys:String x:Key="Str.Plc.ErrInvalidPt">Network {0}: Invalid PT time literal '{1}' (expected e.g. T#3s, T#500ms, T#1m).</sys:String>
     <sys:String x:Key="Str.Plc.ErrInvalidPv">Network {0}: Missing or invalid preset value PV '{1}' for Counter.</sys:String>
 
-    <sys:String x:Key="Str.Preset5.Name">5. Sequential Lights Control via PLC (TON Timer &amp; %MW Compare)</sys:String>
-    <sys:String x:Key="Str.Preset5.Guide">Switch to [▶ Simulate] → Press START (%I0.0): PLC sequences H1 → H2 → H3 every 3s using TON (%DB1) &amp; %MW2 ("SEQUENCE") comparators. Watch live green Online Monitoring in the Ladder Editor!</sys:String>
+    <sys:String x:Key="Str.Preset5.Name">5. PLC Sequential Control (FirstScan, Clock_1Hz, TON, T# &amp; NORM_X/SCALE_X)</sys:String>
+    <sys:String x:Key="Str.Preset5.Guide">Switch to [▶ Simulate] → Press START (%I0.0): PLC initializes via "FirstScan", sequences H1→H2→H3 every 3s (TON %DB1 &amp; direct T#1500ms comparison), blinks H4 via "Clock_1Hz", and scales AI0 via NORM_X/SCALE_X!</sys:String>
 
-    <!-- v1.3 Full 10-Category TIA Portal Instruction Tree -->
+    <!-- v1.3 Full 10-Category PLC Instruction Tree -->
     <sys:String x:Key="Str.Plc.SearchHint">Search PLC instructions (e.g. TON, NORM_X, SHR)...</sys:String>
     <sys:String x:Key="Str.Plc.EmptyBoxBtn">Empty box [F8]</sys:String>
     <sys:String x:Key="Str.Plc.InsertInputBtn">--| Insert input</sys:String>
@@ -628,8 +631,8 @@
     <sys:String x:Key="Str.Plc.D.SET">Set output</sys:String>
     <sys:String x:Key="Str.Plc.D.SET_BF">Set bit field (N bits)</sys:String>
     <sys:String x:Key="Str.Plc.D.RESET_BF">Reset bit field (N bits)</sys:String>
-    <sys:String x:Key="Str.Plc.D.SR">Set/reset flip-flop (Set priority)</sys:String>
-    <sys:String x:Key="Str.Plc.D.RS">Reset/set flip-flop (Reset priority)</sys:String>
+    <sys:String x:Key="Str.Plc.D.SR">Set/reset flip-flop (Reset-dominant R1)</sys:String>
+    <sys:String x:Key="Str.Plc.D.RS">Reset/set flip-flop (Set-dominant S1)</sys:String>
     <sys:String x:Key="Str.Plc.D.P">Scan operand for positive edge</sys:String>
     <sys:String x:Key="Str.Plc.D.N">Scan operand for negative edge</sys:String>
     <sys:String x:Key="Str.Plc.D.COILP">Set operand on positive edge</sys:String>
@@ -766,11 +769,11 @@
     <sys:String x:Key="Str.Plc.D.ROR">Rotate right by N bits</sys:String>
     <sys:String x:Key="Str.Plc.D.ROL">Rotate left by N bits</sys:String>
 
-    <!-- Hotfix v1.3.1: Floating PLC Ladder Window & TIA Portal V21 Mechanics -->
+    <!-- Floating PLC Ladder Window & IEC 61131-3 Mechanics -->
     <sys:String x:Key="Str.Plc.WindowTitle">WiringSim — PLC Ladder Programmer</sys:String>
     <sys:String x:Key="Str.Plc.CompactBtn">PLC Ladder</sys:String>
 
-    <!-- TIA Portal V21: PLC Tags Table, Address Picker, Call options & DB Autocomplete -->
+    <!-- PLC Tags Table, Address Picker, Call options & DB Autocomplete -->
     <sys:String x:Key="Str.Plc.TagColName">Name</sys:String>
     <sys:String x:Key="Str.Plc.TagColType">Data type</sys:String>
     <sys:String x:Key="Str.Plc.TagColAddr">Address</sys:String>
@@ -804,12 +807,192 @@
     <sys:String x:Key="Str.Plc.ErrUnassignedDb">Network {0}: Timer / Counter block has no assigned Data Block (&lt;???&gt;). Click &lt;???&gt; to open Call options!</sys:String>
     <sys:String x:Key="Str.Plc.ClickAssignDbTip">Click to open Call options and assign a Data Block</sys:String>
 
-    <sys:String x:Key="Str.Plc.AutoSearchHint">Search Tag, address, or type 'DbName.' for members...</sys:String>
+    <sys:String x:Key="Str.Plc.AutoSearchHint">Search Tag, System/Clock, address, or type 'Name.' for DB/Slice...</sys:String>
     <sys:String x:Key="Str.Plc.AutoColName">Name</sys:String>
     <sys:String x:Key="Str.Plc.AutoColType">Data type</sys:String>
     <sys:String x:Key="Str.Plc.AutoColAddr">Address</sys:String>
     <sys:String x:Key="Str.Plc.AutoBackToAll">← All Tags &amp; Data Blocks</sys:String>
     <sys:String x:Key="Str.Plc.AutoEmpty">No matching Tags or Data Blocks found.</sys:String>
-    <sys:String x:Key="Str.Plc.DoubleClickHint">Double-click any Ladder address to pick a Tag or DB member (e.g. "TD11".Q)</sys:String>
+    <sys:String x:Key="Str.Plc.DoubleClickHint">Double-click or press Enter/F2 to inline-edit (Tab cycles pins, right-click for Smart Menu)</sys:String>
+
+    <!-- PLC IEC 61131-3 Upgrades: Favorites, Display Modes, ContextMenu, CALCULATE, Define Tag, Watch Table, System/Clock -->
+    <sys:String x:Key="Str.Plc.TabWatch">Watch Table</sys:String>
+    <sys:String x:Key="Str.Plc.PropType">Type:</sys:String>
+    <sys:String x:Key="Str.Plc.FavoritesLabel">★ Favorites</sys:String>
+    <sys:String x:Key="Str.Plc.FavoritesDropHint">Drag instructions here to pin</sys:String>
+    <sys:String x:Key="Str.Plc.FavRightClickUnpin">Right-click to unpin from Favorites</sys:String>
+    <sys:String x:Key="Str.Plc.FavUnpin">Unpin '{0}' from Favorites</sys:String>
+    <sys:String x:Key="Str.Plc.FavResetDefault">Reset Favorites to defaults</sys:String>
+    <sys:String x:Key="Str.Plc.FavPinnedMsg">Pinned instruction '{0}' to Favorites.</sys:String>
+    <sys:String x:Key="Str.Plc.DragToFavTip">Click to insert or drag onto the Favorites bar to pin</sys:String>
+
+    <sys:String x:Key="Str.Plc.DisplayModeTip">Switch between 3 address display modes (Symbolic &amp; Absolute | Symbolic Only | Absolute Only)</sys:String>
+    <sys:String x:Key="Str.Plc.DispModeBoth">🏷 Symbolic + %Addr</sys:String>
+    <sys:String x:Key="Str.Plc.DispModeSym">🏷 Symbolic Only ("Tag")</sys:String>
+    <sys:String x:Key="Str.Plc.DispModeAbs">🔢 Absolute Only (%I0.0)</sys:String>
+
+    <sys:String x:Key="Str.Plc.SysClkBtn">⏱ System/Clock</sys:String>
+    <sys:String x:Key="Str.Plc.SysClkTip">Configure PLC System Memory (FirstScan, AlwaysTRUE/FALSE) &amp; Clock Memory (Clock_10Hz..0.5Hz)</sys:String>
+    <sys:String x:Key="Str.Plc.SysClkTitle">PLC System &amp; Clock Memory Configuration</sys:String>
+    <sys:String x:Key="Str.Plc.SysMemEnable">Enable System Memory bits</sys:String>
+    <sys:String x:Key="Str.Plc.ClkMemEnable">Enable Clock Memory bits (square wave)</sys:String>
+    <sys:String x:Key="Str.Plc.SysClkNote">Defaults: Clock Memory at MB0 (%M0.0..%M0.7) and System Memory at MB1 (%M1.0..%M1.3). Avoid overlapping user tags.</sys:String>
+    <sys:String x:Key="Str.Plc.SysClkTagSection">── BUILT-IN SYSTEM &amp; CLOCK MEMORY BITS (READ-ONLY) ──</sys:String>
+
+    <sys:String x:Key="Str.Plc.EmptyBoxPrompt">Type PLC instruction name (TON, CMP, ADD, NORM_X, CALCULATE...) and press Enter:</sys:String>
+    <sys:String x:Key="Str.Plc.EditEquationBtn">fx Edit equation...</sys:String>
+    <sys:String x:Key="Str.Plc.InsertPinBtn">+ Insert input</sys:String>
+    <sys:String x:Key="Str.Plc.UndefinedTagTip">Undefined tag — Right-click and choose 'Define tag...' (Alt+Shift+D) to assign an address</sys:String>
+
+    <sys:String x:Key="Str.Plc.CtxInlineEdit">Inline edit</sys:String>
+    <sys:String x:Key="Str.Plc.CtxDefineTag">Define tag...</sys:String>
+    <sys:String x:Key="Str.Plc.CtxRenameTag">Rename tag...</sys:String>
+    <sys:String x:Key="Str.Plc.CtxChangeCallType">Change call type...</sys:String>
+    <sys:String x:Key="Str.Plc.CtxInsertInputPin">+ Insert input pin</sys:String>
+    <sys:String x:Key="Str.Plc.CtxRemoveInputPin">- Remove last input pin</sys:String>
+    <sys:String x:Key="Str.Plc.CtxCut">Cut</sys:String>
+    <sys:String x:Key="Str.Plc.CtxCopy">Copy</sys:String>
+    <sys:String x:Key="Str.Plc.CtxPaste">Paste</sys:String>
+    <sys:String x:Key="Str.Plc.CtxDelete">Delete</sys:String>
+    <sys:String x:Key="Str.Plc.CtxInsertNetBelow">Insert network below</sys:String>
+    <sys:String x:Key="Str.Plc.CtxRenameNet">Rename network...</sys:String>
+    <sys:String x:Key="Str.Plc.CtxRenameNetPrompt">Enter new title for Network {0}:</sys:String>
+
+    <sys:String x:Key="Str.Plc.StatusCopiedNode">Copied Ladder element to Clipboard.</sys:String>
+    <sys:String x:Key="Str.Plc.StatusCopiedNet">Copied entire Network to Clipboard.</sys:String>
+    <sys:String x:Key="Str.Plc.StatusPasted">Pasted from Clipboard.</sys:String>
+
+    <sys:String x:Key="Str.Plc.DefineTagTitle">Define Tag</sys:String>
+    <sys:String x:Key="Str.Plc.DefineTagSubtitle">Assign memory address and data type for the tag in PLC Tags</sys:String>
+    <sys:String x:Key="Str.Plc.DefineTagErrName">Tag Name cannot be empty!</sys:String>
+    <sys:String x:Key="Str.Plc.DefineTagDone">Defined tag "{0}" → {1} in PLC Tags.</sys:String>
+    <sys:String x:Key="Str.Plc.RenameTagPrompt">Enter new name for tag "{0}" (updates all references across the program):</sys:String>
+    <sys:String x:Key="Str.Plc.RenameTagDone">Renamed "{0}" → "{1}" ({2} references updated).</sys:String>
+
+    <sys:String x:Key="Str.Plc.CalcDlgTitle">Edit Equation (CALCULATE)</sys:String>
+    <sys:String x:Key="Str.Plc.CalcDlgSubtitle">Enter formula using IN1..INn (e.g. ((IN4 - IN5) / (IN2 - IN3)) * (IN1 - IN3) + IN5). Input pins are auto-generated.</sys:String>
+    <sys:String x:Key="Str.Plc.CalcDataType">Data type:</sys:String>
+    <sys:String x:Key="Str.Plc.CalcExprLabel">Equation (OUT = ...):</sys:String>
+    <sys:String x:Key="Str.Plc.CalcFuncsLabel">Supported operators &amp; math functions (click to insert):</sys:String>
+    <sys:String x:Key="Str.Plc.CalcInputsDetected">Auto-generated pins: IN1 .. IN{0}</sys:String>
+    <sys:String x:Key="Str.Plc.CalcExprOk">✅ Equation syntax is valid.</sys:String>
+    <sys:String x:Key="Str.Plc.CalcErrEmpty">CALCULATE equation cannot be empty!</sys:String>
+    <sys:String x:Key="Str.Plc.CalcErrSyntax">Syntax error in CALCULATE equation!</sys:String>
+    <sys:String x:Key="Str.Plc.CalcErrMissingParen">Missing closing parenthesis ')' in equation!</sys:String>
+    <sys:String x:Key="Str.Plc.CalcErrUnexpected">Unexpected token near '{0}'.</sys:String>
+    <sys:String x:Key="Str.Plc.CalcErrUnknownIdent">Unsupported identifier or function: '{0}' (use IN1..IN32 or ABS, SQRT, SIN...).</sys:String>
+
+    <sys:String x:Key="Str.Plc.ErrImmediateOnlyIO">Immediate suffix ':P' is only valid on physical I/O addresses %I or %Q ('{0}').</sys:String>
+    <sys:String x:Key="Str.Plc.ErrCannotReadImmediateOut">Cannot read from immediate output ':P' ('{0}'); immediate output is write-only!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrSliceNotSupported">Data type '{1}' of '{0}' does not support Slice Access.</sys:String>
+    <sys:String x:Key="Str.Plc.ErrSliceOutOfRange">Slice index in '{0}' is out of range ({1}).</sys:String>
+
+    <sys:String x:Key="Str.Plc.WatchAdd">+ Add Watch Row</sys:String>
+    <sys:String x:Key="Str.Plc.WatchDelete">Delete Row</sys:String>
+    <sys:String x:Key="Str.Plc.WatchModifyAll">⚡ Modify All Selected</sys:String>
+    <sys:String x:Key="Str.Plc.WatchClearForce">↺ Clear I/AI Force</sys:String>
+    <sys:String x:Key="Str.Plc.WatchTip">Monitor live values in DEC/HEX/BIN/FLOAT/TIME/BOOL and write directly (Modify Now) during simulation</sys:String>
+    <sys:String x:Key="Str.Plc.WatchColExpr">Tag / Expression</sys:String>
+    <sys:String x:Key="Str.Plc.WatchColFmt">Format</sys:String>
+    <sys:String x:Key="Str.Plc.WatchColMonitor">Monitor Value</sys:String>
+    <sys:String x:Key="Str.Plc.WatchColModify">Modify Value</sys:String>
+    <sys:String x:Key="Str.Plc.WatchColAction">Action</sys:String>
+    <sys:String x:Key="Str.Plc.WatchModifyNow">⚡ Modify</sys:String>
+    <sys:String x:Key="Str.Plc.WatchNeedSim">Start Simulation and power the PLC (24VDC) to modify live values!</sys:String>
+    <sys:String x:Key="Str.Plc.WatchModifiedOk">⚡ Modified {0} = {1}.</sys:String>
+    <sys:String x:Key="Str.Plc.WatchModifiedCount">⚡ Modified {0} selected entries in Watch Table.</sys:String>
+    <sys:String x:Key="Str.Plc.WatchClearedForce">Cleared all Watch Table I/Q/AI force overrides.</sys:String>
+
+    <sys:String x:Key="Str.Plc.ErrDuplicateLabel">Network {0}: Duplicate LABEL '{1}' already defined in Network {2} (labels must be unique)!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrSysClkOverlap">Configuration error: System Memory Byte (MB{0}) overlaps with Clock Memory Byte (MB{0})!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrWriteSysClkBit">Cannot write to read-only System/Clock Memory address ('{0}')!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrTrigPosition">Network {0}: Instruction {1} cannot be at the start or end of a branch!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrBitFieldPosition">Network {0}: Instruction {1} must be the rightmost element in its branch!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrLabelPosition">Network {0}: LABEL '{1}' must be placed at the start of a network (not inside a parallel branch)!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrDbMemberRequired">Address '{0}' is a Data Block instance without a member (use e.g. {0}.Q or {0}.DBX0.0)!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrTimerDbRequired">Network {0}: Instruction {1} requires an IEC_Timer DB, but '{2}' is '{3}'!</sys:String>
+    <sys:String x:Key="Str.Plc.OnlineOutOfSync">● ONLINE ≠ OFFLINE</sys:String>
+    <sys:String x:Key="Str.Plc.OnlineOutOfSyncTip">The edited (Offline) program differs from the program running in the PLC (Online). Click Download to synchronize!</sys:String>
+    <sys:String x:Key="Str.Plc.DefineTagErrTypeMismatch">Data type '{0}' does not match address size '{1}'!</sys:String>
+    <sys:String x:Key="Str.Plc.DefineTagErrSysClk">Address '{0}' belongs to read-only System/Clock Memory!</sys:String>
+    <sys:String x:Key="Str.Plc.InsertOutPinBtn">+ Insert output</sys:String>
+    <sys:String x:Key="Str.Plc.CtxInsertOutPin">+ Insert output pin</sys:String>
+    <sys:String x:Key="Str.Plc.CtxRemoveOutPin">- Remove last output pin</sys:String>
+
+    <!-- Groups 11-13: Extended, Technology (PWM/HSC/PID), Communication (Modbus/VFD) -->
+    <sys:String x:Key="Str.Plc.Cat11">11. Extended (RTC, Strings &amp; CALL)</sys:String>
+    <sys:String x:Key="Str.Plc.Cat12">12. Technology (PWM, HSC &amp; PID)</sys:String>
+    <sys:String x:Key="Str.Plc.Cat13">13. Communication (Modbus RTU/TCP)</sys:String>
+
+    <sys:String x:Key="Str.Plc.D.RD_SYS_T">Read CPU system UTC time (DTL)</sys:String>
+    <sys:String x:Key="Str.Plc.D.RD_LOC_T">Read CPU local time (DTL)</sys:String>
+    <sys:String x:Key="Str.Plc.D.T_ADD">Add Time/DTL and Time</sys:String>
+    <sys:String x:Key="Str.Plc.D.T_SUB">Subtract Time from Time/DTL</sys:String>
+    <sys:String x:Key="Str.Plc.D.T_DIFF">Difference between two DTL values</sys:String>
+    <sys:String x:Key="Str.Plc.D.T_CONV">Convert between Time / DInt / DTL</sys:String>
+    <sys:String x:Key="Str.Plc.D.S_CONV">Convert between String and Number</sys:String>
+    <sys:String x:Key="Str.Plc.D.LEN">Return current string length (0..254)</sys:String>
+    <sys:String x:Key="Str.Plc.D.CONCAT">Concatenate two strings (IN1 + IN2)</sys:String>
+    <sys:String x:Key="Str.Plc.D.LEFT">Extract leftmost L characters</sys:String>
+    <sys:String x:Key="Str.Plc.D.RIGHT">Extract rightmost L characters</sys:String>
+    <sys:String x:Key="Str.Plc.D.MID">Extract L characters from 1-based pos P</sys:String>
+    <sys:String x:Key="Str.Plc.D.DELETE">Delete L characters from 1-based pos P</sys:String>
+    <sys:String x:Key="Str.Plc.D.INSERT">Insert IN2 after position P in IN1</sys:String>
+    <sys:String x:Key="Str.Plc.D.REPLACE">Replace L chars at pos P with IN2</sys:String>
+    <sys:String x:Key="Str.Plc.D.FIND">Find 1-based position of IN2 in IN1</sys:String>
+    <sys:String x:Key="Str.Plc.D.CALL">Call user Function / Function Block (FC/FB)</sys:String>
+    <sys:String x:Key="Str.Plc.D.CTRL_PWM">PWM pulse output 1..4 (%QW1000..1006 → DQ)</sys:String>
+    <sys:String x:Key="Str.Plc.D.CTRL_HSC">High-Speed Counter 1..6 (%ID1000..1020)</sys:String>
+    <sys:String x:Key="Str.Plc.D.PID">Closed-loop PID controller (Anti-windup)</sys:String>
+    <sys:String x:Key="Str.Plc.D.MB_LOAD">Configure Modbus RTU port (Baud/Parity)</sys:String>
+    <sys:String x:Key="Str.Plc.D.MB_MASTER">Modbus RTU Master (CRC-16 → VFD)</sys:String>
+    <sys:String x:Key="Str.Plc.D.MB_CLIENT">Modbus TCP Client (40001.. → VFD)</sys:String>
+
+    <!-- Force Table, Diagnostics Buffer, Multi-Block OB/FC/FB, Export/Import Text, Watchdog -->
+    <sys:String x:Key="Str.Plc.TabForce">Force Table</sys:String>
+    <sys:String x:Key="Str.Plc.TabDiag">Diagnostics</sys:String>
+    <sys:String x:Key="Str.Plc.ForceBadgeTip">Peripheral Force (:P) overrides are currently active on PLC hardware!</sys:String>
+    <sys:String x:Key="Str.Plc.ForceAdd">+ Add Force Row</sys:String>
+    <sys:String x:Key="Str.Plc.ForceStart">⚡ Start Forcing</sys:String>
+    <sys:String x:Key="Str.Plc.ForceStopAll">⏹ Stop All Forcing</sys:String>
+    <sys:String x:Key="Str.Plc.ForceDelete">Delete Row</sys:String>
+    <sys:String x:Key="Str.Plc.ForceTip">Force physical peripheral I/O (:P) independently of user logic. PWM/HSC channels cannot be forced.</sys:String>
+    <sys:String x:Key="Str.Plc.ForceColAddr">Peripheral Addr (:P)</sys:String>
+    <sys:String x:Key="Str.Plc.ForceColVal">Force Value</sys:String>
+    <sys:String x:Key="Str.Plc.ForceColLive">Current Value</sys:String>
+    <sys:String x:Key="Str.Plc.ForceColComment">Comment</sys:String>
+    <sys:String x:Key="Str.Plc.ForceErrOnlyIO">Force Table only supports physical peripheral I/O (%I / %Q / %IW64 / %IW66 :P)!</sys:String>
+    <sys:String x:Key="Str.Plc.ForceErrProtectedIo">Cannot force '{0}': hardware pin is assigned to {1}!</sys:String>
+    <sys:String x:Key="Str.Plc.ForceAppliedOk">⚡ Force Table activated successfully.</sys:String>
+    <sys:String x:Key="Str.Plc.ForceStoppedOk">All Force Table overrides stopped.</sys:String>
+
+    <sys:String x:Key="Str.Plc.DiagClear">Clear Buffer</sys:String>
+    <sys:String x:Key="Str.Plc.DiagTip">CPU Diagnostics Buffer: power events, STOP/RUN transitions, downloads, hardware &amp; runtime errors</sys:String>
+    <sys:String x:Key="Str.Plc.DiagColTime">Time</sys:String>
+    <sys:String x:Key="Str.Plc.DiagColId">Event ID</sys:String>
+    <sys:String x:Key="Str.Plc.DiagColSev">Severity</sys:String>
+    <sys:String x:Key="Str.Plc.DiagColCat">Category</sys:String>
+    <sys:String x:Key="Str.Plc.DiagColMsg">Diagnostic Message</sys:String>
+    <sys:String x:Key="Str.Plc.DiagEmpty">No events recorded in the CPU diagnostics buffer yet.</sys:String>
+
+    <sys:String x:Key="Str.Plc.BlockLabel">Block:</sys:String>
+    <sys:String x:Key="Str.Plc.BlockAddOb100">+ OB100</sys:String>
+    <sys:String x:Key="Str.Plc.BlockAddFc">+ FC</sys:String>
+    <sys:String x:Key="Str.Plc.BlockAddFb">+ FB</sys:String>
+    <sys:String x:Key="Str.Plc.BlockDelete">Delete Block</sys:String>
+    <sys:String x:Key="Str.Plc.ErrMissingBlock">Network {0}: Target FC/FB block '{1}' not found for CALL!</sys:String>
+
+    <sys:String x:Key="Str.Plc.ExportTextBtn">📄 Export Text</sys:String>
+    <sys:String x:Key="Str.Plc.ImportTextBtn">📥 Import Text</sys:String>
+    <sys:String x:Key="Str.Plc.ExportTextTip">Export full PLC program to structured text file (.plctxt)</sys:String>
+    <sys:String x:Key="Str.Plc.ImportTextTip">Import PLC program from structured text file (.plctxt)</sys:String>
+    <sys:String x:Key="Str.Plc.ExportTextOk">📄 Exported PLC program to: {0}</sys:String>
+    <sys:String x:Key="Str.Plc.ImportTextOk">📥 Imported PLC program ({0} OB1 networks, {1} additional blocks).</sys:String>
+    <sys:String x:Key="Str.Plc.ImportTextFail">Failed to import PLC text file: {0}</sys:String>
+
+    <sys:String x:Key="Str.Plc.WatchdogLabel">Max cycle watchdog (ms):</sys:String>
+    <sys:String x:Key="Str.Plc.StopOutModeLabel">DQ outputs on STOP:</sys:String>
+    <sys:String x:Key="Str.Plc.StopOutZero">Reset to 0 (OFF)</sys:String>
+    <sys:String x:Key="Str.Plc.StopOutFreeze">Freeze last value</sys:String>
 
 </ResourceDictionary>

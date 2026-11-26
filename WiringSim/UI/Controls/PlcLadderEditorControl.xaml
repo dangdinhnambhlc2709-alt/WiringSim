@@ -17,7 +17,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 0. EMBEDDED HEADER BAR (ẩn khi chạy trong cửa sổ nổi PlcLadderWindow) -->
+        <!-- 0. EMBEDDED HEADER BAR -->
         <Border x:Name="EmbeddedHeaderBar"
                 Grid.Row="0"
                 Background="{DynamicResource TitleBarBgBrush}"
@@ -48,14 +48,14 @@
             </DockPanel>
         </Border>
 
-        <!-- 1. PRIMARY RESPONSIVE TOOLBAR (COMPILE, DOWNLOAD, CPU, THƯ VIỆN LỆNH LUÔN HIỂN THỊ) -->
+        <!-- 1. PRIMARY TOOLBAR: TABS (LADDER / TAGS / WATCH), UNDO/REDO, COMPILE, DOWNLOAD, CPU, DISPLAY MODE, SYSTEM/CLOCK -->
         <Border Grid.Row="1"
                 Background="{DynamicResource ToolbarBgBrush}"
                 BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,0,0,1"
                 Padding="8,5">
             <DockPanel LastChildFill="True">
-                <!-- Luôn cố định bên phải: Trạng thái CPU + ONLINE + Nút Ẩn/Hiện Thư viện lệnh -->
+                <!-- Fixed Right: CPU State + ONLINE + Instructions Toggle -->
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
                     <Border x:Name="CpuStatePill"
                             Background="#059669"
@@ -64,6 +64,18 @@
                             Margin="0,0,6,0"
                             VerticalAlignment="Center">
                         <TextBlock x:Name="TxtCpuState" Text="RUN" FontSize="9.8" FontWeight="Bold" Foreground="White" />
+                    </Border>
+                    <Border x:Name="ForcePill"
+                            Background="#DC2626"
+                            BorderBrush="#FCA5A5"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6,2"
+                            Margin="0,0,6,0"
+                            Visibility="Collapsed"
+                            VerticalAlignment="Center"
+                            ToolTip="{DynamicResource Str.Plc.ForceBadgeTip}">
+                        <TextBlock Text="F" FontSize="9.8" FontWeight="ExtraBold" Foreground="White" />
                     </Border>
                     <Border x:Name="OnlinePill"
                             Background="#15803D"
@@ -74,7 +86,7 @@
                             Margin="0,0,6,0"
                             Visibility="Collapsed"
                             VerticalAlignment="Center">
-                        <TextBlock Text="● ONLINE" FontSize="9.5" FontWeight="Bold" Foreground="#DCFCE7" />
+                        <TextBlock x:Name="TxtOnlinePill" Text="● ONLINE" FontSize="9.5" FontWeight="Bold" Foreground="#DCFCE7" />
                     </Border>
                     <Button x:Name="BtnToggleInstructions"
                             Style="{StaticResource ToolbarButtonStyle}"
@@ -85,7 +97,7 @@
                             Content="{DynamicResource Str.Plc.ToggleInstructions}" />
                 </StackPanel>
 
-                <!-- Cụm chính bên trái -->
+                <!-- Left Scrollable Primary Controls -->
                 <ScrollViewer HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Disabled"
                               VerticalAlignment="Center">
@@ -104,9 +116,51 @@
                                      Tag="#009999"
                                      Checked="OnTabChanged"
                                      Content="{DynamicResource Str.Plc.TabTags}"
-                                     Margin="0,0,8,0" />
+                                     Margin="0,0,3,0" />
+                        <RadioButton x:Name="RbTabWatch"
+                                     GroupName="PlcEditorTabs"
+                                     Style="{StaticResource ModeSwitchRadioStyle}"
+                                     Tag="#7C3AED"
+                                     Checked="OnTabChanged"
+                                     Content="{DynamicResource Str.Plc.TabWatch}"
+                                     Margin="0,0,3,0" />
+                        <RadioButton x:Name="RbTabForce"
+                                     GroupName="PlcEditorTabs"
+                                     Style="{StaticResource ModeSwitchRadioStyle}"
+                                     Tag="#DC2626"
+                                     Checked="OnTabChanged"
+                                     Content="{DynamicResource Str.Plc.TabForce}"
+                                     Margin="0,0,3,0" />
+                        <RadioButton x:Name="RbTabDiag"
+                                     GroupName="PlcEditorTabs"
+                                     Style="{StaticResource ModeSwitchRadioStyle}"
+                                     Tag="#D97706"
+                                     Checked="OnTabChanged"
+                                     Content="{DynamicResource Str.Plc.TabDiag}"
+                                     Margin="0,0,6,0" />
 
-                        <Rectangle Width="1" Height="18" Fill="{DynamicResource DividerBrush}" Margin="2,0,8,0" />
+                        <Rectangle Width="1" Height="18" Fill="{DynamicResource DividerBrush}" Margin="2,0,6,0" />
+
+                        <Button x:Name="BtnUndo"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="6,3.5"
+                                Margin="0,0,3,0"
+                                FontSize="11"
+                                Content="↶"
+                                IsEnabled="False"
+                                ToolTip="{DynamicResource Str.Toolbar.UndoTip}"
+                                Click="OnUndoClick" />
+                        <Button x:Name="BtnRedo"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="6,3.5"
+                                Margin="0,0,6,0"
+                                FontSize="11"
+                                Content="↷"
+                                IsEnabled="False"
+                                ToolTip="{DynamicResource Str.Toolbar.RedoTip}"
+                                Click="OnRedoClick" />
+
+                        <Rectangle Width="1" Height="18" Fill="{DynamicResource DividerBrush}" Margin="0,0,6,0" />
 
                         <Button x:Name="BtnCompile"
                                 Style="{StaticResource ToolbarButtonStyle}"
@@ -146,80 +200,148 @@
                         <Button x:Name="BtnCpuStop"
                                 Style="{StaticResource ToolbarButtonStyle}"
                                 Padding="6,3.5"
+                                Margin="0,0,6,0"
                                 FontSize="11"
                                 Content="⏹"
                                 ToolTip="STOP"
                                 Foreground="#F59E0B"
                                 Click="OnCpuStopClick" />
+
+                        <Rectangle Width="1" Height="18" Fill="{DynamicResource DividerBrush}" Margin="0,0,6,0" />
+
+                        <!-- 3 Chế độ hiển thị địa chỉ -->
+                        <Button x:Name="BtnDisplayMode"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="7,3.5"
+                                Margin="0,0,4,0"
+                                FontSize="10.6"
+                                Click="OnCycleDisplayModeClick"
+                                ToolTip="{DynamicResource Str.Plc.DisplayModeTip}" />
+
+                        <!-- Cấu hình System & Clock Memory / Watchdog / STOP Output -->
+                        <Button x:Name="BtnPlcMemConfig"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="7,3.5"
+                                Margin="0,0,4,0"
+                                FontSize="10.6"
+                                Content="{DynamicResource Str.Plc.SysClkBtn}"
+                                ToolTip="{DynamicResource Str.Plc.SysClkTip}"
+                                Click="OnOpenMemConfigClick" />
+
+                        <!-- Xuất / Nhập chương trình dạng văn bản có cấu trúc (.plctxt) -->
+                        <Button x:Name="BtnExportText"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="7,3.5"
+                                Margin="0,0,3,0"
+                                FontSize="10.6"
+                                Content="{DynamicResource Str.Plc.ExportTextBtn}"
+                                ToolTip="{DynamicResource Str.Plc.ExportTextTip}"
+                                Click="OnExportTextClick" />
+                        <Button x:Name="BtnImportText"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="7,3.5"
+                                FontSize="10.6"
+                                Content="{DynamicResource Str.Plc.ImportTextBtn}"
+                                ToolTip="{DynamicResource Str.Plc.ImportTextTip}"
+                                Click="OnImportTextClick" />
                     </StackPanel>
                 </ScrollViewer>
             </DockPanel>
         </Border>
 
-        <!-- 2. GENERAL QUICK ACTION BAR -->
-        <Border Grid.Row="2"
+        <!-- 2. FAVORITES TOOLBAR (KÉO THẢ LỆNH TỪ THƯ VIỆN VÀO ĐỂ GHIM / BỎ GHIM) -->
+        <Border x:Name="FavoritesToolbarBorder"
+                Grid.Row="2"
                 Background="{DynamicResource SubtleSurfaceBrush}"
                 BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,0,0,1"
-                Padding="8,4">
-            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="BtnAddNetwork"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            Padding="8,3"
-                            Margin="0,0,4,0"
-                            FontSize="10.8"
-                            Content="{DynamicResource Str.Plc.AddNetwork}"
-                            Click="OnAddNetworkClick" />
-                    <Button x:Name="BtnEmptyBox"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            BorderBrush="#38BDF8"
-                            Padding="8,3"
-                            Margin="0,0,4,0"
-                            FontSize="10.8"
-                            Content="{DynamicResource Str.Plc.EmptyBoxBtn}"
-                            Click="OnInsertEmptyBoxClick" />
-                    <Button x:Name="BtnInsertInput"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            Padding="8,3"
-                            Margin="0,0,4,0"
-                            FontSize="10.8"
-                            Content="{DynamicResource Str.Plc.InsertInputBtn}"
-                            Click="OnInsertInputClick" />
-                    <Button x:Name="BtnOpenBranch"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            Padding="8,3"
-                            Margin="0,0,4,0"
-                            FontSize="10.8"
-                            Content="{DynamicResource Str.Plc.OpenBranch}"
-                            ToolTip="Shift+F8"
-                            Click="OnOpenParallelBranchClick" />
-                    <Button x:Name="BtnCloseBranch"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            Padding="8,3"
-                            Margin="0,0,4,0"
-                            FontSize="10.8"
-                            Content="{DynamicResource Str.Plc.CloseBranch}"
-                            ToolTip="Shift+F9"
-                            Click="OnCloseParallelBranchClick" />
-                    <Button x:Name="BtnDeleteNode"
-                            Style="{StaticResource DangerToolbarButtonStyle}"
-                            Padding="8,3"
-                            FontSize="10.8"
-                            Content="{DynamicResource Str.Plc.DelNode}"
-                            Click="OnDeleteSelectedNodeClick" />
-                </StackPanel>
-            </ScrollViewer>
+                Padding="8,4"
+                AllowDrop="True"
+                DragOver="OnFavoritesDragOver"
+                Drop="OnFavoritesDrop">
+            <DockPanel LastChildFill="True">
+                <TextBlock DockPanel.Dock="Left"
+                           Text="{DynamicResource Str.Plc.FavoritesLabel}"
+                           FontSize="10.2"
+                           FontWeight="Bold"
+                           Foreground="{DynamicResource AccentCyanBrush}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0" />
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Lệnh cấu trúc cố định -->
+                        <Button x:Name="BtnAddNetwork"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="7,3"
+                                Margin="0,0,4,0"
+                                FontSize="10.6"
+                                Content="{DynamicResource Str.Plc.AddNetwork}"
+                                ToolTip="Shift+F2"
+                                Click="OnAddNetworkClick" />
+                        <Button x:Name="BtnOpenBranch"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="7,3"
+                                Margin="0,0,4,0"
+                                FontSize="10.6"
+                                Content="{DynamicResource Str.Plc.OpenBranch}"
+                                ToolTip="Shift+F8"
+                                Click="OnOpenParallelBranchClick" />
+                        <Button x:Name="BtnCloseBranch"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="7,3"
+                                Margin="0,0,4,0"
+                                FontSize="10.6"
+                                Content="{DynamicResource Str.Plc.CloseBranch}"
+                                ToolTip="Shift+F9"
+                                Click="OnCloseParallelBranchClick" />
+                        <Button x:Name="BtnEmptyBox"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                BorderBrush="#38BDF8"
+                                Padding="7,3"
+                                Margin="0,0,6,0"
+                                FontSize="10.6"
+                                Content="{DynamicResource Str.Plc.EmptyBoxBtn}"
+                                ToolTip="F8"
+                                Click="OnInsertEmptyBoxClick" />
+
+                        <Rectangle Width="1" Height="16" Fill="{DynamicResource DividerBrush}" Margin="0,0,6,0" />
+
+                        <!-- Các lệnh ghim Favorites (có thể kéo thả để thêm, chuột phải để bỏ ghim) -->
+                        <StackPanel x:Name="FavoritesItemsPanel" Orientation="Horizontal" VerticalAlignment="Center" />
+
+                        <Border Background="{DynamicResource CardBgBrush}"
+                                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="6,2"
+                                Margin="4,0,6,0"
+                                VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource Str.Plc.FavoritesDropHint}"
+                                       FontSize="9.6"
+                                       FontStyle="Italic"
+                                       Foreground="{DynamicResource TextMutedBrush}" />
+                        </Border>
+
+                        <Button x:Name="BtnDeleteNode"
+                                Style="{StaticResource DangerToolbarButtonStyle}"
+                                Padding="7,3"
+                                FontSize="10.6"
+                                Content="{DynamicResource Str.Plc.DelNode}"
+                                ToolTip="Delete"
+                                Click="OnDeleteSelectedNodeClick" />
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
         </Border>
 
-        <!-- 3. MAIN WORKSPACE: 10-GROUP SEARCHABLE INSTRUCTION TREE + LADDER / TAG TABLE -->
+        <!-- 3. MAIN WORKSPACE: 10-GROUP SEARCHABLE INSTRUCTION TREE + LADDER / TAG TABLE / WATCH TABLE -->
         <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="InstructionsColumn" Width="264" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- 3A. CÂY THƯ VIỆN 10 NHÓM HÀM/LỆNH PLC -->
+            <!-- 3A. CÂY THƯ VIỆN 10 NHÓM LỆNH PLC -->
             <Border x:Name="InstructionsPanelBorder"
                     Grid.Column="0"
                     Background="{DynamicResource SubtleSurfaceBrush}"
@@ -273,7 +395,7 @@
                 </DockPanel>
             </Border>
 
-            <!-- 3B. LADDER WORKSPACE & PLC TAGS TABLE -->
+            <!-- 3B. WORKSPACE VIEWS: LADDER OB1 | PLC TAGS | WATCH TABLE -->
             <Grid Grid.Column="1">
                 <TextBlock x:Name="TxtNoPlcPlaceholder"
                            Text="{DynamicResource Str.Plc.NoPlcSelected}"
@@ -285,20 +407,76 @@
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            Visibility="Collapsed" />
 
-                <ScrollViewer x:Name="LadderScrollViewer"
-                              HorizontalScrollBarVisibility="Auto"
-                              VerticalScrollBarVisibility="Auto"
-                              Background="{DynamicResource AppBgBrush}"
-                              PreviewMouseWheel="OnLadderPreviewMouseWheel"
-                              Padding="10">
-                    <StackPanel x:Name="NetworksContainer" HorizontalAlignment="Left">
-                        <StackPanel.LayoutTransform>
-                            <ScaleTransform x:Name="LadderZoomTransform" ScaleX="1.0" ScaleY="1.0" />
-                        </StackPanel.LayoutTransform>
-                    </StackPanel>
-                </ScrollViewer>
+                <!-- TAB 1: LADDER (OB1 / OB100 / FC / FB) -->
+                <Grid x:Name="LadderWorkspaceGrid">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
 
-                <!-- PLC TAGS TABLE (TIA PORTAL V21) -->
+                    <!-- Thanh chọn khối chương trình (OB1 / OB100 / FC / FB) -->
+                    <Border Grid.Row="0"
+                            Background="{DynamicResource SubtleSurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                            BorderThickness="0,0,0,1"
+                            Padding="8,4">
+                        <DockPanel LastChildFill="False">
+                            <TextBlock Text="{DynamicResource Str.Plc.BlockLabel}"
+                                       FontSize="10.5"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentCyanBrush}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,6,0" />
+                            <ComboBox x:Name="CbActiveBlock"
+                                      Width="195"
+                                      FontSize="11"
+                                      FontFamily="Consolas"
+                                      Margin="0,0,6,0"
+                                      SelectionChanged="OnActiveBlockSelectionChanged" />
+                            <Button Style="{StaticResource ToolbarButtonStyle}"
+                                    Padding="7,2.5"
+                                    Margin="0,0,4,0"
+                                    FontSize="10.4"
+                                    Content="{DynamicResource Str.Plc.BlockAddOb100}"
+                                    Click="OnAddOb100BlockClick" />
+                            <Button Style="{StaticResource ToolbarButtonStyle}"
+                                    Padding="7,2.5"
+                                    Margin="0,0,4,0"
+                                    FontSize="10.4"
+                                    Content="{DynamicResource Str.Plc.BlockAddFc}"
+                                    Click="OnAddFcBlockClick" />
+                            <Button Style="{StaticResource ToolbarButtonStyle}"
+                                    Padding="7,2.5"
+                                    Margin="0,0,6,0"
+                                    FontSize="10.4"
+                                    Content="{DynamicResource Str.Plc.BlockAddFb}"
+                                    Click="OnAddFbBlockClick" />
+                            <Button x:Name="BtnDeleteActiveBlock"
+                                    Style="{StaticResource DangerToolbarButtonStyle}"
+                                    Padding="7,2.5"
+                                    FontSize="10.4"
+                                    IsEnabled="False"
+                                    Content="{DynamicResource Str.Plc.BlockDelete}"
+                                    Click="OnDeleteActiveBlockClick" />
+                        </DockPanel>
+                    </Border>
+
+                    <ScrollViewer x:Name="LadderScrollViewer"
+                                  Grid.Row="1"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Background="{DynamicResource AppBgBrush}"
+                                  PreviewMouseWheel="OnLadderPreviewMouseWheel"
+                                  Padding="10">
+                        <StackPanel x:Name="NetworksContainer" HorizontalAlignment="Left">
+                            <StackPanel.LayoutTransform>
+                                <ScaleTransform x:Name="LadderZoomTransform" ScaleX="1.0" ScaleY="1.0" />
+                            </StackPanel.LayoutTransform>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- TAB 2: PLC TAGS TABLE -->
                 <Grid x:Name="TagTableContainer" Visibility="Collapsed" Background="{DynamicResource AppBgBrush}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -326,6 +504,94 @@
                         <StackPanel x:Name="TagRowsStack" MinWidth="820" />
                     </ScrollViewer>
                 </Grid>
+
+                <!-- TAB 3: WATCH TABLE (BẢNG THEO DÕI & ÉP GIÁ TRỊ TRỰC TUYẾN) -->
+                <Grid x:Name="WatchTableContainer" Visibility="Collapsed" Background="{DynamicResource AppBgBrush}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="{DynamicResource SubtleSurfaceBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="10,6">
+                        <DockPanel LastChildFill="True">
+                            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                                <Button Style="{StaticResource ToolbarButtonStyle}" Padding="9,4" Margin="0,0,6,0" Content="{DynamicResource Str.Plc.WatchAdd}" Click="OnAddWatchRowClick" />
+                                <Button Style="{StaticResource ToolbarButtonStyle}" BorderBrush="#10B981" Padding="9,4" Margin="0,0,6,0" Content="{DynamicResource Str.Plc.WatchModifyAll}" Click="OnModifyAllWatchClick" />
+                                <Button Style="{StaticResource ToolbarButtonStyle}" Padding="9,4" Margin="0,0,6,0" Content="{DynamicResource Str.Plc.WatchClearForce}" Click="OnClearWatchOverridesClick" />
+                                <Button Style="{StaticResource DangerToolbarButtonStyle}" Padding="9,4" Content="{DynamicResource Str.Plc.WatchDelete}" Click="OnDeleteWatchRowClick" />
+                            </StackPanel>
+                            <TextBlock Text="{DynamicResource Str.Plc.WatchTip}"
+                                       FontSize="10.5"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Right"
+                                       Margin="12,0,0,0"
+                                       TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                    </Border>
+                    <ScrollViewer Grid.Row="1"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Padding="10">
+                        <StackPanel x:Name="WatchRowsStack" MinWidth="780" />
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- TAB 4: FORCE TABLE (BẢNG ÉP CỨNG NGOẠI VI :P) -->
+                <Grid x:Name="ForceTableContainer" Visibility="Collapsed" Background="{DynamicResource AppBgBrush}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="{DynamicResource SubtleSurfaceBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="10,6">
+                        <DockPanel LastChildFill="True">
+                            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                                <Button Style="{StaticResource ToolbarButtonStyle}" Padding="9,4" Margin="0,0,6,0" Content="{DynamicResource Str.Plc.ForceAdd}" Click="OnAddForceRowClick" />
+                                <Button Style="{StaticResource ToolbarButtonStyle}" BorderBrush="#DC2626" Padding="9,4" Margin="0,0,6,0" Content="{DynamicResource Str.Plc.ForceStart}" Click="OnStartForceClick" />
+                                <Button Style="{StaticResource ToolbarButtonStyle}" Padding="9,4" Margin="0,0,6,0" Content="{DynamicResource Str.Plc.ForceStopAll}" Click="OnStopAllForceClick" />
+                                <Button Style="{StaticResource DangerToolbarButtonStyle}" Padding="9,4" Content="{DynamicResource Str.Plc.ForceDelete}" Click="OnDeleteForceRowClick" />
+                            </StackPanel>
+                            <TextBlock Text="{DynamicResource Str.Plc.ForceTip}"
+                                       FontSize="10.5"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Right"
+                                       Margin="12,0,0,0"
+                                       TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                    </Border>
+                    <ScrollViewer Grid.Row="1"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Padding="10">
+                        <StackPanel x:Name="ForceRowsStack" MinWidth="720" />
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- TAB 5: DIAGNOSTICS BUFFER (NHẬT KÝ CHẨN ĐOÁN CPU) -->
+                <Grid x:Name="DiagnosticsContainer" Visibility="Collapsed" Background="{DynamicResource AppBgBrush}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="{DynamicResource SubtleSurfaceBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="10,6">
+                        <DockPanel LastChildFill="True">
+                            <Button DockPanel.Dock="Left" Style="{StaticResource DangerToolbarButtonStyle}" Padding="9,4" Content="{DynamicResource Str.Plc.DiagClear}" Click="OnClearDiagnosticsClick" />
+                            <TextBlock Text="{DynamicResource Str.Plc.DiagTip}"
+                                       FontSize="10.5"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Right"
+                                       Margin="12,0,0,0"
+                                       TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                    </Border>
+                    <ScrollViewer Grid.Row="1"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Padding="10">
+                        <StackPanel x:Name="DiagRowsStack" MinWidth="740" />
+                    </ScrollViewer>
+                </Grid>
             </Grid>
         </Grid>
 
@@ -345,9 +611,14 @@
                            VerticalAlignment="Center"
                            Margin="0,0,10,0" />
 
+                <StackPanel x:Name="PanelPropDataType" Orientation="Horizontal" Margin="0,2,8,2" Visibility="Collapsed">
+                    <TextBlock Text="{DynamicResource Str.Plc.PropType}" FontSize="10.8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <ComboBox x:Name="CbPropDataType" Width="80" FontSize="11" FontFamily="Consolas" SelectionChanged="OnPropDataTypeChanged" />
+                </StackPanel>
+
                 <StackPanel x:Name="PanelPropAddress" Orientation="Horizontal" Margin="0,2,8,2" Visibility="Collapsed">
                     <TextBlock x:Name="LblPropAddress" Text="{DynamicResource Str.Plc.PropAddr}" FontSize="10.8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                    <TextBox x:Name="TbPropAddress" Width="106" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
+                    <TextBox x:Name="TbPropAddress" Width="116" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
                     <Button x:Name="BtnPickPropAddress" Content="▾" Width="20" Padding="0" Margin="2,0,0,0" FontSize="10" Style="{StaticResource ToolbarButtonStyle}" Tag="Address" Click="OnOpenAutocompleteFromPropClick" />
                 </StackPanel>
 
@@ -358,31 +629,62 @@
 
                 <StackPanel x:Name="PanelPropParam1" Orientation="Horizontal" Margin="0,2,8,2" Visibility="Collapsed">
                     <TextBlock x:Name="LblPropParam1" Text="{DynamicResource Str.Plc.PropParam1}" FontSize="10.8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                    <TextBox x:Name="TbPropParam1" Width="82" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
+                    <TextBox x:Name="TbPropParam1" Width="90" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
                     <Button Content="▾" Width="20" Padding="0" Margin="2,0,0,0" FontSize="10" Style="{StaticResource ToolbarButtonStyle}" Tag="Param1" Click="OnOpenAutocompleteFromPropClick" />
                 </StackPanel>
 
                 <StackPanel x:Name="PanelPropParam2" Orientation="Horizontal" Margin="0,2,8,2" Visibility="Collapsed">
                     <TextBlock x:Name="LblPropParam2" Text="{DynamicResource Str.Plc.PropParam2}" FontSize="10.8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                    <TextBox x:Name="TbPropParam2" Width="82" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
+                    <TextBox x:Name="TbPropParam2" Width="90" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
                     <Button Content="▾" Width="20" Padding="0" Margin="2,0,0,0" FontSize="10" Style="{StaticResource ToolbarButtonStyle}" Tag="Param2" Click="OnOpenAutocompleteFromPropClick" />
                 </StackPanel>
 
                 <StackPanel x:Name="PanelPropExtra" Orientation="Horizontal" Margin="0,2,8,2" Visibility="Collapsed">
                     <TextBlock x:Name="LblPropExtra" Text="{DynamicResource Str.Plc.PropExtra}" FontSize="10.8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                    <TextBox x:Name="TbPropExtra" Width="96" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
+                    <TextBox x:Name="TbPropExtra" Width="116" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
                 </StackPanel>
 
                 <StackPanel x:Name="PanelPropOut" Orientation="Horizontal" Margin="0,2,8,2" Visibility="Collapsed">
                     <TextBlock x:Name="LblPropOut" Text="{DynamicResource Str.Plc.PropOut}" FontSize="10.8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                    <TextBox x:Name="TbPropOut" Width="82" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
+                    <TextBox x:Name="TbPropOut" Width="90" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
                     <Button Content="▾" Width="20" Padding="0" Margin="2,0,0,0" FontSize="10" Style="{StaticResource ToolbarButtonStyle}" Tag="Out" Click="OnOpenAutocompleteFromPropClick" />
                 </StackPanel>
+
+                <Button x:Name="BtnEditEquation"
+                        Style="{StaticResource ToolbarButtonStyle}"
+                        BorderBrush="#EC4899"
+                        Padding="8,2.5"
+                        Margin="0,2,6,2"
+                        FontSize="10.8"
+                        Visibility="Collapsed"
+                        Content="{DynamicResource Str.Plc.EditEquationBtn}"
+                        Click="OnEditEquationClick" />
+
+                <Button x:Name="BtnInsertPinInput"
+                        Style="{StaticResource ToolbarButtonStyle}"
+                        BorderBrush="#38BDF8"
+                        Padding="8,2.5"
+                        Margin="0,2,6,2"
+                        FontSize="10.8"
+                        Visibility="Collapsed"
+                        Content="{DynamicResource Str.Plc.InsertPinBtn}"
+                        Click="OnInsertBoxInputPinClick" />
+
+                <Button x:Name="BtnInsertPinOutput"
+                        Style="{StaticResource ToolbarButtonStyle}"
+                        BorderBrush="#A855F7"
+                        Padding="8,2.5"
+                        Margin="0,2,6,2"
+                        FontSize="10.8"
+                        Visibility="Collapsed"
+                        Content="{DynamicResource Str.Plc.InsertOutPinBtn}"
+                        Click="OnInsertBoxOutputPinClick" />
 
                 <Button x:Name="BtnApplyNodeProps"
                         Style="{StaticResource ToolbarButtonStyle}"
                         BorderBrush="{DynamicResource AccentBlueBrush}"
                         Padding="9,2.5"
+                        Margin="0,2,0,2"
                         FontSize="10.8"
                         Visibility="Collapsed"
                         Content="{DynamicResource Str.Plc.PropApply}"
@@ -451,7 +753,7 @@
             </Grid>
         </Border>
 
-        <!-- POPUP 1: TIA PORTAL V21 ADDRESS PICKER -->
+        <!-- POPUP 1: ADDRESS PICKER -->
         <Popup x:Name="AddressPickerPopup"
                StaysOpen="False"
                AllowsTransparency="True"
@@ -559,7 +861,7 @@
             </Border>
         </Popup>
 
-        <!-- POPUP 2: TIA PORTAL V21 3-COLUMN TAG / DB AUTOCOMPLETE POPUP -->
+        <!-- POPUP 2: 3-COLUMN TAG / DB / SLICE / SYSTEM & CLOCK AUTOCOMPLETE -->
         <Popup x:Name="TagAutocompletePopup"
                StaysOpen="False"
                AllowsTransparency="True"
@@ -570,12 +872,11 @@
                     BorderThickness="1.4"
                     CornerRadius="6"
                     Padding="8"
-                    Width="372">
+                    Width="390">
                 <Border.Effect>
                     <DropShadowEffect BlurRadius="16" ShadowDepth="4" Opacity="0.38" Color="Black" />
                 </Border.Effect>
                 <StackPanel>
-                    <!-- Search input -->
                     <Grid Margin="0,0,0,6">
                         <TextBox x:Name="TbAutoSearch"
                                  Padding="7,4"
@@ -595,7 +896,6 @@
                                    Margin="9,0,8,0" />
                     </Grid>
 
-                    <!-- Breadcrumb when expanded into DB members -->
                     <Border x:Name="AutoDbHeaderBanner"
                             Visibility="Collapsed"
                             Background="{DynamicResource SubtleSurfaceBrush}"
@@ -622,7 +922,6 @@
                         </DockPanel>
                     </Border>
 
-                    <!-- 3-Column Header -->
                     <Border Background="{DynamicResource SubtleSurfaceBrush}"
                             BorderBrush="{DynamicResource BorderSubtleBrush}"
                             BorderThickness="1"
@@ -631,8 +930,8 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="82" />
                                 <ColumnDefinition Width="78" />
-                                <ColumnDefinition Width="74" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="{DynamicResource Str.Plc.AutoColName}" FontSize="10.2" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}" />
                             <TextBlock Grid.Column="1" Text="{DynamicResource Str.Plc.AutoColType}" FontSize="10.2" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}" />
@@ -640,15 +939,139 @@
                         </Grid>
                     </Border>
 
-                    <!-- Results list -->
                     <Border BorderBrush="{DynamicResource BorderSubtleBrush}"
                             BorderThickness="1,0,1,1"
                             CornerRadius="0,0,4,4"
                             Background="{DynamicResource AppBgBrush}">
-                        <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
+                        <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto">
                             <StackPanel x:Name="AutoResultsStack" />
                         </ScrollViewer>
                     </Border>
+                </StackPanel>
+            </Border>
+        </Popup>
+
+        <!-- POPUP 3: EMPTY BOX [F8] SMART INSTRUCTION AUTOCOMPLETE -->
+        <Popup x:Name="EmptyBoxPopup"
+               StaysOpen="False"
+               AllowsTransparency="True"
+               Placement="Bottom"
+               VerticalOffset="2">
+            <Border Background="{DynamicResource SurfaceBgBrush}"
+                    BorderBrush="#F59E0B"
+                    BorderThickness="1.4"
+                    CornerRadius="6"
+                    Padding="8"
+                    Width="320">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="16" ShadowDepth="4" Opacity="0.38" Color="Black" />
+                </Border.Effect>
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Str.Plc.EmptyBoxPrompt}"
+                               FontSize="10.4"
+                               FontWeight="Bold"
+                               Foreground="#F59E0B"
+                               Margin="0,0,0,5" />
+                    <TextBox x:Name="TbEmptyBoxCmd"
+                             Padding="7,4"
+                             FontFamily="Consolas"
+                             FontSize="12"
+                             Background="{DynamicResource InputBgBrush}"
+                             Foreground="{DynamicResource TextPrimaryBrush}"
+                             BorderBrush="#F59E0B"
+                             TextChanged="OnEmptyBoxCmdTextChanged"
+                             PreviewKeyDown="OnEmptyBoxCmdPreviewKeyDown" />
+                    <Border BorderBrush="{DynamicResource BorderSubtleBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Margin="0,5,0,0"
+                            Background="{DynamicResource AppBgBrush}">
+                        <ScrollViewer MaxHeight="210" VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="EmptyBoxSuggestionsStack" />
+                        </ScrollViewer>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </Popup>
+
+        <!-- POPUP 4: SYSTEM & CLOCK MEMORY CONFIG -->
+        <Popup x:Name="PlcMemConfigPopup"
+               StaysOpen="False"
+               AllowsTransparency="True"
+               Placement="Bottom"
+               VerticalOffset="3">
+            <Border Background="{DynamicResource SurfaceBgBrush}"
+                    BorderBrush="{DynamicResource AccentCyanBrush}"
+                    BorderThickness="1.4"
+                    CornerRadius="6"
+                    Padding="12"
+                    Width="310">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="16" ShadowDepth="4" Opacity="0.38" Color="Black" />
+                </Border.Effect>
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Str.Plc.SysClkTitle}"
+                               FontSize="11.8"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource AccentCyanBrush}"
+                               Margin="0,0,0,8" />
+
+                    <CheckBox x:Name="CbEnableSysMem"
+                              Content="{DynamicResource Str.Plc.SysMemEnable}"
+                              FontSize="11"
+                              FontWeight="SemiBold"
+                              Foreground="{DynamicResource TextPrimaryBrush}"
+                              Margin="0,0,0,4"
+                              Checked="OnMemConfigChanged"
+                              Unchecked="OnMemConfigChanged" />
+                    <StackPanel Orientation="Horizontal" Margin="20,0,0,8">
+                        <TextBlock Text="MB" FontFamily="Consolas" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,4,0" />
+                        <TextBox x:Name="TbSysMemByte" Width="44" Padding="4,2" FontFamily="Consolas" FontSize="11" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" LostFocus="OnMemConfigByteLostFocus" />
+                        <TextBlock x:Name="TxtSysMemPreview" FontSize="9.8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                    </StackPanel>
+
+                    <CheckBox x:Name="CbEnableClkMem"
+                              Content="{DynamicResource Str.Plc.ClkMemEnable}"
+                              FontSize="11"
+                              FontWeight="SemiBold"
+                              Foreground="{DynamicResource TextPrimaryBrush}"
+                              Margin="0,0,0,4"
+                              Checked="OnMemConfigChanged"
+                              Unchecked="OnMemConfigChanged" />
+                    <StackPanel Orientation="Horizontal" Margin="20,0,0,6">
+                        <TextBlock Text="MB" FontFamily="Consolas" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,4,0" />
+                        <TextBox x:Name="TbClkMemByte" Width="44" Padding="4,2" FontFamily="Consolas" FontSize="11" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" LostFocus="OnMemConfigByteLostFocus" />
+                        <TextBlock x:Name="TxtClkMemPreview" FontSize="9.8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                    </StackPanel>
+
+                    <TextBlock Text="{DynamicResource Str.Plc.SysClkNote}"
+                               FontSize="9.8"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,8" />
+
+                    <Border Height="1" Background="{DynamicResource BorderSubtleBrush}" Margin="0,0,0,8" />
+
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="68" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{DynamicResource Str.Plc.WatchdogLabel}" FontSize="10.5" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                        <TextBox x:Name="TbWatchdogMs" Grid.Column="1" Padding="4,2" FontFamily="Consolas" FontSize="11" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" LostFocus="OnMemConfigByteLostFocus" />
+                    </Grid>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="125" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{DynamicResource Str.Plc.StopOutModeLabel}" FontSize="10.5" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                        <ComboBox x:Name="CbStopOutputMode" Grid.Column="1" FontSize="10.5" SelectionChanged="OnStopOutputModeChanged">
+                            <ComboBoxItem Content="{DynamicResource Str.Plc.StopOutZero}" Tag="ResetToZero" />
+                            <ComboBoxItem Content="{DynamicResource Str.Plc.StopOutFreeze}" Tag="FreezeLastValue" />
+                        </ComboBox>
+                    </Grid>
                 </StackPanel>
             </Border>
         </Popup>

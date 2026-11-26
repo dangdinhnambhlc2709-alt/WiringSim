@@ -1,8 +1,8 @@
-; WiringSim v1.3.2_Release — Inno Setup Installer Script
+; WiringSim v1.3.3_Release — Inno Setup Installer Script
 ; Biên dịch bằng Inno Setup 6 (ISCC.exe installer.iss)
 
 #define MyAppName "WiringSim"
-#define MyAppVersion "1.3.2_Release"
+#define MyAppVersion "1.3.3_Release"
 #define MyAppPublisher "WiringSim Engineering"
 #define MyAppURL "https://github.com/dangdinhnambhlc2709-alt/WiringSim"
 #define MyAppExeName "WiringSim.exe"
@@ -25,7 +25,7 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=admin
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=publish
-OutputBaseFilename=WiringSim_Setup_v1.3.2
+OutputBaseFilename=WiringSim_Setup_v1.3.3
 SetupIconFile=WiringSim\Assets\app.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName} v{#MyAppVersion}

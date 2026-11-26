@@ -29,8 +29,19 @@ public sealed class VfdKeypadDialog : Window
     private readonly Action _onVfdChanged;
     private readonly DispatcherTimer _refreshTimer;
 
+    private static readonly Dictionary<string, SolidColorBrush> CachedBrushes = new(StringComparer.OrdinalIgnoreCase);
+
+    private static SolidColorBrush GetBrush(string hex)
+    {
+        if (CachedBrushes.TryGetValue(hex, out var b)) return b;
+        b = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)!);
+        b.Freeze();
+        CachedBrushes[hex] = b;
+        return b;
+    }
+
     private KeypadDisplayMode _displayMode = KeypadDisplayMode.MonitorFreq;
-    private int _selectedParamIndex = 1; // 1..6 (P01..P06), 7 = P06_DI2
+    private int _selectedParamIndex = 1; // 1..6 (P01..P06), 7 = P06_DI2, 8 = P07 (Modbus Slave ID)
     private double _editingValue;
 
     private readonly TextBlock _ledMainText;
@@ -369,8 +380,8 @@ public sealed class VfdKeypadDialog : Window
         else if (_displayMode == KeypadDisplayMode.ParamSelect)
         {
             _selectedParamIndex += deltaSign;
-            if (_selectedParamIndex > 7) _selectedParamIndex = 1;
-            if (_selectedParamIndex < 1) _selectedParamIndex = 7;
+            if (_selectedParamIndex > 8) _selectedParamIndex = 1;
+            if (_selectedParamIndex < 1) _selectedParamIndex = 8;
             RebuildParamRows();
         }
         else if (_displayMode == KeypadDisplayMode.ParamEdit)
@@ -410,6 +421,7 @@ public sealed class VfdKeypadDialog : Window
         5 => _vfd.P05_DecelSeconds,
         6 => _vfd.P06_Di1FreqHz,
         7 => _vfd.P06_Di2FreqHz,
+        8 => _vfd.ModbusSlaveId,
         _ => 0
     };
 
@@ -417,8 +429,8 @@ public sealed class VfdKeypadDialog : Window
     {
         switch (idx)
         {
-            case 1: _vfd.P01_RunSource = Math.Clamp((int)Math.Round(val), 0, 1); break;
-            case 2: _vfd.P02_FreqSource = Math.Clamp((int)Math.Round(val), 0, 2); break;
+            case 1: _vfd.P01_RunSource = Math.Clamp((int)Math.Round(val), 0, 2); break;
+            case 2: _vfd.P02_FreqSource = Math.Clamp((int)Math.Round(val), 0, 3); break;
             case 3:
                 _vfd.P03_MaxFreqHz = Math.Clamp(val, 10.0, 400.0);
                 _vfd.KeypadTargetFreqHz = Math.Min(_vfd.KeypadTargetFreqHz, _vfd.P03_MaxFreqHz);
@@ -428,18 +440,20 @@ public sealed class VfdKeypadDialog : Window
             case 5: _vfd.P05_DecelSeconds = Math.Clamp(val, 0.5, 60.0); break;
             case 6: _vfd.P06_Di1FreqHz = Math.Clamp(val, 0.0, _vfd.P03_MaxFreqHz); break;
             case 7: _vfd.P06_Di2FreqHz = Math.Clamp(val, 0.0, _vfd.P03_MaxFreqHz); break;
+            case 8: _vfd.ModbusSlaveId = Math.Clamp((int)Math.Round(val), 1, 247); break;
         }
     }
 
     private double StepParamValue(int idx, double current, int sign) => idx switch
     {
-        1 => (int)Math.Round(current) == 0 ? 1 : 0,
-        2 => ((int)Math.Round(current) + sign + 3) % 3,
+        1 => ((int)Math.Round(current) + sign + 3) % 3,
+        2 => ((int)Math.Round(current) + sign + 4) % 4,
         3 => Math.Clamp(Math.Round(current + sign * 5.0, 1), 10.0, 400.0),
         4 => Math.Clamp(Math.Round(current + sign * 0.5, 1), 0.5, 60.0),
         5 => Math.Clamp(Math.Round(current + sign * 0.5, 1), 0.5, 60.0),
         6 => Math.Clamp(Math.Round(current + sign * 1.0, 1), 0.0, _vfd.P03_MaxFreqHz),
         7 => Math.Clamp(Math.Round(current + sign * 1.0, 1), 0.0, _vfd.P03_MaxFreqHz),
+        8 => Math.Clamp((int)Math.Round(current) + sign, 1, 247),
         _ => current
     };
 
@@ -452,18 +466,20 @@ public sealed class VfdKeypadDialog : Window
         5 => "P05",
         6 => "P06-1",
         7 => "P06-2",
+        8 => "P07",
         _ => "P01"
     };
 
     private string FormatParamDisplayValue(int idx, double val) => idx switch
     {
-        1 => ((int)Math.Round(val) == 0) ? "0 (KEYPAD)" : "1 (EXT)",
-        2 => (int)Math.Round(val) switch { 1 => "1 (DIAL)", 2 => "2 (AI1)", _ => "0 (KEY)" },
+        1 => (int)Math.Round(val) switch { 1 => "1 (EXT)", 2 => "2 (MODBUS)", _ => "0 (KEYPAD)" },
+        2 => (int)Math.Round(val) switch { 1 => "1 (DIAL)", 2 => "2 (AI1)", 3 => "3 (MODBUS)", _ => "0 (KEY)" },
         3 => $"{val:0.0} Hz",
         4 => $"{val:0.0} s",
         5 => $"{val:0.0} s",
         6 => $"{val:0.0} Hz",
         7 => $"{val:0.0} Hz",
+        8 => $"ID {(int)Math.Round(val)}",
         _ => val.ToString("0.0", CultureInfo.InvariantCulture)
     };
 
@@ -477,7 +493,8 @@ public sealed class VfdKeypadDialog : Window
             (3, "Str.Vfd.P03", FormatParamDisplayValue(3, _vfd.P03_MaxFreqHz)),
             (4, "Str.Vfd.P04", FormatParamDisplayValue(4, _vfd.P04_AccelSeconds)),
             (5, "Str.Vfd.P05", FormatParamDisplayValue(5, _vfd.P05_DecelSeconds)),
-            (6, "Str.Vfd.P06", $"DI1={_vfd.P06_Di1FreqHz:0.#}Hz | DI2={_vfd.P06_Di2FreqHz:0.#}Hz")
+            (6, "Str.Vfd.P06", $"DI1={_vfd.P06_Di1FreqHz:0.#}Hz | DI2={_vfd.P06_Di2FreqHz:0.#}Hz"),
+            (8, "Str.Vfd.P07", FormatParamDisplayValue(8, _vfd.ModbusSlaveId))
         ];
 
         foreach (var (idx, key, valText) in rows)
@@ -558,51 +575,60 @@ public sealed class VfdKeypadDialog : Window
         double extHz = _vfd.P03_MaxFreqHz * (_vfd.ExternalAnalogPercent / 100.0);
         _extPotValueText.Text = $"{_vfd.ExternalAnalogPercent:0}% ({extHz:0.0} Hz)";
 
-        // Trạng thái RUN/STOP & nguồn
+        // Trạng thái RUN/STOP & nguồn (dùng frozen cached brushes tránh cấp phát GC 10Hz)
         bool isRunning = _vfd.IsRunning;
-        _runBadge.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(isRunning ? "#16A34A" : "#475569")!);
+        _runBadge.Background = GetBrush(isRunning ? "#16A34A" : "#475569");
         _runBadgeText.Text = isRunning
             ? LocalizationManager.Get("Str.Vfd.StatusRun")
             : LocalizationManager.Get("Str.Vfd.StatusStop");
 
-        bool isRev = _vfd.CurrentSignedFreqHz < -0.05 || (_vfd.P01_RunSource == 0 && _vfd.KeypadReverse) || (_vfd.P01_RunSource == 1 && _vfd.IsExternalRevActive);
-        _dirBadge.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(isRev ? "#EA580C" : "#0284C7")!);
+        bool isRev = _vfd.CurrentSignedFreqHz < -0.05
+                     || ((_vfd.P01_RunSource == 2 || _vfd.ModbusControlActive) && _vfd.ModbusReverse)
+                     || (_vfd.P01_RunSource == 0 && !_vfd.ModbusControlActive && _vfd.KeypadReverse)
+                     || (_vfd.P01_RunSource == 1 && !_vfd.ModbusControlActive && _vfd.IsExternalRevActive);
+        _dirBadge.Background = GetBrush(isRev ? "#EA580C" : "#0284C7");
         _dirBadgeText.Text = isRev ? "↺ REV" : "↻ FWD";
 
         _powerStatusText.Text = _vfd.IsPowered
-            ? "PWR OK"
+            ? (_vfd.ModbusControlActive ? $"PWR OK • MB#{_vfd.ModbusSlaveId}" : "PWR OK")
             : LocalizationManager.Get("Str.Vfd.StatusNoPower");
-        _powerStatusText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(_vfd.IsPowered ? "#4ADE80" : "#F87171")!);
+        _powerStatusText.Foreground = GetBrush(_vfd.IsPowered ? "#4ADE80" : "#F87171");
 
         // Nội dung màn hình chính
+        string paramHintKey = _selectedParamIndex switch
+        {
+            7 => "Str.Vfd.P06",
+            8 => "Str.Vfd.P07",
+            _ => $"Str.Vfd.P0{_selectedParamIndex}"
+        };
         switch (_displayMode)
         {
             case KeypadDisplayMode.MonitorFreq:
-                _ledMainText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(_vfd.IsPowered ? "#22D3EE" : "#64748B")!);
+                _ledMainText.Foreground = GetBrush(_vfd.IsPowered ? "#22D3EE" : "#64748B");
                 _ledMainText.Text = $"{_vfd.CurrentOutputFreqHz:00.0} Hz";
-                _ledSubText.Text = $"SET: {_vfd.ComputeTargetFrequencyHz():0.0} Hz  |  OUT: {_vfd.OutputCurrentAmps:0.0} A  |  P01={_vfd.P01_RunSource}  P02={_vfd.P02_FreqSource}";
+                _ledSubText.Text = $"SET: {_vfd.ComputeTargetFrequencyHz():0.0} Hz  |  OUT: {_vfd.OutputCurrentAmps:0.0} A  |  P01={_vfd.P01_RunSource}  P02={_vfd.P02_FreqSource}  MB={_vfd.ModbusSlaveId}";
                 _paramHintText.Text = $"▲/▼: {_vfd.KeypadTargetFreqHz:0.0} Hz  •  ACC={_vfd.P04_AccelSeconds:0.#}s  •  DEC={_vfd.P05_DecelSeconds:0.#}s";
                 break;
 
             case KeypadDisplayMode.MonitorCurrent:
-                _ledMainText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F472B6")!);
+                _ledMainText.Foreground = GetBrush("#F472B6");
                 _ledMainText.Text = $"{_vfd.OutputCurrentAmps:00.0} A";
                 _ledSubText.Text = $"FREQ: {_vfd.CurrentOutputFreqHz:0.0} Hz  |  DI1:{(_vfd.IsExternalDi1Active ? "ON" : "OFF")}  DI2:{(_vfd.IsExternalDi2Active ? "ON" : "OFF")}";
                 _paramHintText.Text = LocalizationManager.Get("Str.Vfd.ParamTableTitle");
                 break;
 
             case KeypadDisplayMode.ParamSelect:
-                _ledMainText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FACC15")!);
+                _ledMainText.Foreground = GetBrush("#FACC15");
                 _ledMainText.Text = FormatParamCode(_selectedParamIndex);
                 _ledSubText.Text = $"VAL: {FormatParamDisplayValue(_selectedParamIndex, ReadParamValue(_selectedParamIndex))}  (SET / ENTER → EDIT)";
-                _paramHintText.Text = LocalizationManager.Get(_selectedParamIndex == 7 ? "Str.Vfd.P06" : $"Str.Vfd.P0{_selectedParamIndex}");
+                _paramHintText.Text = LocalizationManager.Get(paramHintKey);
                 break;
 
             case KeypadDisplayMode.ParamEdit:
-                _ledMainText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4ADE80")!);
+                _ledMainText.Foreground = GetBrush("#4ADE80");
                 _ledMainText.Text = FormatParamDisplayValue(_selectedParamIndex, _editingValue);
                 _ledSubText.Text = $"EDIT {FormatParamCode(_selectedParamIndex)}  —  ▲/▼  →  SET / ENTER";
-                _paramHintText.Text = LocalizationManager.Get(_selectedParamIndex == 7 ? "Str.Vfd.P06" : $"Str.Vfd.P0{_selectedParamIndex}");
+                _paramHintText.Text = LocalizationManager.Get(paramHintKey);
                 break;
         }
     }

@@ -14,37 +14,83 @@ using WiringSim.UI.Services;
 namespace WiringSim.UI.Controls;
 
 /// <summary>
-/// Trình lập trình PLC Ladder chuẩn TIA Portal V21 (10 nhóm hàm/lệnh đầy đủ):
-/// - Thanh General (Insert network, Empty box [F8], Insert input, Open/Close branch [Shift+F8/F9]).
-/// - Bảng PLC Tags chuẩn TIA Portal V21: số thứ tự, Data type dropdown, tự động thêm %, nhấn Enter tăng địa chỉ tuần tự, Address Picker Popup &amp; dòng &lt;Add new&gt;.
-/// - Hộp thoại Call options khi chèn Timer / Counter (Single instance, Automatic/Manual DB, Cancel để &lt;???&gt; đỏ).
-/// - Nhấp đúp địa chỉ trên Ladder mở Popup gợi ý 3 cột + truy xuất thuộc tính DB ("TD11".Q) qua nút &gt;&gt; hoặc dấu chấm (.).
+/// Trình soạn thảo Ladder PLC chuẩn IEC 61131-3:
+/// - Phím tắt đầy đủ: Ctrl+Z/Y (60 bước), Ctrl+C/X/V/Delete, mũi tên điều hướng, Enter/F2 Inline Edit + Tab nhảy chân, Esc,
+///   Shift+F2 (Insert Network), Shift+F7 (Coil), Shift+F8/F9 (Open/Close branch), F8 (Empty Box + gợi ý lệnh), Alt+Shift+D/N.
+/// - Thanh Favorites kéo thả tùy chỉnh + 3 chế độ hiển thị địa chỉ + Menu chuột phải thông minh + Watch Table.
 /// </summary>
 public partial class PlcLadderEditorControl : UserControl
 {
+    private const int MaxUndoSteps = 60;
+    private const string FavoriteDragFormat = "WiringSim.PlcInstructionKind";
+
     private PlcControllerComponent? _plc;
     private bool _isInstructionsVisible = true;
     private bool _isSimulating;
     private bool _updatingZoomUi;
+    private bool _updatingPropDataType;
+    private bool _updatingMemConfigUi;
 
     private int _selectedNetworkIndex = 0;
     private LadderBranch? _selectedBranch;
     private LadderNode? _selectedNode;
     private PlcTagEntry? _selectedTag;
+    private PlcWatchEntry? _selectedWatch;
+    private PlcAddressDisplayMode _displayMode = PlcAddressDisplayMode.SymbolicAndAbsolute;
+
+    // Undo / Redo Stack (tối thiểu 50 bước — hỗ trợ 60 bước)
+    private readonly LinkedList<PlcProgramModel> _undoStack = new();
+    private readonly Stack<PlcProgramModel> _redoStack = new();
+
+    // Clipboard nội bộ (hỗ trợ cả phần tử Ladder lẫn nguyên Network)
+    private LadderNode? _clipboardNode;
+    private LadderNetwork? _clipboardNetwork;
+
+    // Trạng thái Inline Edit (Enter / F2 + Tab nhảy qua các chân)
+    private LadderNode? _inlineEditNode;
+    private string? _inlineEditField; // "Address", "Param1", "Param2", "ExtraInput:0", "ExtraOutput:0", "ExtraParam", "OutputAddress"
+    private readonly Dictionary<string, FrameworkElement> _renderedNodeVisuals = new();
+
+    // Danh sách callback cập nhật Online Monitoring tại chỗ (không phá Visual Tree khi đang chạy 10Hz)
+    private readonly List<Action<bool>> _liveOnlineUpdaters = new();
+    private static readonly DoubleCollection DashedFalseWire = CreateFrozenDashArray();
+
+    private static DoubleCollection CreateFrozenDashArray()
+    {
+        var dc = new DoubleCollection { 3.0, 2.0 };
+        dc.Freeze();
+        return dc;
+    }
+
+    // Trạng thái Drag-to-Favorites từ cây thư viện lệnh
+    private Point _instrDragStart;
+    private LadderElementKind? _instrDragKind;
 
     // Trạng thái Address Picker Popup (bảng PLC Tags)
     private PlcTagEntry? _addrPickerTag;
     private bool _updatingAddrPickerUi;
 
-    // Trạng thái Autocomplete Popup 3 cột (Ladder & Property Bar)
+    // Trạng thái Autocomplete Popup 3 cột (Ladder, Property Bar & Watch Table)
     private LadderNode? _autoTargetNode;
+    private PlcWatchEntry? _autoTargetWatch;
     private string _autoTargetField = "Address";
-    private PlcTagEntry? _autoExpandedDb;
+    private PlcTagEntry? _autoExpandedTag;
+    private bool _autoExpandedIsSlice;
     private bool _updatingAutoSearch;
     private readonly List<Action> _autoRowActions = new();
 
+    // Trạng thái Empty Box [F8] Command Autocomplete Popup
+    private LadderNode? _emptyBoxTargetNode;
+    private List<PlcInstructionMeta> _emptyBoxMatches = new();
+    private int _emptyBoxSelectedIndex;
+
     // Hỗ trợ tự focus ô Name của dòng mới tạo khi nhấn Enter trong bảng PLC Tags
     private PlcTagEntry? _pendingFocusTag;
+
+    // Trạng thái Watch Table live updates (cập nhật tại chỗ, không phá focus TextBox)
+    private readonly Dictionary<string, TextBlock> _watchLiveTextBlocks = new();
+    private readonly Dictionary<string, TextBlock> _watchTypeTextBlocks = new();
+    private readonly Dictionary<string, TextBlock> _watchAddrTextBlocks = new();
 
     public event Action? HideRequested;
     public event Action? ProgramEdited;
@@ -63,10 +109,13 @@ public partial class PlcLadderEditorControl : UserControl
     {
         InitializeComponent();
         BuildInstructionsTree(string.Empty);
+        UpdateDisplayModeButtonText();
 
         LocalizationManager.LanguageChanged += () =>
         {
             BuildInstructionsTree(TbInstructionSearch?.Text ?? string.Empty);
+            UpdateDisplayModeButtonText();
+            RenderFavoritesBar();
             RefreshAllViews();
         };
         ThemeManager.ThemeChanged += RefreshAllViews;
@@ -75,12 +124,17 @@ public partial class PlcLadderEditorControl : UserControl
     public void BindPlc(PlcControllerComponent? plc, bool openTagTable = false)
     {
         _plc = plc;
+        _activeBlock = null;
         _selectedNetworkIndex = 0;
         _selectedNode = null;
         _selectedBranch = plc?.DraftProgram.Networks.FirstOrDefault()?.MainBranch;
         _selectedTag = null;
-        AddressPickerPopup.IsOpen = false;
-        TagAutocompletePopup.IsOpen = false;
+        _selectedWatch = null;
+        _selectedForceEntry = null;
+        _lastRenderedDiagCount = -1;
+        CancelInlineEdit(rerender: false);
+        CloseAllPopups();
+        ClearUndoRedo();
 
         if (openTagTable)
             RbTabTags.IsChecked = true;
@@ -91,6 +145,8 @@ public partial class PlcLadderEditorControl : UserControl
         DiagnosticsScroller.Visibility = Visibility.Collapsed;
         TxtCompileSummary.Text = string.Empty;
 
+        RebuildBlockSelectorCombo();
+        RenderFavoritesBar();
         RefreshAllViews();
     }
 
@@ -106,9 +162,47 @@ public partial class PlcLadderEditorControl : UserControl
         UpdateCpuStateBadges();
 
         if (RbTabLadder.IsChecked == true)
-            RenderNetworks();
-        else if (!IsKeyboardFocusWithinTagInputs())
-            RenderTagTable();
+        {
+            // Cập nhật màu dây (xanh liền = TRUE, lam nét đứt = FALSE) & giá trị live tại chỗ, không dựng lại Visual Tree
+            if (_inlineEditNode is null && !AnyPopupOpen())
+                UpdateOnlineOverlayInPlace();
+        }
+        else if (RbTabTags.IsChecked == true)
+        {
+            if (!IsKeyboardFocusWithinTagInputs())
+                RenderTagTable();
+        }
+        else if (RbTabWatch.IsChecked == true)
+        {
+            RefreshWatchLiveValuesInPlace();
+        }
+        else if (RbTabForce.IsChecked == true)
+        {
+            RefreshForceLiveValuesInPlace();
+        }
+        else if (RbTabDiag.IsChecked == true)
+        {
+            RenderDiagnosticsBuffer();
+        }
+    }
+
+    private void UpdateOnlineOverlayInPlace()
+    {
+        if (_plc is null) return;
+        bool isOnline = _isSimulating && _plc.IsPowered && _plc.CpuState == PlcCpuState.Run && !_plc.IsDownloading;
+        foreach (var updater in _liveOnlineUpdaters)
+            updater(isOnline);
+    }
+
+    private bool AnyPopupOpen() =>
+        TagAutocompletePopup.IsOpen || AddressPickerPopup.IsOpen || EmptyBoxPopup.IsOpen || PlcMemConfigPopup.IsOpen;
+
+    private void CloseAllPopups()
+    {
+        AddressPickerPopup.IsOpen = false;
+        TagAutocompletePopup.IsOpen = false;
+        EmptyBoxPopup.IsOpen = false;
+        PlcMemConfigPopup.IsOpen = false;
     }
 
     private bool IsKeyboardFocusWithinTagInputs() =>
@@ -119,25 +213,43 @@ public partial class PlcLadderEditorControl : UserControl
     {
         bool hasPlc = _plc is not null;
         TxtNoPlcPlaceholder.Visibility = hasPlc ? Visibility.Collapsed : Visibility.Visible;
-        LadderScrollViewer.Visibility = hasPlc && RbTabLadder.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        LadderWorkspaceGrid.Visibility = hasPlc && RbTabLadder.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         TagTableContainer.Visibility = hasPlc && RbTabTags.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        WatchTableContainer.Visibility = hasPlc && RbTabWatch.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        ForceTableContainer.Visibility = hasPlc && RbTabForce.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        DiagnosticsContainer.Visibility = hasPlc && RbTabDiag.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         PropertyEditBar.Visibility = hasPlc && RbTabLadder.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        FavoritesToolbarBorder.Visibility = hasPlc && RbTabLadder.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
 
         TxtPlcHeader.Text = hasPlc
             ? $"{_plc!.DisplayName} — {LocalizationManager.Get("Str.Plc.TabLadder")}"
             : LocalizationManager.Get("Str.Plc.EditorTitle");
 
         UpdateCpuStateBadges();
+        UpdateUndoRedoButtons();
         if (!hasPlc) return;
 
         if (RbTabLadder.IsChecked == true)
         {
+            RebuildBlockSelectorCombo();
             RenderNetworks();
             UpdatePropertyBarForSelectedNode();
         }
-        else
+        else if (RbTabTags.IsChecked == true)
         {
             RenderTagTable();
+        }
+        else if (RbTabWatch.IsChecked == true)
+        {
+            RenderWatchTable();
+        }
+        else if (RbTabForce.IsChecked == true)
+        {
+            RenderForceTable();
+        }
+        else if (RbTabDiag.IsChecked == true)
+        {
+            RenderDiagnosticsBuffer(forceRebuild: true);
         }
     }
 
@@ -147,6 +259,7 @@ public partial class PlcLadderEditorControl : UserControl
         {
             CpuStatePill.Visibility = Visibility.Collapsed;
             OnlinePill.Visibility = Visibility.Collapsed;
+            ForcePill.Visibility = Visibility.Collapsed;
             return;
         }
 
@@ -172,13 +285,349 @@ public partial class PlcLadderEditorControl : UserControl
             CpuStatePill.Background = CreateBrush("#D97706");
         }
 
-        OnlinePill.Visibility = _isSimulating && _plc.IsPowered && _plc.CpuState == PlcCpuState.Run && !_plc.IsDownloading
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+        ForcePill.Visibility = _plc.Runtime.HasActiveForces ? Visibility.Visible : Visibility.Collapsed;
+
+        bool isOnline = _isSimulating && _plc.IsPowered && _plc.CpuState == PlcCpuState.Run && !_plc.IsDownloading;
+        OnlinePill.Visibility = isOnline ? Visibility.Visible : Visibility.Collapsed;
+        if (isOnline)
+        {
+            if (_plc.HasPendingDownload)
+            {
+                OnlinePill.Background = CreateBrush("#B45309");
+                OnlinePill.BorderBrush = CreateBrush("#FBBF24");
+                TxtOnlinePill.Text = LocalizationManager.Get("Str.Plc.OnlineOutOfSync");
+                TxtOnlinePill.Foreground = CreateBrush("#FEF3C7");
+                OnlinePill.ToolTip = LocalizationManager.Get("Str.Plc.OnlineOutOfSyncTip");
+            }
+            else
+            {
+                OnlinePill.Background = CreateBrush("#15803D");
+                OnlinePill.BorderBrush = CreateBrush("#4ADE80");
+                TxtOnlinePill.Text = "● ONLINE";
+                TxtOnlinePill.Foreground = CreateBrush("#DCFCE7");
+                OnlinePill.ToolTip = null;
+            }
+        }
     }
 
     // =========================================================================
-    // 1. CÂY THƯ VIỆN 10 NHÓM HÀM/LỆNH PLC (2 CỘT + TÌM KIẾM NHANH)
+    // 0. UNDO / REDO (60 BƯỚC) & CLIPBOARD (CUT / COPY / PASTE)
+    // =========================================================================
+
+    private void PushUndoSnapshot()
+    {
+        if (_plc is null) return;
+        _undoStack.AddLast(_plc.DraftProgram.Clone());
+        while (_undoStack.Count > MaxUndoSteps)
+            _undoStack.RemoveFirst();
+        _redoStack.Clear();
+        UpdateUndoRedoButtons();
+    }
+
+    private void ClearUndoRedo()
+    {
+        _undoStack.Clear();
+        _redoStack.Clear();
+        UpdateUndoRedoButtons();
+    }
+
+    private void UpdateUndoRedoButtons()
+    {
+        if (BtnUndo is not null) BtnUndo.IsEnabled = _undoStack.Count > 0;
+        if (BtnRedo is not null) BtnRedo.IsEnabled = _redoStack.Count > 0;
+    }
+
+    private void PerformUndo()
+    {
+        if (_plc is null || _undoStack.Count == 0) return;
+        CancelInlineEdit(rerender: false);
+        _redoStack.Push(_plc.DraftProgram.Clone());
+        _plc.DraftProgram = _undoStack.Last!.Value;
+        _undoStack.RemoveLast();
+        ResyncSelectionAfterModelReplace();
+        NotifyProgramChanged();
+        RenderFavoritesBar();
+        RefreshAllViews();
+        StatusMessageChanged?.Invoke(LocalizationManager.Get("Str.Status.Undone"));
+    }
+
+    private void PerformRedo()
+    {
+        if (_plc is null || _redoStack.Count == 0) return;
+        CancelInlineEdit(rerender: false);
+        _undoStack.AddLast(_plc.DraftProgram.Clone());
+        _plc.DraftProgram = _redoStack.Pop();
+        ResyncSelectionAfterModelReplace();
+        NotifyProgramChanged();
+        RenderFavoritesBar();
+        RefreshAllViews();
+        StatusMessageChanged?.Invoke(LocalizationManager.Get("Str.Status.Redone"));
+    }
+
+    private void ResyncSelectionAfterModelReplace()
+    {
+        if (_plc is null) return;
+        RebuildBlockSelectorCombo();
+        var nets = GetActiveNetworks();
+        if (nets.Count == 0)
+        {
+            _selectedNetworkIndex = 0;
+            _selectedBranch = null;
+            _selectedNode = null;
+            return;
+        }
+        _selectedNetworkIndex = Math.Clamp(_selectedNetworkIndex, 0, nets.Count - 1);
+        _selectedBranch = nets[_selectedNetworkIndex].MainBranch;
+        _selectedNode = _selectedBranch.Nodes.FirstOrDefault();
+    }
+
+    private void OnUndoClick(object sender, RoutedEventArgs e) => PerformUndo();
+    private void OnRedoClick(object sender, RoutedEventArgs e) => PerformRedo();
+
+    private void CopySelection()
+    {
+        if (_plc is null) return;
+        var nets = GetActiveNetworks();
+        if (_selectedNode is not null)
+        {
+            _clipboardNode = _selectedNode.Clone(regenerateIds: true);
+            _clipboardNetwork = null;
+            StatusMessageChanged?.Invoke(LocalizationManager.Get("Str.Plc.StatusCopiedNode"));
+        }
+        else if (_selectedNetworkIndex >= 0 && _selectedNetworkIndex < nets.Count)
+        {
+            _clipboardNetwork = nets[_selectedNetworkIndex].Clone(regenerateIds: true);
+            _clipboardNode = null;
+            StatusMessageChanged?.Invoke(LocalizationManager.Get("Str.Plc.StatusCopiedNet"));
+        }
+    }
+
+    private void CutSelection()
+    {
+        if (_plc is null) return;
+        CopySelection();
+        DeleteSelection();
+    }
+
+    private void PasteSelection()
+    {
+        if (_plc is null) return;
+        if (_clipboardNode is not null)
+        {
+            PushUndoSnapshot();
+            var nets = GetActiveNetworks();
+            if (nets.Count == 0)
+            {
+                nets.Add(new LadderNetwork { Title = "Network 1" });
+                _selectedNetworkIndex = 0;
+            }
+            _selectedNetworkIndex = Math.Clamp(_selectedNetworkIndex, 0, nets.Count - 1);
+            var branch = _selectedBranch ?? nets[_selectedNetworkIndex].MainBranch;
+            var pasted = _clipboardNode.Clone(regenerateIds: true);
+
+            int idx = _selectedNode is not null ? branch.Nodes.IndexOf(_selectedNode) + 1 : branch.Nodes.Count;
+            if (idx <= 0 || idx > branch.Nodes.Count) idx = branch.Nodes.Count;
+            branch.Nodes.Insert(idx, pasted);
+            _selectedBranch = branch;
+            _selectedNode = pasted;
+
+            NotifyProgramChanged();
+            RenderNetworks();
+            UpdatePropertyBarForSelectedNode();
+            StatusMessageChanged?.Invoke(LocalizationManager.Get("Str.Plc.StatusPasted"));
+        }
+        else if (_clipboardNetwork is not null)
+        {
+            PushUndoSnapshot();
+            var nets = GetActiveNetworks();
+            var pastedNet = _clipboardNetwork.Clone(regenerateIds: true);
+            int insertIdx = Math.Clamp(_selectedNetworkIndex + 1, 0, nets.Count);
+            nets.Insert(insertIdx, pastedNet);
+            _selectedNetworkIndex = insertIdx;
+            _selectedBranch = pastedNet.MainBranch;
+            _selectedNode = null;
+            NotifyProgramChanged();
+            RenderNetworks();
+            UpdatePropertyBarForSelectedNode();
+            StatusMessageChanged?.Invoke(LocalizationManager.Get("Str.Plc.StatusPasted"));
+        }
+    }
+
+    private void DeleteSelection()
+    {
+        if (_plc is null) return;
+        var nets = GetActiveNetworks();
+        if (_selectedNode is not null && _selectedBranch is not null)
+        {
+            PushUndoSnapshot();
+            int idx = _selectedBranch.Nodes.IndexOf(_selectedNode);
+            _selectedBranch.Nodes.Remove(_selectedNode);
+
+            // Nếu xóa phần tử trong nhánh song song khiến nhánh con trống, dọn nhánh nếu còn < 2 nhánh
+            if (nets.Count > 0)
+            {
+                var net = nets[Math.Clamp(_selectedNetworkIndex, 0, nets.Count - 1)];
+                CleanupCollapsedParallelBlocks(net.MainBranch);
+            }
+
+            _selectedNode = idx >= 0 && _selectedBranch.Nodes.Count > 0
+                ? _selectedBranch.Nodes[Math.Min(idx, _selectedBranch.Nodes.Count - 1)]
+                : null;
+            NotifyProgramChanged();
+            RenderNetworks();
+            UpdatePropertyBarForSelectedNode();
+        }
+        else if (_selectedNetworkIndex >= 0 && _selectedNetworkIndex < nets.Count)
+        {
+            PushUndoSnapshot();
+            nets.RemoveAt(_selectedNetworkIndex);
+            _selectedNetworkIndex = Math.Max(0, Math.Min(_selectedNetworkIndex, nets.Count - 1));
+            _selectedBranch = nets.ElementAtOrDefault(_selectedNetworkIndex)?.MainBranch;
+            _selectedNode = null;
+            NotifyProgramChanged();
+            RenderNetworks();
+            UpdatePropertyBarForSelectedNode();
+        }
+    }
+
+    private static void CleanupCollapsedParallelBlocks(LadderBranch branch)
+    {
+        for (int i = branch.Nodes.Count - 1; i >= 0; i--)
+        {
+            var n = branch.Nodes[i];
+            if (n.Kind != LadderElementKind.ParallelBlock || n.Branches is null) continue;
+            foreach (var sub in n.Branches) CleanupCollapsedParallelBlocks(sub);
+            if (n.Branches.All(b => b.Nodes.Count == 0))
+            {
+                branch.Nodes.RemoveAt(i);
+            }
+        }
+    }
+
+    // =========================================================================
+    // 1. FAVORITES TOOLBAR (KÉO THẢ GHIM / BỎ GHIM) & 3 CHẾ ĐỘ HIỂN THỊ ĐỊA CHỈ
+    // =========================================================================
+
+    private List<LadderElementKind> GetActiveFavorites()
+    {
+        if (_plc is null)
+            return new List<LadderElementKind>(PlcInstructionCatalog.DefaultFavoriteInstructions);
+
+        if (_plc.DraftProgram.FavoriteInstructions is null || _plc.DraftProgram.FavoriteInstructions.Count == 0)
+            _plc.DraftProgram.FavoriteInstructions = new List<LadderElementKind>(PlcInstructionCatalog.DefaultFavoriteInstructions);
+
+        return _plc.DraftProgram.FavoriteInstructions;
+    }
+
+    private void RenderFavoritesBar()
+    {
+        if (FavoritesItemsPanel is null) return;
+        FavoritesItemsPanel.Children.Clear();
+
+        var favs = GetActiveFavorites();
+        foreach (var kind in favs)
+        {
+            var meta = PlcInstructionCatalog.Get(kind);
+            if (meta is null) continue;
+
+            var capturedKind = kind;
+            var btn = new Button
+            {
+                Content = meta.Symbol,
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 10.6,
+                FontWeight = FontWeights.Bold,
+                Foreground = CreateBrush(meta.AccentHex),
+                Padding = new Thickness(7, 3, 7, 3),
+                Margin = new Thickness(0, 0, 4, 0),
+                ToolTip = $"{meta.Symbol} — {PlcInstructionCatalog.GetDescription(meta)}\n({LocalizationManager.Get("Str.Plc.FavRightClickUnpin")})"
+            };
+            btn.SetResourceReference(StyleProperty, "ToolbarButtonStyle");
+            btn.Click += (_, _) => InsertInstruction(capturedKind);
+
+            var cm = new ContextMenu();
+            var unpinItem = new MenuItem { Header = LocalizationManager.Format("Str.Plc.FavUnpin", meta.Symbol) };
+            unpinItem.Click += (_, _) =>
+            {
+                var list = GetActiveFavorites();
+                list.Remove(capturedKind);
+                NotifyProgramChanged();
+                RenderFavoritesBar();
+            };
+            var resetItem = new MenuItem { Header = LocalizationManager.Get("Str.Plc.FavResetDefault") };
+            resetItem.Click += (_, _) =>
+            {
+                if (_plc is not null)
+                    _plc.DraftProgram.FavoriteInstructions = new List<LadderElementKind>(PlcInstructionCatalog.DefaultFavoriteInstructions);
+                NotifyProgramChanged();
+                RenderFavoritesBar();
+            };
+            cm.Items.Add(unpinItem);
+            cm.Items.Add(new Separator());
+            cm.Items.Add(resetItem);
+            btn.ContextMenu = cm;
+
+            FavoritesItemsPanel.Children.Add(btn);
+        }
+    }
+
+    private void OnFavoritesDragOver(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(FavoriteDragFormat))
+        {
+            e.Effects = DragDropEffects.Copy;
+            FavoritesToolbarBorder.BorderBrush = CreateBrush("#38BDF8");
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+        e.Handled = true;
+    }
+
+    private void OnFavoritesDrop(object sender, DragEventArgs e)
+    {
+        FavoritesToolbarBorder.SetResourceReference(Border.BorderBrushProperty, "BorderSubtleBrush");
+        if (e.Data.GetDataPresent(FavoriteDragFormat) && e.Data.GetData(FavoriteDragFormat) is LadderElementKind kind)
+        {
+            var favs = GetActiveFavorites();
+            if (!favs.Contains(kind))
+            {
+                favs.Add(kind);
+                NotifyProgramChanged();
+                RenderFavoritesBar();
+                var meta = PlcInstructionCatalog.Get(kind);
+                StatusMessageChanged?.Invoke(LocalizationManager.Format("Str.Plc.FavPinnedMsg", meta?.Symbol ?? kind.ToString()));
+            }
+        }
+        e.Handled = true;
+    }
+
+    private void OnCycleDisplayModeClick(object sender, RoutedEventArgs e)
+    {
+        _displayMode = _displayMode switch
+        {
+            PlcAddressDisplayMode.SymbolicAndAbsolute => PlcAddressDisplayMode.SymbolicOnly,
+            PlcAddressDisplayMode.SymbolicOnly => PlcAddressDisplayMode.AbsoluteOnly,
+            _ => PlcAddressDisplayMode.SymbolicAndAbsolute
+        };
+        UpdateDisplayModeButtonText();
+        RenderNetworks();
+    }
+
+    private void UpdateDisplayModeButtonText()
+    {
+        if (BtnDisplayMode is null) return;
+        BtnDisplayMode.Content = _displayMode switch
+        {
+            PlcAddressDisplayMode.SymbolicOnly => LocalizationManager.Get("Str.Plc.DispModeSym"),
+            PlcAddressDisplayMode.AbsoluteOnly => LocalizationManager.Get("Str.Plc.DispModeAbs"),
+            _ => LocalizationManager.Get("Str.Plc.DispModeBoth")
+        };
+    }
+
+    // =========================================================================
+    // 2. CÂY THƯ VIỆN 10 NHÓM LỆNH PLC (CLICK CHÈN + KÉO THẢ VÀO FAVORITES)
     // =========================================================================
 
     private void OnInstructionSearchChanged(object sender, TextChangedEventArgs e)
@@ -293,10 +742,31 @@ public partial class PlcLadderEditorControl : UserControl
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             Padding = new Thickness(5, 3.5, 5, 3.5),
             Margin = new Thickness(0, 0, 0, 2.5),
-            ToolTip = $"{meta.Symbol} — {desc}"
+            ToolTip = $"{meta.Symbol} — {desc}\n({LocalizationManager.Get("Str.Plc.DragToFavTip")})"
         };
         btn.SetResourceReference(StyleProperty, "ToolbarButtonStyle");
         btn.Click += (_, _) => InsertInstruction(meta.Kind);
+
+        btn.PreviewMouseLeftButtonDown += (_, e) =>
+        {
+            _instrDragStart = e.GetPosition(null);
+            _instrDragKind = meta.Kind;
+        };
+        btn.PreviewMouseMove += (_, e) =>
+        {
+            if (e.LeftButton == MouseButtonState.Pressed && _instrDragKind == meta.Kind)
+            {
+                Vector diff = _instrDragStart - e.GetPosition(null);
+                if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    _instrDragKind = null;
+                    var data = new DataObject(FavoriteDragFormat, meta.Kind);
+                    DragDrop.DoDragDrop(btn, data, DragDropEffects.Copy);
+                }
+            }
+        };
+
         return btn;
     }
 
@@ -304,24 +774,24 @@ public partial class PlcLadderEditorControl : UserControl
     {
         if (_plc is null) return;
         if (RbTabLadder.IsChecked != true) RbTabLadder.IsChecked = true;
+        CancelInlineEdit(rerender: false);
 
+        PushUndoSnapshot();
         var prog = _plc.DraftProgram;
-        if (prog.Networks.Count == 0)
+        var nets = GetActiveNetworks();
+        if (nets.Count == 0)
         {
-            prog.Networks.Add(new LadderNetwork { Title = "Network 1" });
+            nets.Add(new LadderNetwork { Title = "Network 1" });
             _selectedNetworkIndex = 0;
         }
-        _selectedNetworkIndex = Math.Clamp(_selectedNetworkIndex, 0, prog.Networks.Count - 1);
-        var targetNet = prog.Networks[_selectedNetworkIndex];
+        _selectedNetworkIndex = Math.Clamp(_selectedNetworkIndex, 0, nets.Count - 1);
+        var targetNet = nets[_selectedNetworkIndex];
         var branch = _selectedBranch ?? targetNet.MainBranch;
 
-        var node = PlcInstructionCatalog.CreateDefaultNode(kind, prog);
+        var node = PlcInstructionCatalog.CreateDefaultNode(kind, prog, allocateDbTag: false);
 
-        // Chuẩn TIA Portal V21: chèn Timer / Counter sẽ tự động bật hộp thoại Call options để gán DB!
         if (node.RequiresCallOptions)
-        {
             PromptCallOptionsForNode(node, isNewInsert: true);
-        }
 
         int insertIdx = _selectedNode is not null ? branch.Nodes.IndexOf(_selectedNode) + 1 : branch.Nodes.Count;
         if (insertIdx <= 0 || insertIdx > branch.Nodes.Count)
@@ -337,20 +807,21 @@ public partial class PlcLadderEditorControl : UserControl
 
         if (kind == LadderElementKind.EmptyBox)
         {
-            TbPropAddress.Focus();
-            TbPropAddress.SelectAll();
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
+            {
+                if (_renderedNodeVisuals.TryGetValue(node.Id, out var vis))
+                    OpenEmptyBoxPopup(vis, node);
+                else
+                    OpenEmptyBoxPopup(BtnEmptyBox, node);
+            });
         }
     }
 
-    /// <summary>
-    /// Mở hộp thoại Call options chuẩn TIA Portal V21 cho khối Timer / Counter.
-    /// - OK: tạo Data Block (%DB1, %DB2...), lưu vào danh sách Tags và gắn lên đầu khối.
-    /// - Cancel (khi chèn mới): giữ khối trên Network với chữ đỏ &lt;???&gt; chờ gán sau.
-    /// </summary>
-    private bool PromptCallOptionsForNode(LadderNode node, bool isNewInsert)
+    private bool PromptCallOptionsForNode(LadderNode node, bool isNewInsert, bool pushUndoOnSuccess = false)
     {
         if (_plc is null) return false;
         var prog = _plc.DraftProgram;
+        bool isTrig = node.Kind is LadderElementKind.RTrig or LadderElementKind.FTrig;
         bool isTimer = node.IsTimer || node.IsTimerCoil;
         var meta = PlcInstructionCatalog.Get(node.Kind);
         string instrName = meta?.BoxHeader ?? node.Kind.ToString();
@@ -358,7 +829,16 @@ public partial class PlcLadderEditorControl : UserControl
         int autoNum = prog.AllocateNextDbNumber();
         string suggestedName = !isNewInsert && !string.IsNullOrWhiteSpace(node.SymbolName)
             ? PlcAddressHelper.StripQuotes(node.SymbolName)
-            : prog.SuggestNextDbName(isTimer);
+            : node.Kind switch
+            {
+                LadderElementKind.CtrlPwm => $"CTRL_PWM_DB_{autoNum}",
+                LadderElementKind.CtrlHsc => $"CTRL_HSC_DB_{autoNum}",
+                LadderElementKind.PidCompact => $"PID_Compact_{autoNum}",
+                LadderElementKind.ModbusCommLoad => $"Modbus_Comm_Load_DB_{autoNum}",
+                LadderElementKind.ModbusMaster => $"Modbus_Master_DB_{autoNum}",
+                LadderElementKind.ModbusTcpClient => $"MB_CLIENT_DB_{autoNum}",
+                _ => prog.SuggestNextDbName(isTimer, isTrig)
+            };
 
         var dlg = new PlcCallOptionsDialog(instrName, suggestedName, autoNum);
         var owner = Window.GetWindow(this);
@@ -367,11 +847,27 @@ public partial class PlcLadderEditorControl : UserControl
 
         if (dlg.ShowDialog() == true)
         {
+            if (pushUndoOnSuccess)
+                PushUndoSnapshot();
+
+            string oldName = PlcAddressHelper.StripQuotes(node.SymbolName);
             string dbAddr = $"%DB{dlg.SelectedDbNumber}";
             string dbName = dlg.SelectedDbName;
             node.Address = dbAddr;
             node.SymbolName = dbName;
-            prog.EnsureTagExists(dbAddr, dbName, isTimer ? "IEC_Timer" : "IEC_Counter");
+            string dbType = node.Kind switch
+            {
+                LadderElementKind.CtrlPwm => "IEC_PWM",
+                LadderElementKind.CtrlHsc => "IEC_HSC",
+                LadderElementKind.PidCompact => "PID_Compact",
+                LadderElementKind.ModbusCommLoad => "Modbus_Comm_Load",
+                LadderElementKind.ModbusMaster => "Modbus_Master",
+                LadderElementKind.ModbusTcpClient => "MB_CLIENT",
+                _ => isTrig ? "IEC_Trig" : (isTimer ? "IEC_Timer" : "IEC_Counter")
+            };
+            prog.EnsureTagExists(dbAddr, dbName, dbType, overwriteDataType: true);
+            if (!isNewInsert && !string.IsNullOrWhiteSpace(oldName) && !oldName.Equals(dbName, StringComparison.OrdinalIgnoreCase))
+                prog.RenameTagEverywhere(oldName, dbName);
             return true;
         }
 
@@ -383,48 +879,726 @@ public partial class PlcLadderEditorControl : UserControl
         return false;
     }
 
-    // --- Phím tắt chuẩn TIA Portal: F8 (Empty box), Shift+F8 (Open branch), Shift+F9 (Close branch) ---
+    // =========================================================================
+    // 3. HỆ THỐNG PHÍM TẮT & ĐIỀU HƯỚNG BÀN PHÍM THÔNG MINH
+    // =========================================================================
+
     private void OnEditorPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (_plc is null || RbTabLadder.IsChecked != true) return;
-        if (TagAutocompletePopup.IsOpen) return;
+        if (_plc is null) return;
 
-        if (e.Key == Key.F8 && Keyboard.Modifiers == ModifierKeys.None)
+        // Esc luôn đóng popup hoặc hủy Inline Edit
+        if (e.Key == Key.Escape)
         {
-            InsertInstruction(LadderElementKind.EmptyBox);
-            e.Handled = true;
+            if (AnyPopupOpen())
+            {
+                CloseAllPopups();
+                e.Handled = true;
+                return;
+            }
+            if (_inlineEditNode is not null)
+            {
+                CancelInlineEdit(rerender: true);
+                Focus();
+                e.Handled = true;
+                return;
+            }
         }
-        else if (e.Key == Key.F8 && Keyboard.Modifiers == ModifierKeys.Shift)
+
+        if (AnyPopupOpen()) return;
+
+        bool focusInTextBox = Keyboard.FocusedElement is TextBox;
+
+        // Undo / Redo (hoạt động cả trên Ladder & PLC Tags khi không gõ trong TextBox)
+        if (!focusInTextBox && Keyboard.Modifiers == ModifierKeys.Control)
         {
-            OnOpenParallelBranchClick(sender, e);
-            e.Handled = true;
+            if (e.Key == Key.Z) { PerformUndo(); e.Handled = true; return; }
+            if (e.Key == Key.Y) { PerformRedo(); e.Handled = true; return; }
         }
-        else if (e.Key == Key.F9 && Keyboard.Modifiers == ModifierKeys.Shift)
+
+        if (RbTabLadder.IsChecked != true) return;
+        if (focusInTextBox) return;
+
+        // Cut / Copy / Paste / Delete
+        if (Keyboard.Modifiers == ModifierKeys.Control)
         {
-            OnCloseParallelBranchClick(sender, e);
-            e.Handled = true;
+            if (e.Key == Key.C) { CopySelection(); e.Handled = true; return; }
+            if (e.Key == Key.X) { CutSelection(); e.Handled = true; return; }
+            if (e.Key == Key.V) { PasteSelection(); e.Handled = true; return; }
+        }
+
+        // Alt + Shift + D (Define tag) | Alt + Shift + N (Rename tag)
+        Key realKey = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (Keyboard.Modifiers == (ModifierKeys.Alt | ModifierKeys.Shift))
+        {
+            if (realKey == Key.D && _selectedNode is not null)
+            {
+                OpenDefineTagForNode(_selectedNode);
+                e.Handled = true;
+                return;
+            }
+            if (realKey == Key.N && _selectedNode is not null)
+            {
+                OpenRenameTagForNode(_selectedNode);
+                e.Handled = true;
+                return;
+            }
+        }
+
+        // Phím tắt chèn nhanh phần tử
+        if (Keyboard.Modifiers == ModifierKeys.None)
+        {
+            switch (e.Key)
+            {
+                case Key.F8:
+                    InsertInstruction(LadderElementKind.EmptyBox);
+                    e.Handled = true;
+                    return;
+                case Key.Delete:
+                    DeleteSelection();
+                    e.Handled = true;
+                    return;
+                case Key.Enter:
+                case Key.F2:
+                    if (_selectedNode is not null)
+                    {
+                        if (_selectedNode.Kind == LadderElementKind.EmptyBox)
+                        {
+                            var anchor = _renderedNodeVisuals.GetValueOrDefault(_selectedNode.Id) ?? (UIElement)BtnEmptyBox;
+                            OpenEmptyBoxPopup(anchor, _selectedNode);
+                        }
+                        else if (_selectedNode.Kind != LadderElementKind.ParallelBlock)
+                        {
+                            StartInlineEdit(_selectedNode, GetOrderedEditableFields(_selectedNode).FirstOrDefault());
+                        }
+                        e.Handled = true;
+                    }
+                    return;
+                case Key.Left:
+                    NavigateHorizontal(-1);
+                    e.Handled = true;
+                    return;
+                case Key.Right:
+                    NavigateHorizontal(+1);
+                    e.Handled = true;
+                    return;
+                case Key.Up:
+                    NavigateVertical(-1);
+                    e.Handled = true;
+                    return;
+                case Key.Down:
+                    NavigateVertical(+1);
+                    e.Handled = true;
+                    return;
+            }
+        }
+        else if (Keyboard.Modifiers == ModifierKeys.Shift)
+        {
+            switch (e.Key)
+            {
+                case Key.F2:
+                    InsertNetworkBelowCurrent();
+                    e.Handled = true;
+                    return;
+                case Key.F7:
+                    InsertInstruction(LadderElementKind.CoilOut);
+                    e.Handled = true;
+                    return;
+                case Key.F8:
+                    OnOpenParallelBranchClick(sender, e);
+                    e.Handled = true;
+                    return;
+                case Key.F9:
+                    OnCloseParallelBranchClick(sender, e);
+                    e.Handled = true;
+                    return;
+            }
         }
     }
 
-    private void OnInsertEmptyBoxClick(object sender, RoutedEventArgs e) => InsertInstruction(LadderElementKind.EmptyBox);
-    private void OnInsertInputClick(object sender, RoutedEventArgs e) => InsertInstruction(LadderElementKind.ContactNO);
+    private void NavigateHorizontal(int dir)
+    {
+        if (_plc is null) return;
+        var nets = GetActiveNetworks();
+        if (nets.Count == 0) return;
+        _selectedNetworkIndex = Math.Clamp(_selectedNetworkIndex, 0, nets.Count - 1);
+        var net = nets[_selectedNetworkIndex];
+        var branch = _selectedBranch ?? net.MainBranch;
+
+        if (branch.Nodes.Count == 0)
+        {
+            // Nếu nhánh rỗng nằm trong ParallelBlock -> thoát ra nhánh cha
+            if (TryFindParentParallel(net.MainBranch, branch, out var parentBranch, out var pBlock, out _))
+            {
+                int pIdx = parentBranch.Nodes.IndexOf(pBlock);
+                int nextIdx = pIdx + dir;
+                if (nextIdx >= 0 && nextIdx < parentBranch.Nodes.Count)
+                {
+                    _selectedBranch = parentBranch;
+                    _selectedNode = parentBranch.Nodes[nextIdx];
+                    SelectAndScrollNode();
+                }
+            }
+            return;
+        }
+
+        if (_selectedNode is null)
+        {
+            _selectedBranch = branch;
+            _selectedNode = dir > 0 ? branch.Nodes[0] : branch.Nodes[^1];
+            EnterParallelIfNeeded(dir);
+            SelectAndScrollNode();
+            return;
+        }
+
+        int curIdx = branch.Nodes.IndexOf(_selectedNode);
+        if (curIdx < 0)
+        {
+            _selectedBranch = net.MainBranch;
+            _selectedNode = net.MainBranch.Nodes.FirstOrDefault();
+            SelectAndScrollNode();
+            return;
+        }
+
+        int targetIdx = curIdx + dir;
+        if (targetIdx >= 0 && targetIdx < branch.Nodes.Count)
+        {
+            _selectedNode = branch.Nodes[targetIdx];
+            EnterParallelIfNeeded(dir);
+            SelectAndScrollNode();
+        }
+        else if (TryFindParentParallel(net.MainBranch, branch, out var parentBranch, out var pBlock, out _))
+        {
+            // Thoát ra nhánh cha tiếp theo bên trái / phải khối song song
+            int pIdx = parentBranch.Nodes.IndexOf(pBlock);
+            int nextIdx = pIdx + dir;
+            if (nextIdx >= 0 && nextIdx < parentBranch.Nodes.Count)
+            {
+                _selectedBranch = parentBranch;
+                _selectedNode = parentBranch.Nodes[nextIdx];
+                EnterParallelIfNeeded(dir);
+                SelectAndScrollNode();
+            }
+        }
+    }
+
+    private void EnterParallelIfNeeded(int dir)
+    {
+        if (_selectedNode is { Kind: LadderElementKind.ParallelBlock, Branches.Count: > 0 })
+        {
+            var firstSub = _selectedNode.Branches[0];
+            _selectedBranch = firstSub;
+            _selectedNode = firstSub.Nodes.Count > 0
+                ? (dir >= 0 ? firstSub.Nodes[0] : firstSub.Nodes[^1])
+                : null;
+        }
+    }
+
+    private void NavigateVertical(int dir)
+    {
+        if (_plc is null) return;
+        var nets = GetActiveNetworks();
+        if (nets.Count == 0) return;
+        _selectedNetworkIndex = Math.Clamp(_selectedNetworkIndex, 0, nets.Count - 1);
+        var net = nets[_selectedNetworkIndex];
+        var branch = _selectedBranch ?? net.MainBranch;
+
+        // 1. Nếu đang ở trong một nhánh song song -> di chuyển giữa các nhánh song song trước
+        if (TryFindParentParallel(net.MainBranch, branch, out _, out var pBlock, out int subIdx) && pBlock.Branches is not null)
+        {
+            int nextSub = subIdx + dir;
+            if (nextSub >= 0 && nextSub < pBlock.Branches.Count)
+            {
+                _selectedBranch = pBlock.Branches[nextSub];
+                _selectedNode = _selectedBranch.Nodes.FirstOrDefault();
+                SelectAndScrollNode();
+                return;
+            }
+        }
+
+        // 2. Chuyển sang Network trên / dưới
+        int nextNetIdx = _selectedNetworkIndex + dir;
+        if (nextNetIdx >= 0 && nextNetIdx < nets.Count)
+        {
+            _selectedNetworkIndex = nextNetIdx;
+            var nextNet = nets[nextNetIdx];
+            nextNet.IsCollapsed = false;
+            _selectedBranch = nextNet.MainBranch;
+            _selectedNode = nextNet.MainBranch.Nodes.FirstOrDefault();
+            EnterParallelIfNeeded(+1);
+            SelectAndScrollNode();
+        }
+    }
+
+    private static bool TryFindParentParallel(
+        LadderBranch root,
+        LadderBranch target,
+        out LadderBranch parentBranch,
+        out LadderNode parallelNode,
+        out int subIndex)
+    {
+        foreach (var n in root.Nodes)
+        {
+            if (n.Kind == LadderElementKind.ParallelBlock && n.Branches is not null)
+            {
+                for (int i = 0; i < n.Branches.Count; i++)
+                {
+                    if (n.Branches[i] == target)
+                    {
+                        parentBranch = root;
+                        parallelNode = n;
+                        subIndex = i;
+                        return true;
+                    }
+                    if (TryFindParentParallel(n.Branches[i], target, out parentBranch, out parallelNode, out subIndex))
+                        return true;
+                }
+            }
+        }
+        parentBranch = root;
+        parallelNode = null!;
+        subIndex = -1;
+        return false;
+    }
+
+    private void SelectAndScrollNode()
+    {
+        RenderNetworks();
+        UpdatePropertyBarForSelectedNode();
+        if (_selectedNode is not null && _renderedNodeVisuals.TryGetValue(_selectedNode.Id, out var vis))
+        {
+            vis.BringIntoView();
+        }
+    }
 
     // =========================================================================
-    // 2. KẾT XUẤT TIA PORTAL NETWORKS + PARALLEL BRANCHES + DOUBLE-CLICK PICKER
+    // 4. INLINE EDIT (ENTER / F2 + TAB NHẢY CHÂN THAM SỐ)
     // =========================================================================
+
+    private static List<string> GetOrderedEditableFields(LadderNode node)
+    {
+        var list = new List<string>();
+        var meta = PlcInstructionCatalog.Get(node.Kind);
+        if (meta is null) return list;
+
+        if (meta.AddrLabel is not null && !node.IsTimer && !node.IsCounter && node.Kind is not (LadderElementKind.RTrig or LadderElementKind.FTrig))
+            list.Add("Address");
+        else if (meta.AddrLabel is not null && (node.IsTimer || node.IsCounter || node.Kind is LadderElementKind.RTrig or LadderElementKind.FTrig))
+            list.Add("Address");
+
+        if (meta.Param1Label is not null) list.Add("Param1");
+        if (meta.Param2Label is not null) list.Add("Param2");
+
+        if (PlcInstructionCatalog.SupportsMultiInput(node.Kind) && node.ExtraInputs is not null)
+        {
+            for (int i = 0; i < node.ExtraInputs.Count; i++)
+                list.Add($"ExtraInput:{i}");
+        }
+
+        if (meta.ExtraLabel is not null) list.Add("ExtraParam");
+        if (meta.OutLabel is not null) list.Add("OutputAddress");
+        if (PlcInstructionCatalog.SupportsMultiOutput(node.Kind) && node.ExtraOutputs is not null)
+        {
+            for (int i = 0; i < node.ExtraOutputs.Count; i++)
+                list.Add($"ExtraOutput:{i}");
+        }
+        return list;
+    }
+
+    private static string GetNodeFieldValue(LadderNode node, string field)
+    {
+        if (field.StartsWith("ExtraInput:", StringComparison.Ordinal) &&
+            int.TryParse(field[11..], out int idx) &&
+            node.ExtraInputs is not null && idx >= 0 && idx < node.ExtraInputs.Count)
+            return node.ExtraInputs[idx];
+
+        if (field.StartsWith("ExtraOutput:", StringComparison.Ordinal) &&
+            int.TryParse(field[12..], out int outIdx) &&
+            node.ExtraOutputs is not null && outIdx >= 0 && outIdx < node.ExtraOutputs.Count)
+            return node.ExtraOutputs[outIdx];
+
+        return field switch
+        {
+            "Address" => node.Address,
+            "Param1" => node.Param1,
+            "Param2" => node.Param2,
+            "ExtraParam" => node.ExtraParam,
+            "OutputAddress" => node.OutputAddress,
+            _ => node.Address
+        };
+    }
+
+    private void SetNodeFieldValue(LadderNode node, string field, string rawValue)
+    {
+        string trimmed = rawValue.Trim();
+        if (field.StartsWith("ExtraInput:", StringComparison.Ordinal) &&
+            int.TryParse(field[11..], out int idx) &&
+            node.ExtraInputs is not null && idx >= 0 && idx < node.ExtraInputs.Count)
+        {
+            node.ExtraInputs[idx] = PlcProgramModel.NormalizeAddress(trimmed);
+            return;
+        }
+
+        if (field.StartsWith("ExtraOutput:", StringComparison.Ordinal) &&
+            int.TryParse(field[12..], out int outIdx) &&
+            node.ExtraOutputs is not null && outIdx >= 0 && outIdx < node.ExtraOutputs.Count)
+        {
+            node.ExtraOutputs[outIdx] = PlcProgramModel.NormalizeAddress(trimmed);
+            return;
+        }
+
+        switch (field)
+        {
+            case "Address":
+                if (node.Kind is LadderElementKind.Jump or LadderElementKind.JumpNot or LadderElementKind.Label or LadderElementKind.JumpList or LadderElementKind.Switch or LadderElementKind.CallBlock)
+                    node.Address = trimmed;
+                else
+                {
+                    node.Address = PlcProgramModel.NormalizeAddress(trimmed);
+                    // Nếu người dùng gõ tên Tag mới chưa khai báo -> giữ SymbolName sạch
+                    if (!PlcAddressHelper.IsAbsoluteAddress(trimmed))
+                        node.SymbolName = PlcAddressHelper.StripQuotes(trimmed);
+                    else
+                        node.SymbolName = string.Empty;
+                }
+                break;
+            case "Param1":
+                node.Param1 = node.IsTimer || node.IsTimerCoil || node.Kind == LadderElementKind.CoilPT
+                    ? trimmed
+                    : PlcProgramModel.NormalizeAddress(trimmed);
+                break;
+            case "Param2":
+                node.Param2 = PlcProgramModel.NormalizeAddress(trimmed);
+                break;
+            case "ExtraParam":
+                node.ExtraParam = node.Kind == LadderElementKind.Calculate ? trimmed : PlcProgramModel.NormalizeAddress(trimmed);
+                if (node.Kind == LadderElementKind.Calculate)
+                    PlcProgramModel.SyncCalculateExtraInputs(node);
+                break;
+            case "OutputAddress":
+                node.OutputAddress = PlcProgramModel.NormalizeAddress(trimmed);
+                break;
+        }
+    }
+
+    private void StartInlineEdit(LadderNode node, string? field)
+    {
+        if (string.IsNullOrEmpty(field)) return;
+        _inlineEditNode = node;
+        _inlineEditField = field;
+        RenderNetworks();
+    }
+
+    private void CancelInlineEdit(bool rerender)
+    {
+        _inlineEditNode = null;
+        _inlineEditField = null;
+        if (rerender) RenderNetworks();
+    }
+
+    private TextBox CreateInlineEditTextBox(LadderNode node, string field, double minWidth = 76)
+    {
+        string initial = GetNodeFieldValue(node, field);
+        var tb = new TextBox
+        {
+            Text = initial,
+            MinWidth = minWidth,
+            Padding = new Thickness(4, 1.5, 4, 1.5),
+            FontFamily = new FontFamily("Consolas"),
+            FontSize = 10.6,
+            FontWeight = FontWeights.Bold,
+            Background = (Brush)FindResource("InputBgBrush"),
+            Foreground = (Brush)FindResource("TextPrimaryBrush"),
+            BorderBrush = CreateBrush("#38BDF8"),
+            BorderThickness = new Thickness(1.5)
+        };
+
+        bool committedOrCanceled = false;
+        void Commit(bool moveNext, int step)
+        {
+            if (committedOrCanceled) return;
+            committedOrCanceled = true;
+
+            string newVal = tb.Text.Trim();
+            if (newVal != initial)
+            {
+                PushUndoSnapshot();
+                SetNodeFieldValue(node, field, newVal);
+                NotifyProgramChanged();
+            }
+
+            if (moveNext)
+            {
+                var fields = GetOrderedEditableFields(node);
+                int idx = fields.IndexOf(field);
+                int nextIdx = idx + step;
+                if (nextIdx >= 0 && nextIdx < fields.Count)
+                {
+                    _inlineEditNode = node;
+                    _inlineEditField = fields[nextIdx];
+                    RenderNetworks();
+                    UpdatePropertyBarForSelectedNode();
+                    return;
+                }
+            }
+
+            _inlineEditNode = null;
+            _inlineEditField = null;
+            RenderNetworks();
+            UpdatePropertyBarForSelectedNode();
+            Focus();
+        }
+
+        tb.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter)
+            {
+                e.Handled = true;
+                Commit(moveNext: false, 0);
+            }
+            else if (e.Key == Key.Tab)
+            {
+                e.Handled = true;
+                int step = (Keyboard.Modifiers & ModifierKeys.Shift) != 0 ? -1 : 1;
+                Commit(moveNext: true, step);
+            }
+            else if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                committedOrCanceled = true;
+                CancelInlineEdit(rerender: true);
+                Focus();
+            }
+        };
+
+        tb.LostFocus += (_, _) =>
+        {
+            if (!committedOrCanceled && _inlineEditNode == node && _inlineEditField == field)
+                Commit(moveNext: false, 0);
+        };
+
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
+        {
+            tb.Focus();
+            tb.SelectAll();
+        });
+
+        return tb;
+    }
+
+    private void OnInsertEmptyBoxClick(object sender, RoutedEventArgs e) => InsertInstruction(LadderElementKind.EmptyBox);
+
+    // =========================================================================
+    // 5. EMPTY BOX [F8] SMART INSTRUCTION COMMAND POPUP
+    // =========================================================================
+
+    private void OpenEmptyBoxPopup(UIElement anchor, LadderNode node)
+    {
+        _emptyBoxTargetNode = node;
+        EmptyBoxPopup.PlacementTarget = anchor;
+        TbEmptyBoxCmd.Text = node.Address == "???" ? string.Empty : node.Address;
+        RebuildEmptyBoxSuggestions();
+        EmptyBoxPopup.IsOpen = true;
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
+        {
+            TbEmptyBoxCmd.Focus();
+            TbEmptyBoxCmd.SelectAll();
+        });
+    }
+
+    private void OnEmptyBoxCmdTextChanged(object sender, TextChangedEventArgs e) => RebuildEmptyBoxSuggestions();
+
+    private void RebuildEmptyBoxSuggestions()
+    {
+        EmptyBoxSuggestionsStack.Children.Clear();
+        _emptyBoxMatches = PlcInstructionCatalog.SearchByPrefixOrText(TbEmptyBoxCmd.Text, 14);
+        _emptyBoxSelectedIndex = 0;
+
+        for (int i = 0; i < _emptyBoxMatches.Count; i++)
+        {
+            int idx = i;
+            var meta = _emptyBoxMatches[i];
+            var row = new Grid();
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var sym = new TextBlock
+            {
+                Text = meta.Symbol,
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 11,
+                FontWeight = FontWeights.Bold,
+                Foreground = CreateBrush(meta.AccentHex),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(sym, 0);
+
+            var desc = new TextBlock
+            {
+                Text = PlcInstructionCatalog.GetDescription(meta),
+                FontSize = 10.2,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            desc.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            Grid.SetColumn(desc, 1);
+
+            row.Children.Add(sym);
+            row.Children.Add(desc);
+
+            var btn = new Button
+            {
+                Content = row,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                Background = idx == _emptyBoxSelectedIndex ? (Brush)FindResource("MenuHoverBrush") : Brushes.Transparent,
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = new Thickness(6, 4, 6, 4),
+                Cursor = Cursors.Hand
+            };
+            btn.SetResourceReference(BorderBrushProperty, "BorderSubtleBrush");
+            btn.Click += (_, _) => TransformEmptyBoxTo(meta.Kind);
+            EmptyBoxSuggestionsStack.Children.Add(btn);
+        }
+    }
+
+    private void HighlightEmptyBoxRow()
+    {
+        for (int i = 0; i < EmptyBoxSuggestionsStack.Children.Count; i++)
+        {
+            if (EmptyBoxSuggestionsStack.Children[i] is Button b)
+            {
+                b.Background = i == _emptyBoxSelectedIndex ? (Brush)FindResource("MenuHoverBrush") : Brushes.Transparent;
+                if (i == _emptyBoxSelectedIndex) b.BringIntoView();
+            }
+        }
+    }
+
+    private void OnEmptyBoxCmdPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            EmptyBoxPopup.IsOpen = false;
+            Focus();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Down && _emptyBoxMatches.Count > 0)
+        {
+            _emptyBoxSelectedIndex = (_emptyBoxSelectedIndex + 1) % _emptyBoxMatches.Count;
+            HighlightEmptyBoxRow();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Up && _emptyBoxMatches.Count > 0)
+        {
+            _emptyBoxSelectedIndex = (_emptyBoxSelectedIndex - 1 + _emptyBoxMatches.Count) % _emptyBoxMatches.Count;
+            HighlightEmptyBoxRow();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            string typed = TbEmptyBoxCmd.Text.Trim();
+            if (PlcInstructionCatalog.TryResolveByName(typed, out var exactKind))
+                TransformEmptyBoxTo(exactKind);
+            else if (_emptyBoxMatches.Count > 0)
+                TransformEmptyBoxTo(_emptyBoxMatches[Math.Clamp(_emptyBoxSelectedIndex, 0, _emptyBoxMatches.Count - 1)].Kind);
+            else
+                EmptyBoxPopup.IsOpen = false;
+        }
+    }
+
+    private void TransformEmptyBoxTo(LadderElementKind resolvedKind)
+    {
+        if (_plc is null || _emptyBoxTargetNode is null) return;
+        EmptyBoxPopup.IsOpen = false;
+
+        PushUndoSnapshot();
+        var replacement = PlcInstructionCatalog.CreateDefaultNode(resolvedKind, _plc.DraftProgram, allocateDbTag: false);
+        _emptyBoxTargetNode.Kind = replacement.Kind;
+        _emptyBoxTargetNode.Address = replacement.Address;
+        _emptyBoxTargetNode.SymbolName = replacement.SymbolName;
+        _emptyBoxTargetNode.DataType = replacement.DataType;
+        _emptyBoxTargetNode.Param1 = replacement.Param1;
+        _emptyBoxTargetNode.Param2 = replacement.Param2;
+        _emptyBoxTargetNode.ExtraInputs = replacement.ExtraInputs;
+        _emptyBoxTargetNode.ExtraOutputs = replacement.ExtraOutputs;
+        _emptyBoxTargetNode.ExtraParam = replacement.ExtraParam;
+        _emptyBoxTargetNode.OutputAddress = replacement.OutputAddress;
+
+        if (_emptyBoxTargetNode.RequiresCallOptions)
+            PromptCallOptionsForNode(_emptyBoxTargetNode, isNewInsert: true);
+
+        _selectedNode = _emptyBoxTargetNode;
+        NotifyProgramChanged();
+        RenderNetworks();
+        UpdatePropertyBarForSelectedNode();
+        Focus();
+    }
+
+    // =========================================================================
+    // 6. KẾT XUẤT NETWORKS + PARALLEL BRANCHES + CONTEXT MENU + DYNAMIC PINS
+    // =========================================================================
+
+    private static System.Windows.Shapes.Line CreatePowerWire(bool isOnline, bool isActive, bool isVertical = false, double fixedLength = double.NaN, double minLength = 0.0, double thickness = 2.4, bool isSelected = false)
+    {
+        var line = new System.Windows.Shapes.Line
+        {
+            X1 = 0,
+            Y1 = 0,
+            X2 = isVertical ? 0 : 1,
+            Y2 = isVertical ? 1 : 0,
+            Stretch = Stretch.Fill,
+            StrokeThickness = thickness,
+            HorizontalAlignment = isVertical ? HorizontalAlignment.Center : HorizontalAlignment.Stretch,
+            VerticalAlignment = isVertical ? VerticalAlignment.Stretch : VerticalAlignment.Center
+        };
+        if (isVertical)
+            line.Width = thickness;
+        else
+            line.Height = thickness;
+
+        if (!double.IsNaN(fixedLength))
+        {
+            if (isVertical) line.Height = fixedLength;
+            else line.Width = fixedLength;
+        }
+        if (minLength > 0.0)
+        {
+            if (isVertical) line.MinHeight = minLength;
+            else line.MinWidth = minLength;
+        }
+
+        StylePowerWire(line, isOnline, isActive, isSelected);
+        return line;
+    }
+
+    private static void StylePowerWire(System.Windows.Shapes.Line line, bool isOnline, bool isActive, bool isSelected = false)
+    {
+        if (isOnline)
+        {
+            line.Stroke = CreateBrush(isActive ? "#22C55E" : "#3B82F6");
+            line.StrokeDashArray = isActive ? null : DashedFalseWire;
+        }
+        else
+        {
+            line.Stroke = CreateBrush(isSelected ? "#38BDF8" : "#64748B");
+            line.StrokeDashArray = null;
+        }
+    }
 
     private void RenderNetworks()
     {
         NetworksContainer.Children.Clear();
+        _renderedNodeVisuals.Clear();
+        _liveOnlineUpdaters.Clear();
         if (_plc is null) return;
 
         bool isOnline = _isSimulating && _plc.IsPowered && _plc.CpuState == PlcCpuState.Run && !_plc.IsDownloading;
-        var prog = _plc.DraftProgram;
+        var nets = GetActiveNetworks();
 
-        for (int i = 0; i < prog.Networks.Count; i++)
+        for (int i = 0; i < nets.Count; i++)
         {
             int netIdx = i;
-            var net = prog.Networks[i];
+            var net = nets[i];
             bool isSelectedNet = netIdx == _selectedNetworkIndex;
 
             var card = new Border
@@ -432,7 +1606,7 @@ public partial class PlcLadderEditorControl : UserControl
                 BorderThickness = new Thickness(isSelectedNet ? 1.5 : 1.0),
                 CornerRadius = new CornerRadius(6),
                 Margin = new Thickness(0, 0, 0, 10),
-                MinWidth = 520
+                MinWidth = 540
             };
             card.SetResourceReference(Border.BackgroundProperty, "SurfaceBgBrush");
             card.SetResourceReference(Border.BorderBrushProperty, isSelectedNet ? "AccentCyanBrush" : "BorderSubtleBrush");
@@ -448,6 +1622,7 @@ public partial class PlcLadderEditorControl : UserControl
             };
             hdrBorder.SetResourceReference(Border.BackgroundProperty, "SubtleSurfaceBrush");
             hdrBorder.SetResourceReference(Border.BorderBrushProperty, "BorderSubtleBrush");
+            hdrBorder.ContextMenu = BuildNetworkContextMenu(netIdx, net);
 
             var hdrDock = new DockPanel();
             var btnDelNet = new Button { Content = "✕", Width = 22, Height = 20, Padding = new Thickness(0), FontSize = 10, Margin = new Thickness(4, 0, 0, 0) };
@@ -455,10 +1630,11 @@ public partial class PlcLadderEditorControl : UserControl
             btnDelNet.Click += (_, e) =>
             {
                 e.Handled = true;
-                prog.Networks.RemoveAt(netIdx);
-                _selectedNetworkIndex = Math.Max(0, Math.Min(_selectedNetworkIndex, prog.Networks.Count - 1));
+                PushUndoSnapshot();
+                nets.RemoveAt(netIdx);
+                _selectedNetworkIndex = Math.Max(0, Math.Min(_selectedNetworkIndex, nets.Count - 1));
                 _selectedNode = null;
-                _selectedBranch = prog.Networks.ElementAtOrDefault(_selectedNetworkIndex)?.MainBranch;
+                _selectedBranch = nets.ElementAtOrDefault(_selectedNetworkIndex)?.MainBranch;
                 NotifyProgramChanged();
                 RenderNetworks();
                 UpdatePropertyBarForSelectedNode();
@@ -503,6 +1679,7 @@ public partial class PlcLadderEditorControl : UserControl
                 _selectedNode = null;
                 RenderNetworks();
                 UpdatePropertyBarForSelectedNode();
+                Focus();
             };
             cardStack.Children.Add(hdrBorder);
 
@@ -519,6 +1696,7 @@ public partial class PlcLadderEditorControl : UserControl
                     Background = CreateBrush(isOnline ? "#22C55E" : "#3B82F6"),
                     HorizontalAlignment = HorizontalAlignment.Left
                 };
+                _liveOnlineUpdaters.Add(online => powerRail.Background = CreateBrush(online ? "#22C55E" : "#3B82F6"));
                 Grid.SetColumn(powerRail, 0);
                 bodyGrid.Children.Add(powerRail);
 
@@ -532,6 +1710,48 @@ public partial class PlcLadderEditorControl : UserControl
             card.Child = cardStack;
             NetworksContainer.Children.Add(card);
         }
+    }
+
+    private ContextMenu BuildNetworkContextMenu(int netIdx, LadderNetwork net)
+    {
+        var cm = new ContextMenu();
+
+        var insBelow = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxInsertNetBelow"), InputGestureText = "Shift+F2" };
+        insBelow.Click += (_, _) => { _selectedNetworkIndex = netIdx; InsertNetworkBelowCurrent(); };
+        cm.Items.Add(insBelow);
+
+        var renameNet = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxRenameNet") };
+        renameNet.Click += (_, _) =>
+        {
+            string? nextTitle = InputPromptDialog.Prompt(
+                Window.GetWindow(this),
+                LocalizationManager.Get("Str.Plc.CtxRenameNet"),
+                LocalizationManager.Format("Str.Plc.CtxRenameNetPrompt", netIdx + 1),
+                net.Title);
+            if (!string.IsNullOrWhiteSpace(nextTitle))
+            {
+                PushUndoSnapshot();
+                net.Title = nextTitle.Trim();
+                NotifyProgramChanged();
+                RenderNetworks();
+            }
+        };
+        cm.Items.Add(renameNet);
+        cm.Items.Add(new Separator());
+
+        var copyNet = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxCopy"), InputGestureText = "Ctrl+C" };
+        copyNet.Click += (_, _) => { _selectedNetworkIndex = netIdx; _selectedNode = null; CopySelection(); };
+        cm.Items.Add(copyNet);
+
+        var pasteNet = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxPaste"), InputGestureText = "Ctrl+V", IsEnabled = _clipboardNetwork is not null || _clipboardNode is not null };
+        pasteNet.Click += (_, _) => { _selectedNetworkIndex = netIdx; _selectedBranch = net.MainBranch; _selectedNode = null; PasteSelection(); };
+        cm.Items.Add(pasteNet);
+
+        var delNet = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxDelete"), InputGestureText = "Delete", Foreground = CreateBrush("#EF4444") };
+        delNet.Click += (_, _) => { _selectedNetworkIndex = netIdx; _selectedNode = null; DeleteSelection(); };
+        cm.Items.Add(delNet);
+
+        return cm;
     }
 
     private UIElement BuildBranchVisual(LadderBranch branch, int netIdx, bool isOnline)
@@ -567,6 +1787,7 @@ public partial class PlcLadderEditorControl : UserControl
                 _selectedNode = null;
                 RenderNetworks();
                 UpdatePropertyBarForSelectedNode();
+                Focus();
             };
             row.Children.Add(emptySlot);
             return row;
@@ -594,18 +1815,28 @@ public partial class PlcLadderEditorControl : UserControl
         outer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         outer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
 
+        var leftLead = CreatePowerWire(isOnline, powerIn, isVertical: false, fixedLength: 9, thickness: 2.5);
+        leftLead.HorizontalAlignment = HorizontalAlignment.Left;
+        var leftBar = CreatePowerWire(isOnline, powerIn, isVertical: true, thickness: 2.8, isSelected: isSelected);
+        leftBar.Margin = new Thickness(8, 22, 0, 22);
+        leftBar.HorizontalAlignment = HorizontalAlignment.Left;
+
         var leftHost = new Grid();
-        leftHost.Children.Add(new Border { Height = 2.5, Width = 9, Background = CreateBrush(powerIn ? "#22C55E" : "#64748B"), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center });
-        leftHost.Children.Add(new Border { Width = 3, Margin = new Thickness(8, 22, 0, 22), Background = CreateBrush(powerIn ? "#22C55E" : (isSelected ? "#38BDF8" : "#64748B")), HorizontalAlignment = HorizontalAlignment.Left });
+        leftHost.Children.Add(leftLead);
+        leftHost.Children.Add(leftBar);
         Grid.SetColumn(leftHost, 0);
         outer.Children.Add(leftHost);
+
+        var subLeads = new List<System.Windows.Shapes.Line>();
+        var subTails = new List<(LadderBranch Sub, System.Windows.Shapes.Line Tail)>();
 
         var subStack = new StackPanel();
         foreach (var sub in blockNode.Branches!)
         {
             var subRow = new DockPanel { Margin = new Thickness(0, 3, 0, 3) };
             bool subActive = isOnline && sub.Nodes.Count > 0 && _plc!.Runtime.LiveNodePowerOut.GetValueOrDefault(sub.Nodes[^1].Id);
-            var subLead = new Border { Height = 2.2, Width = 8, Background = CreateBrush(powerIn ? "#22C55E" : "#64748B"), VerticalAlignment = VerticalAlignment.Center };
+            var subLead = CreatePowerWire(isOnline, powerIn, isVertical: false, fixedLength: 8, thickness: 2.2);
+            subLeads.Add(subLead);
             DockPanel.SetDock(subLead, Dock.Left);
             subRow.Children.Add(subLead);
 
@@ -613,17 +1844,42 @@ public partial class PlcLadderEditorControl : UserControl
             DockPanel.SetDock(subContent, Dock.Left);
             subRow.Children.Add(subContent);
 
-            subRow.Children.Add(new Border { Height = 2.2, MinWidth = 8, Background = CreateBrush(subActive ? "#22C55E" : "#64748B"), VerticalAlignment = VerticalAlignment.Center });
+            var subTail = CreatePowerWire(isOnline, subActive, isVertical: false, minLength: 8, thickness: 2.2);
+            subTails.Add((sub, subTail));
+            subRow.Children.Add(subTail);
             subStack.Children.Add(subRow);
         }
         Grid.SetColumn(subStack, 1);
         outer.Children.Add(subStack);
 
+        var rightBar = CreatePowerWire(isOnline, powerOut, isVertical: true, thickness: 2.8, isSelected: isSelected);
+        rightBar.Margin = new Thickness(0, 22, 8, 22);
+        rightBar.HorizontalAlignment = HorizontalAlignment.Right;
+        var rightLead = CreatePowerWire(isOnline, powerOut, isVertical: false, fixedLength: 9, thickness: 2.5);
+        rightLead.HorizontalAlignment = HorizontalAlignment.Right;
+
         var rightHost = new Grid();
-        rightHost.Children.Add(new Border { Width = 3, Margin = new Thickness(0, 22, 8, 22), Background = CreateBrush(powerOut ? "#22C55E" : (isSelected ? "#38BDF8" : "#64748B")), HorizontalAlignment = HorizontalAlignment.Right });
-        rightHost.Children.Add(new Border { Height = 2.5, Width = 9, Background = CreateBrush(powerOut ? "#22C55E" : "#64748B"), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center });
+        rightHost.Children.Add(rightBar);
+        rightHost.Children.Add(rightLead);
         Grid.SetColumn(rightHost, 2);
         outer.Children.Add(rightHost);
+
+        _liveOnlineUpdaters.Add(online =>
+        {
+            bool pIn = online && _plc is not null && _plc.Runtime.LiveNodePowerIn.GetValueOrDefault(blockNode.Id);
+            bool pOut = online && _plc is not null && _plc.Runtime.LiveNodePowerOut.GetValueOrDefault(blockNode.Id);
+            StylePowerWire(leftLead, online, pIn);
+            StylePowerWire(leftBar, online, pIn, isSelected);
+            StylePowerWire(rightBar, online, pOut, isSelected);
+            StylePowerWire(rightLead, online, pOut);
+            foreach (var sl in subLeads) StylePowerWire(sl, online, pIn);
+            foreach (var (subB, tail) in subTails)
+            {
+                bool sAct = online && _plc is not null && subB.Nodes.Count > 0 &&
+                            _plc.Runtime.LiveNodePowerOut.GetValueOrDefault(subB.Nodes[^1].Id);
+                StylePowerWire(tail, online, sAct);
+            }
+        });
 
         outer.MouseLeftButtonDown += (_, e) =>
         {
@@ -633,8 +1889,11 @@ public partial class PlcLadderEditorControl : UserControl
             _selectedNode = blockNode;
             RenderNetworks();
             UpdatePropertyBarForSelectedNode();
+            Focus();
         };
 
+        outer.ContextMenu = BuildNodeContextMenu(blockNode, parentBranch, netIdx);
+        _renderedNodeVisuals[blockNode.Id] = outer;
         return outer;
     }
 
@@ -645,8 +1904,6 @@ public partial class PlcLadderEditorControl : UserControl
         bool isSelected = node == _selectedNode;
         string liveText = isOnline ? _plc!.Runtime.LiveNodeStatusText.GetValueOrDefault(node.Id, string.Empty) : string.Empty;
 
-        string wireInHex = powerIn ? "#22C55E" : "#64748B";
-        string wireOutHex = powerOut ? "#22C55E" : "#64748B";
         string addrTeal = ThemeManager.IsEffectiveDark ? "#2DD4BF" : "#0F766E";
         string paramBlue = ThemeManager.IsEffectiveDark ? "#60A5FA" : "#1D4ED8";
 
@@ -663,6 +1920,15 @@ public partial class PlcLadderEditorControl : UserControl
             VerticalAlignment = VerticalAlignment.Center
         };
 
+        container.ContextMenu = BuildNodeContextMenu(node, ownerBranch, netIdx);
+        container.MouseRightButtonDown += (_, _) =>
+        {
+            _selectedNetworkIndex = netIdx;
+            _selectedBranch = ownerBranch;
+            _selectedNode = node;
+            UpdatePropertyBarForSelectedNode();
+        };
+
         container.MouseLeftButtonDown += (_, e) =>
         {
             e.Handled = true;
@@ -673,9 +1939,19 @@ public partial class PlcLadderEditorControl : UserControl
             if (e.ClickCount == 2)
             {
                 UpdatePropertyBarForSelectedNode();
+                if (node.Kind == LadderElementKind.EmptyBox)
+                {
+                    OpenEmptyBoxPopup(container, node);
+                    return;
+                }
+                if (node.Kind == LadderElementKind.Calculate)
+                {
+                    OpenCalculateEquationDialog(node);
+                    return;
+                }
                 if (node.RequiresCallOptions && (node.Address == "<???>" || meta is { UsesDbBlock: true }))
                 {
-                    if (PromptCallOptionsForNode(node, isNewInsert: false))
+                    if (PromptCallOptionsForNode(node, isNewInsert: false, pushUndoOnSuccess: true))
                     {
                         NotifyProgramChanged();
                         RenderNetworks();
@@ -691,195 +1967,225 @@ public partial class PlcLadderEditorControl : UserControl
 
             RenderNetworks();
             UpdatePropertyBarForSelectedNode();
+            Focus();
         };
 
-        // --- Ký hiệu tiếp điểm / cuộn hút / nhãn nhảy inline ---
+        // --- A. Ký hiệu tiếp điểm / cuộn hút / nhãn nhảy inline ---
         if (meta is { IsInlineGlyph: true })
         {
             bool isJumpOrControl = node.Kind is LadderElementKind.Jump or LadderElementKind.JumpNot or LadderElementKind.InvertRLO or LadderElementKind.Return;
-            string displayAddr;
-            string quotedSym;
+            string line1;
+            string line2;
+            bool isUndefinedTag = false;
             if (isJumpOrControl)
             {
-                displayAddr = node.Address;
-                quotedSym = string.Empty;
+                line1 = node.Address;
+                line2 = string.Empty;
             }
             else
             {
-                (displayAddr, quotedSym) = _plc!.DraftProgram.FormatDisplayPair(node.Address, node.SymbolName);
+                var (absA, symA) = _plc!.DraftProgram.FormatDisplayPair(node.Address, node.SymbolName);
+                isUndefinedTag = absA == "<???>";
+                (line1, line2) = _plc.DraftProgram.FormatForDisplayMode(node.Address, node.SymbolName, _displayMode);
             }
 
-            bool isUnassignedDb = displayAddr == "<???>";
-            var vStack = new StackPanel { MinWidth = 104, HorizontalAlignment = HorizontalAlignment.Center };
+            var vStack = new StackPanel { MinWidth = 106, HorizontalAlignment = HorizontalAlignment.Center };
 
-            var headerClickable = new Border
+            if (_inlineEditNode == node && _inlineEditField == "Address")
             {
-                Padding = new Thickness(4, 1, 4, 1),
-                CornerRadius = new CornerRadius(3),
-                Background = isUnassignedDb ? CreateBrush("#22EF4444") : Brushes.Transparent,
-                BorderThickness = new Thickness(isUnassignedDb ? 1 : 0),
-                BorderBrush = isUnassignedDb ? CreateBrush("#EF4444") : Brushes.Transparent,
-                ToolTip = isUnassignedDb
-                    ? LocalizationManager.Get("Str.Plc.ClickAssignDbTip")
-                    : LocalizationManager.Get("Str.Plc.DoubleClickHint")
-            };
-
-            var hdrStack = new StackPanel();
-            hdrStack.Children.Add(new TextBlock
+                vStack.Children.Add(CreateInlineEditTextBox(node, "Address", 92));
+            }
+            else
             {
-                Text = string.IsNullOrEmpty(displayAddr) ? " " : displayAddr,
-                FontFamily = new FontFamily("Consolas"),
-                FontSize = 10.0,
-                FontWeight = FontWeights.Bold,
-                Foreground = CreateBrush(isUnassignedDb ? "#EF4444" : addrTeal),
-                HorizontalAlignment = HorizontalAlignment.Center
-            });
-
-            hdrStack.Children.Add(new TextBlock
-            {
-                Text = !string.IsNullOrEmpty(quotedSym) ? quotedSym : (!string.IsNullOrEmpty(node.Param1) ? node.Param1 : " "),
-                FontSize = 9.4,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = !string.IsNullOrEmpty(quotedSym) ? (Brush)FindResource("TextPrimaryBrush") : CreateBrush(paramBlue),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis
-            });
-            headerClickable.Child = hdrStack;
-
-            if (isUnassignedDb && node.RequiresCallOptions)
-            {
-                headerClickable.MouseLeftButtonDown += (_, e) =>
+                var headerClickable = new Border
                 {
-                    e.Handled = true;
-                    _selectedNetworkIndex = netIdx;
-                    _selectedBranch = ownerBranch;
-                    _selectedNode = node;
-                    if (PromptCallOptionsForNode(node, isNewInsert: false))
-                    {
-                        NotifyProgramChanged();
-                        RenderNetworks();
-                        UpdatePropertyBarForSelectedNode();
-                    }
+                    Padding = new Thickness(4, 1, 4, 1),
+                    CornerRadius = new CornerRadius(3),
+                    Background = isUndefinedTag ? CreateBrush("#22EF4444") : Brushes.Transparent,
+                    BorderThickness = new Thickness(isUndefinedTag ? 1 : 0),
+                    BorderBrush = isUndefinedTag ? CreateBrush("#EF4444") : Brushes.Transparent,
+                    ToolTip = isUndefinedTag
+                        ? LocalizationManager.Get("Str.Plc.UndefinedTagTip")
+                        : LocalizationManager.Get("Str.Plc.DoubleClickHint")
                 };
-            }
 
-            vStack.Children.Add(headerClickable);
+                var hdrStack = new StackPanel();
+                hdrStack.Children.Add(new TextBlock
+                {
+                    Text = string.IsNullOrEmpty(line1) ? " " : line1,
+                    FontFamily = new FontFamily("Consolas"),
+                    FontSize = 10.0,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = CreateBrush(isUndefinedTag ? "#EF4444" : (_displayMode == PlcAddressDisplayMode.SymbolicOnly ? "#38BDF8" : addrTeal)),
+                    HorizontalAlignment = HorizontalAlignment.Center
+                });
+
+                string secondLineText = !string.IsNullOrEmpty(line2) ? line2 : (!string.IsNullOrEmpty(node.Param1) ? node.Param1 : " ");
+                hdrStack.Children.Add(new TextBlock
+                {
+                    Text = secondLineText,
+                    FontSize = 9.4,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = !string.IsNullOrEmpty(line2) ? (Brush)FindResource("TextPrimaryBrush") : CreateBrush(paramBlue),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                });
+                headerClickable.Child = hdrStack;
+
+                if (isUndefinedTag && node.RequiresCallOptions)
+                {
+                    headerClickable.MouseLeftButtonDown += (_, e) =>
+                    {
+                        e.Handled = true;
+                        _selectedNetworkIndex = netIdx;
+                        _selectedBranch = ownerBranch;
+                        _selectedNode = node;
+                        if (PromptCallOptionsForNode(node, isNewInsert: false, pushUndoOnSuccess: true))
+                        {
+                            NotifyProgramChanged();
+                            RenderNetworks();
+                            UpdatePropertyBarForSelectedNode();
+                        }
+                    };
+                }
+                vStack.Children.Add(headerClickable);
+            }
 
             var glyphGrid = new Grid { Height = 26, Margin = new Thickness(0, 2, 0, 2) };
             glyphGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             glyphGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             glyphGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var leftLine = new Border { Height = 2.4, Background = CreateBrush(wireInHex), VerticalAlignment = VerticalAlignment.Center };
+            var leftLine = CreatePowerWire(isOnline, powerIn, isVertical: false, thickness: 2.4);
             Grid.SetColumn(leftLine, 0);
             glyphGrid.Children.Add(leftLine);
 
             bool activeGlow = isOnline && powerOut;
+            var glyphText = new TextBlock
+            {
+                Text = meta.BoxHeader,
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 12.6,
+                FontWeight = FontWeights.Bold,
+                Foreground = CreateBrush(activeGlow ? "#22C55E" : (ThemeManager.IsEffectiveDark ? "#F8FAFC" : "#0F172A")),
+                VerticalAlignment = VerticalAlignment.Center
+            };
             var glyphBorder = new Border
             {
                 Padding = new Thickness(4, 1, 4, 1),
                 CornerRadius = new CornerRadius(3),
                 Background = activeGlow ? CreateBrush("#3322C55E") : Brushes.Transparent,
-                Child = new TextBlock
-                {
-                    Text = meta.BoxHeader,
-                    FontFamily = new FontFamily("Consolas"),
-                    FontSize = 12.6,
-                    FontWeight = FontWeights.Bold,
-                    Foreground = CreateBrush(activeGlow ? "#22C55E" : (ThemeManager.IsEffectiveDark ? "#F8FAFC" : "#0F172A")),
-                    VerticalAlignment = VerticalAlignment.Center
-                }
+                Child = glyphText
             };
             Grid.SetColumn(glyphBorder, 1);
             glyphGrid.Children.Add(glyphBorder);
 
-            var rightLine = new Border { Height = 2.4, Background = CreateBrush(wireOutHex), VerticalAlignment = VerticalAlignment.Center };
+            var rightLine = CreatePowerWire(isOnline, powerOut, isVertical: false, thickness: 2.4);
             Grid.SetColumn(rightLine, 2);
             glyphGrid.Children.Add(rightLine);
 
+            _liveOnlineUpdaters.Add(online =>
+            {
+                bool pIn = online && _plc is not null && _plc.Runtime.LiveNodePowerIn.GetValueOrDefault(node.Id);
+                bool pOut = online && _plc is not null && _plc.Runtime.LiveNodePowerOut.GetValueOrDefault(node.Id);
+                bool glow = online && pOut;
+                StylePowerWire(leftLine, online, pIn);
+                StylePowerWire(rightLine, online, pOut);
+                glyphBorder.Background = glow ? CreateBrush("#3322C55E") : Brushes.Transparent;
+                glyphText.Foreground = CreateBrush(glow ? "#22C55E" : (ThemeManager.IsEffectiveDark ? "#F8FAFC" : "#0F172A"));
+            });
+
             vStack.Children.Add(glyphGrid);
             container.Child = vStack;
+            _renderedNodeVisuals[node.Id] = container;
             return container;
         }
 
-        // --- Khối hàm chuẩn TIA Portal (hỗ trợ đồng bộ tất cả 10 nhóm + Empty box) ---
+        // --- B. Khối hàm chuẩn IEC 61131-3 ---
         var boxGrid = new Grid { VerticalAlignment = VerticalAlignment.Center };
         boxGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14) });
         boxGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         boxGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14) });
 
-        var inWire = new Border { Height = 2.4, Background = CreateBrush(wireInHex), VerticalAlignment = VerticalAlignment.Center };
+        var inWire = CreatePowerWire(isOnline, powerIn, isVertical: false, thickness: 2.4);
         Grid.SetColumn(inWire, 0);
         boxGrid.Children.Add(inWire);
 
-        var outWire = new Border { Height = 2.4, Background = CreateBrush(wireOutHex), VerticalAlignment = VerticalAlignment.Center };
+        var outWire = CreatePowerWire(isOnline, powerOut, isVertical: false, thickness: 2.4);
         Grid.SetColumn(outWire, 2);
         boxGrid.Children.Add(outWire);
 
-        var blockOuter = new StackPanel { MinWidth = 152 };
+        var blockOuter = new StackPanel { MinWidth = 160 };
 
-        // Địa chỉ DB hoặc địa chỉ chính ở trên hộp (chuẩn TIA Portal — hiển thị <???> đỏ nếu chưa gán DB)
+        // Địa chỉ DB / địa chỉ chính ở đỉnh hộp
         if (meta is { UsesDbBlock: true } || node.Kind is LadderElementKind.FlipFlopSR or LadderElementKind.FlipFlopRS or LadderElementKind.SetBitField or LadderElementKind.ResetBitField or LadderElementKind.PTrig or LadderElementKind.NTrig)
         {
-            var (normA, quotedSym) = _plc!.DraftProgram.FormatDisplayPair(node.Address, node.SymbolName);
-            bool isUnassigned = normA == "<???>";
+            if (_inlineEditNode == node && _inlineEditField == "Address")
+            {
+                blockOuter.Children.Add(CreateInlineEditTextBox(node, "Address", 110));
+            }
+            else
+            {
+                var (absA, _) = _plc!.DraftProgram.FormatDisplayPair(node.Address, node.SymbolName);
+                var (line1, line2) = _plc.DraftProgram.FormatForDisplayMode(node.Address, node.SymbolName, _displayMode);
+                bool isUnassigned = absA == "<???>";
 
-            var dbHeaderPill = new Border
-            {
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Padding = new Thickness(6, 1, 6, 1),
-                Margin = new Thickness(0, 0, 0, 1),
-                CornerRadius = new CornerRadius(3),
-                Background = isUnassigned ? CreateBrush("#28EF4444") : Brushes.Transparent,
-                BorderThickness = new Thickness(isUnassigned ? 1 : 0),
-                BorderBrush = isUnassigned ? CreateBrush("#EF4444") : Brushes.Transparent,
-                Cursor = Cursors.Hand,
-                ToolTip = isUnassigned
-                    ? LocalizationManager.Get("Str.Plc.ClickAssignDbTip")
-                    : LocalizationManager.Get("Str.Plc.DoubleClickHint")
-            };
+                var dbHeaderPill = new Border
+                {
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Padding = new Thickness(6, 1, 6, 1),
+                    Margin = new Thickness(0, 0, 0, 1),
+                    CornerRadius = new CornerRadius(3),
+                    Background = isUnassigned ? CreateBrush("#28EF4444") : Brushes.Transparent,
+                    BorderThickness = new Thickness(isUnassigned ? 1 : 0),
+                    BorderBrush = isUnassigned ? CreateBrush("#EF4444") : Brushes.Transparent,
+                    Cursor = Cursors.Hand,
+                    ToolTip = isUnassigned
+                        ? LocalizationManager.Get("Str.Plc.ClickAssignDbTip")
+                        : LocalizationManager.Get("Str.Plc.DoubleClickHint")
+                };
 
-            var dbHdrStack = new StackPanel();
-            dbHdrStack.Children.Add(new TextBlock
-            {
-                Text = normA,
-                FontFamily = new FontFamily("Consolas"),
-                FontSize = 10.0,
-                FontWeight = FontWeights.Bold,
-                Foreground = CreateBrush(isUnassigned ? "#EF4444" : addrTeal),
-                HorizontalAlignment = HorizontalAlignment.Center
-            });
-            if (!string.IsNullOrEmpty(quotedSym))
-            {
+                var dbHdrStack = new StackPanel();
                 dbHdrStack.Children.Add(new TextBlock
                 {
-                    Text = quotedSym,
-                    FontSize = 9.3,
-                    FontWeight = FontWeights.SemiBold,
-                    Foreground = (Brush)FindResource("TextPrimaryBrush"),
+                    Text = line1,
+                    FontFamily = new FontFamily("Consolas"),
+                    FontSize = 10.0,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = CreateBrush(isUnassigned ? "#EF4444" : addrTeal),
                     HorizontalAlignment = HorizontalAlignment.Center
                 });
-            }
-            dbHeaderPill.Child = dbHdrStack;
-
-            if (isUnassigned && node.RequiresCallOptions)
-            {
-                dbHeaderPill.MouseLeftButtonDown += (_, e) =>
+                if (!string.IsNullOrEmpty(line2))
                 {
-                    e.Handled = true;
-                    _selectedNetworkIndex = netIdx;
-                    _selectedBranch = ownerBranch;
-                    _selectedNode = node;
-                    if (PromptCallOptionsForNode(node, isNewInsert: false))
+                    dbHdrStack.Children.Add(new TextBlock
                     {
-                        NotifyProgramChanged();
-                        RenderNetworks();
-                        UpdatePropertyBarForSelectedNode();
-                    }
-                };
-            }
+                        Text = line2,
+                        FontSize = 9.3,
+                        FontWeight = FontWeights.SemiBold,
+                        Foreground = (Brush)FindResource("TextPrimaryBrush"),
+                        HorizontalAlignment = HorizontalAlignment.Center
+                    });
+                }
+                dbHeaderPill.Child = dbHdrStack;
 
-            blockOuter.Children.Add(dbHeaderPill);
+                if (isUnassigned && node.RequiresCallOptions)
+                {
+                    dbHeaderPill.MouseLeftButtonDown += (_, e) =>
+                    {
+                        e.Handled = true;
+                        _selectedNetworkIndex = netIdx;
+                        _selectedBranch = ownerBranch;
+                        _selectedNode = node;
+                        if (PromptCallOptionsForNode(node, isNewInsert: false, pushUndoOnSuccess: true))
+                        {
+                            NotifyProgramChanged();
+                            RenderNetworks();
+                            UpdatePropertyBarForSelectedNode();
+                        }
+                    };
+                }
+                blockOuter.Children.Add(dbHeaderPill);
+            }
         }
 
         bool boxActive = isOnline && powerOut;
@@ -896,67 +2202,230 @@ public partial class PlcLadderEditorControl : UserControl
         string headerTitle = node.Kind == LadderElementKind.EmptyBox
             ? $"?? {node.Address}"
             : (meta?.BoxHeader ?? node.Kind.ToString());
+        if (!string.IsNullOrWhiteSpace(node.DataType) && PlcInstructionCatalog.SupportsDataTypeSelector(node.Kind))
+            headerTitle = $"{headerTitle} ({node.DataType})";
         string headerHex = node.Kind == LadderElementKind.EmptyBox ? "#B45309" : (meta?.AccentHex ?? "#0284C7");
 
-        boxStack.Children.Add(new Border
+        // Header bar (có nút fx cho CALCULATE)
+        var headerDock = new DockPanel { LastChildFill = true };
+        if (node.Kind == LadderElementKind.Calculate)
+        {
+            var fxBtn = new Button
+            {
+                Content = "fx",
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 9.5,
+                FontWeight = FontWeights.Bold,
+                Padding = new Thickness(5, 0.5, 5, 0.5),
+                Margin = new Thickness(4, 0, 0, 0),
+                Background = CreateBrush("#9D174D"),
+                Foreground = Brushes.White,
+                BorderThickness = new Thickness(0),
+                Cursor = Cursors.Hand,
+                ToolTip = LocalizationManager.Get("Str.Plc.EditEquationBtn")
+            };
+            fxBtn.Click += (_, e) => { e.Handled = true; OpenCalculateEquationDialog(node); };
+            DockPanel.SetDock(fxBtn, Dock.Right);
+            headerDock.Children.Add(fxBtn);
+        }
+
+        headerDock.Children.Add(new TextBlock
+        {
+            Text = headerTitle,
+            FontFamily = new FontFamily("Consolas"),
+            FontSize = 10.4,
+            FontWeight = FontWeights.Bold,
+            Foreground = Brushes.White,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        var headerBorder = new Border
         {
             Background = CreateBrush(boxActive ? "#15803D" : headerHex),
             CornerRadius = new CornerRadius(3, 3, 0, 0),
-            Padding = new Thickness(8, 2.5, 8, 2.5),
-            Child = new TextBlock
-            {
-                Text = headerTitle,
-                FontFamily = new FontFamily("Consolas"),
-                FontSize = 10.6,
-                FontWeight = FontWeights.Bold,
-                Foreground = Brushes.White,
-                HorizontalAlignment = HorizontalAlignment.Center
-            }
-        });
+            Padding = new Thickness(7, 2.5, 7, 2.5),
+            Child = headerDock
+        };
+        boxStack.Children.Add(headerBorder);
+
+        TextBlock? liveQText = null;
+        TextBlock? liveQdText = null;
+        TextBlock? liveStatusTb = null;
+        string liveFallbackText = string.Empty;
 
         var bodyStack = new StackPanel { Margin = new Thickness(7, 4, 7, 5) };
         if (node.Kind == LadderElementKind.EmptyBox)
         {
-            AddBoxParamRow(bodyStack, "CMD", "Type name (TON, NORM_X...)", "#F59E0B", "", "", "#94A3B8");
+            AddBoxParamRow(bodyStack, "CMD", "TON, CMP, ADD, NORM_X...", "#F59E0B", "", "", "#94A3B8");
         }
         else if (node.IsTimer)
         {
-            AddBoxParamRow(bodyStack, "PT", node.Param1, paramBlue, "Q", boxActive ? "1" : "0", boxActive ? "#22C55E" : "#94A3B8");
+            liveFallbackText = "T#0ms";
+            (_, liveQText) = AddEditableOrStaticPinRow(bodyStack, node, ownerBranch, netIdx, "PT", "Param1", node.Param1, paramBlue, "Q", null, boxActive ? "1" : "0", boxActive ? "#22C55E" : "#94A3B8");
             if (node.Kind == LadderElementKind.TimerTONR)
-                AddBoxParamRow(bodyStack, "R", node.Param2, addrTeal, "ET", string.IsNullOrEmpty(liveText) ? "T#0ms" : liveText, "#22C55E");
+                (_, liveStatusTb) = AddEditableOrStaticPinRow(bodyStack, node, ownerBranch, netIdx, "R", "Param2", _plc!.DraftProgram.FormatCompactPinOperand(node.Param2, _displayMode), addrTeal, "ET", null, string.IsNullOrEmpty(liveText) ? "T#0ms" : liveText, "#22C55E");
             else
-                AddBoxParamRow(bodyStack, "ET", string.IsNullOrEmpty(liveText) ? "T#0ms" : liveText, "#22C55E", "", "", "#94A3B8");
+                (liveStatusTb, _) = AddBoxParamRow(bodyStack, "ET", string.IsNullOrEmpty(liveText) ? "T#0ms" : liveText, "#22C55E", "", "", "#94A3B8");
+        }
+        else if (node.Kind == LadderElementKind.CounterCTUD)
+        {
+            liveFallbackText = "0";
+            string cvInit = ExtractCtudCv(liveText);
+            string qdInit = ExtractCtudQd(liveText);
+            (_, liveQText) = AddEditableOrStaticPinRow(bodyStack, node, ownerBranch, netIdx, "PV", "Param1", node.Param1, paramBlue, "QU", null, boxActive ? "1" : "0", boxActive ? "#22C55E" : "#94A3B8");
+            (_, liveQdText) = AddEditableOrStaticPinRow(bodyStack, node, ownerBranch, netIdx, "CD", "OutputAddress", string.IsNullOrWhiteSpace(node.OutputAddress) ? "-" : _plc!.DraftProgram.FormatCompactPinOperand(node.OutputAddress, _displayMode), addrTeal, "QD", null, qdInit, qdInit == "1" ? "#22C55E" : "#94A3B8");
+            (_, liveStatusTb) = AddEditableOrStaticPinRow(bodyStack, node, ownerBranch, netIdx, "R", "Param2", string.IsNullOrWhiteSpace(node.Param2) ? "-" : _plc!.DraftProgram.FormatCompactPinOperand(node.Param2, _displayMode), addrTeal, "CV", null, cvInit, "#22C55E");
+            AddEditableOrStaticPinRow(bodyStack, node, ownerBranch, netIdx, "LD", "ExtraParam", string.IsNullOrWhiteSpace(node.ExtraParam) ? "-" : _plc!.DraftProgram.FormatCompactPinOperand(node.ExtraParam, _displayMode), addrTeal, "", null, "", "#94A3B8");
         }
         else if (node.IsCounter)
         {
+            liveFallbackText = "0";
             string rLabel = node.Kind == LadderElementKind.CounterCTD ? "LD" : "R";
-            AddBoxParamRow(bodyStack, "PV", node.Param1, paramBlue, "Q", boxActive ? "1" : "0", boxActive ? "#22C55E" : "#94A3B8");
-            AddBoxParamRow(bodyStack, rLabel, string.IsNullOrWhiteSpace(node.Param2) ? "-" : node.Param2, addrTeal, "CV", string.IsNullOrEmpty(liveText) ? "0" : liveText.Replace("CV: ", ""), "#22C55E");
+            (_, liveQText) = AddEditableOrStaticPinRow(bodyStack, node, ownerBranch, netIdx, "PV", "Param1", node.Param1, paramBlue, "Q", null, boxActive ? "1" : "0", boxActive ? "#22C55E" : "#94A3B8");
+            (_, liveStatusTb) = AddEditableOrStaticPinRow(bodyStack, node, ownerBranch, netIdx, rLabel, "Param2", string.IsNullOrWhiteSpace(node.Param2) ? "-" : _plc!.DraftProgram.FormatCompactPinOperand(node.Param2, _displayMode), addrTeal, "CV", null, string.IsNullOrEmpty(liveText) ? "0" : liveText.Replace("CV: ", ""), "#22C55E");
         }
         else if (node.Kind == LadderElementKind.Label)
         {
-            AddBoxParamRow(bodyStack, "LABEL", node.Address, "#F97316", "", "", "#94A3B8");
+            AddEditableOrStaticPinRow(bodyStack, node, ownerBranch, netIdx, "LABEL", "Address", node.Address, "#F97316", "", null, "", "#94A3B8");
         }
         else if (meta is not null)
         {
             if (meta.AddrLabel is not null && !meta.UsesDbBlock &&
                 node.Kind is not (LadderElementKind.FlipFlopSR or LadderElementKind.FlipFlopRS or LadderElementKind.SetBitField or LadderElementKind.ResetBitField or LadderElementKind.PTrig or LadderElementKind.NTrig))
-                AddBoxParamRow(bodyStack, meta.AddrLabel, node.Address, addrTeal, "", "", "#94A3B8");
+            {
+                AddEditableOrStaticPinRow(bodyStack, node, ownerBranch, netIdx, meta.AddrLabel, "Address", _plc!.DraftProgram.FormatCompactPinOperand(node.Address, _displayMode), addrTeal, "", null, "", "#94A3B8");
+            }
 
             if (meta.Param1Label is not null || meta.OutLabel is not null)
-                AddBoxParamRow(bodyStack,
-                    meta.Param1Label ?? "", node.Param1, node.Param1.StartsWith('%') ? addrTeal : paramBlue,
-                    meta.OutLabel ?? "", node.OutputAddress, addrTeal);
+            {
+                string p1Text = _plc!.DraftProgram.FormatCompactPinOperand(node.Param1, _displayMode);
+                string outText = _plc.DraftProgram.FormatCompactPinOperand(node.OutputAddress, _displayMode);
+                string outLbl = node.Kind == LadderElementKind.Move && node.ExtraOutputs is { Count: > 0 } ? "OUT1" : (meta.OutLabel ?? "");
+                AddEditableOrStaticPinRow(bodyStack, node, ownerBranch, netIdx,
+                    meta.Param1Label ?? "", meta.Param1Label is not null ? "Param1" : null, p1Text, p1Text.StartsWith('%') ? addrTeal : paramBlue,
+                    outLbl, meta.OutLabel is not null ? "OutputAddress" : null, outText, addrTeal);
+            }
+
+            // Các chân đầu ra mở rộng OUT2, OUT3... cho MOVE
+            if (PlcInstructionCatalog.SupportsMultiOutput(node.Kind) && node.ExtraOutputs is not null)
+            {
+                for (int k = 0; k < node.ExtraOutputs.Count; k++)
+                {
+                    string outVal = _plc!.DraftProgram.FormatCompactPinOperand(node.ExtraOutputs[k], _displayMode);
+                    AddEditableOrStaticPinRow(bodyStack, node, ownerBranch, netIdx, "", null, "", paramBlue,
+                        $"OUT{k + 2}", $"ExtraOutput:{k}", outVal, addrTeal);
+                }
+            }
 
             if (meta.Param2Label is not null)
-                AddBoxParamRow(bodyStack, meta.Param2Label, node.Param2, node.Param2.StartsWith('%') ? addrTeal : paramBlue,
-                    "", string.IsNullOrEmpty(meta.ExtraLabel) ? liveText : "", "#22C55E");
+            {
+                string p2Text = _plc!.DraftProgram.FormatCompactPinOperand(node.Param2, _displayMode);
+                bool showLiveHere = string.IsNullOrEmpty(meta.ExtraLabel) && (node.ExtraInputs is null || node.ExtraInputs.Count == 0);
+                (_, var tb) = AddEditableOrStaticPinRow(bodyStack, node, ownerBranch, netIdx, meta.Param2Label, "Param2", p2Text, p2Text.StartsWith('%') ? addrTeal : paramBlue,
+                    "", null, showLiveHere ? liveText : "", "#22C55E");
+                if (showLiveHere) liveStatusTb = tb;
+            }
+
+            // Các chân mở rộng IN3, IN4, ... (ADD, MUL, AND, OR, XOR, MUX, MIN, MAX, CALCULATE)
+            if (PlcInstructionCatalog.SupportsMultiInput(node.Kind) && node.ExtraInputs is not null)
+            {
+                for (int k = 0; k < node.ExtraInputs.Count; k++)
+                {
+                    string pinLbl = PlcInstructionCatalog.GetExtraInputLabel(node.Kind, k);
+                    string pinVal = _plc!.DraftProgram.FormatCompactPinOperand(node.ExtraInputs[k], _displayMode);
+                    bool showLive = k == node.ExtraInputs.Count - 1 && string.IsNullOrEmpty(meta.ExtraLabel);
+                    (_, var tb) = AddEditableOrStaticPinRow(bodyStack, node, ownerBranch, netIdx, pinLbl, $"ExtraInput:{k}", pinVal, pinVal.StartsWith('%') ? addrTeal : paramBlue,
+                        "", null, showLive ? liveText : "", "#22C55E");
+                    if (showLive) liveStatusTb = tb;
+                }
+            }
 
             if (meta.ExtraLabel is not null)
-                AddBoxParamRow(bodyStack, meta.ExtraLabel, node.ExtraParam, paramBlue, "", liveText, "#22C55E");
-            else if (meta.Param2Label is null && !string.IsNullOrEmpty(liveText))
-                AddBoxParamRow(bodyStack, "VAL", liveText, "#22C55E", "", "", "#94A3B8");
+            {
+                string exText = node.Kind == LadderElementKind.Calculate
+                    ? node.ExtraParam
+                    : _plc!.DraftProgram.FormatCompactPinOperand(node.ExtraParam, _displayMode);
+                (_, liveStatusTb) = AddEditableOrStaticPinRow(bodyStack, node, ownerBranch, netIdx, meta.ExtraLabel, "ExtraParam", exText, paramBlue, "", null, liveText, "#22C55E");
+            }
+            else if (meta.Param2Label is null)
+            {
+                (liveStatusTb, _) = AddBoxParamRow(bodyStack, "VAL", liveText, "#22C55E", "", "", "#94A3B8");
+            }
+
+            // Nút "+" thêm chân đầu vào (Insert input) hoặc đầu ra (MOVE + OUT) ngay trên hộp hàm
+            if (PlcInstructionCatalog.SupportsMultiInput(node.Kind) && node.Kind != LadderElementKind.Calculate)
+            {
+                var addPinBtn = new Button
+                {
+                    Content = "+ IN",
+                    FontFamily = new FontFamily("Consolas"),
+                    FontSize = 8.8,
+                    FontWeight = FontWeights.Bold,
+                    Padding = new Thickness(5, 0.5, 5, 0.5),
+                    Margin = new Thickness(0, 3, 0, 0),
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    ToolTip = LocalizationManager.Get("Str.Plc.InsertPinBtn")
+                };
+                addPinBtn.SetResourceReference(StyleProperty, "ToolbarButtonStyle");
+                addPinBtn.Click += (_, e) => { e.Handled = true; InsertExtraInputOnNode(node); };
+                bodyStack.Children.Add(addPinBtn);
+            }
+            else if (PlcInstructionCatalog.SupportsMultiOutput(node.Kind))
+            {
+                var addOutBtn = new Button
+                {
+                    Content = "+ OUT",
+                    FontFamily = new FontFamily("Consolas"),
+                    FontSize = 8.8,
+                    FontWeight = FontWeights.Bold,
+                    Padding = new Thickness(5, 0.5, 5, 0.5),
+                    Margin = new Thickness(0, 3, 0, 0),
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    ToolTip = LocalizationManager.Get("Str.Plc.InsertOutPinBtn")
+                };
+                addOutBtn.SetResourceReference(StyleProperty, "ToolbarButtonStyle");
+                addOutBtn.Click += (_, e) => { e.Handled = true; InsertExtraOutputOnNode(node); };
+                bodyStack.Children.Add(addOutBtn);
+            }
         }
+
+        _liveOnlineUpdaters.Add(online =>
+        {
+            bool pIn = online && _plc is not null && _plc.Runtime.LiveNodePowerIn.GetValueOrDefault(node.Id);
+            bool pOut = online && _plc is not null && _plc.Runtime.LiveNodePowerOut.GetValueOrDefault(node.Id);
+            bool bAct = online && pOut;
+            StylePowerWire(inWire, online, pIn);
+            StylePowerWire(outWire, online, pOut);
+            boxBorder.BorderThickness = new Thickness(bAct ? 2.0 : 1.3);
+            boxBorder.BorderBrush = CreateBrush(bAct ? "#22C55E" : (node.Kind == LadderElementKind.EmptyBox ? "#F59E0B" : (node.Address == "<???>" ? "#EF4444" : (pIn ? "#38BDF8" : "#64748B"))));
+            headerBorder.Background = CreateBrush(bAct ? "#15803D" : headerHex);
+
+            string stTxt = online && _plc is not null
+                ? _plc.Runtime.LiveNodeStatusText.GetValueOrDefault(node.Id, string.Empty)
+                : string.Empty;
+
+            if (liveQText is not null)
+            {
+                liveQText.Text = bAct ? "1" : "0";
+                liveQText.Foreground = CreateBrush(bAct ? "#22C55E" : "#94A3B8");
+            }
+            if (liveQdText is not null)
+            {
+                string qd = online ? ExtractCtudQd(stTxt) : "0";
+                liveQdText.Text = qd;
+                liveQdText.Foreground = CreateBrush(qd == "1" ? "#22C55E" : "#94A3B8");
+            }
+            if (liveStatusTb is not null)
+            {
+                if (node.Kind == LadderElementKind.CounterCTUD)
+                    liveStatusTb.Text = online ? ExtractCtudCv(stTxt) : "0";
+                else if (node.IsCounter)
+                    liveStatusTb.Text = string.IsNullOrEmpty(stTxt) ? "0" : stTxt.Replace("CV: ", "");
+                else
+                    liveStatusTb.Text = string.IsNullOrEmpty(stTxt) ? liveFallbackText : stTxt;
+            }
+        });
 
         boxStack.Children.Add(bodyStack);
         boxBorder.Child = boxStack;
@@ -965,21 +2434,119 @@ public partial class PlcLadderEditorControl : UserControl
         Grid.SetColumn(blockOuter, 1);
         boxGrid.Children.Add(blockOuter);
         container.Child = boxGrid;
+        _renderedNodeVisuals[node.Id] = container;
         return container;
     }
 
-    private static void AddBoxParamRow(StackPanel host, string leftKey, string leftVal, string leftHex, string rightKey, string rightVal, string rightHex)
+    private static string ExtractCtudCv(string liveText)
+    {
+        if (string.IsNullOrEmpty(liveText)) return "0";
+        int pipe = liveText.IndexOf('|');
+        string left = pipe >= 0 ? liveText[..pipe] : liveText;
+        return left.Replace("CV: ", "", StringComparison.Ordinal).Trim();
+    }
+
+    private static string ExtractCtudQd(string liveText)
+    {
+        if (string.IsNullOrEmpty(liveText)) return "0";
+        int idx = liveText.IndexOf("QD:", StringComparison.Ordinal);
+        return idx >= 0 && idx + 3 < liveText.Length ? liveText[(idx + 3)..].Trim() : "0";
+    }
+
+    private (TextBlock? LeftValTb, TextBlock? RightValTb) AddEditableOrStaticPinRow(
+        StackPanel host,
+        LadderNode node,
+        LadderBranch ownerBranch,
+        int netIdx,
+        string leftKey,
+        string? leftField,
+        string leftVal,
+        string leftHex,
+        string rightKey,
+        string? rightField,
+        string rightVal,
+        string rightHex)
     {
         var g = new Grid { Margin = new Thickness(0, 1, 0, 1) };
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
+        TextBlock? leftTb = null;
+        TextBlock? rightTb = null;
+
+        void AttachPinDoubleClick(UIElement target, string fieldName)
+        {
+            target.MouseLeftButtonDown += (_, e) =>
+            {
+                if (e.ClickCount != 2) return;
+                e.Handled = true;
+                _selectedNetworkIndex = netIdx;
+                _selectedBranch = ownerBranch;
+                _selectedNode = node;
+                UpdatePropertyBarForSelectedNode();
+                if (node.Kind == LadderElementKind.Calculate && fieldName == "ExtraParam")
+                    OpenCalculateEquationDialog(node);
+                else
+                    StartInlineEdit(node, fieldName);
+            };
+        }
+
+        var lStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        if (!string.IsNullOrEmpty(leftKey))
+            lStack.Children.Add(new TextBlock { Text = $"{leftKey}: ", FontSize = 9.0, Foreground = CreateBrush("#94A3B8"), VerticalAlignment = VerticalAlignment.Center });
+
+        if (leftField is not null && _inlineEditNode == node && _inlineEditField == leftField)
+        {
+            lStack.Children.Add(CreateInlineEditTextBox(node, leftField, 64));
+        }
+        else if (!string.IsNullOrEmpty(leftVal) || leftField is not null)
+        {
+            leftTb = new TextBlock { Text = string.IsNullOrEmpty(leftVal) ? "-" : leftVal, FontFamily = new FontFamily("Consolas"), FontSize = 9.6, FontWeight = FontWeights.Bold, Foreground = CreateBrush(leftHex), VerticalAlignment = VerticalAlignment.Center };
+            lStack.Children.Add(leftTb);
+            if (leftField is not null) AttachPinDoubleClick(lStack, leftField);
+        }
+        Grid.SetColumn(lStack, 0);
+        g.Children.Add(lStack);
+
+        if (!string.IsNullOrEmpty(rightKey) || !string.IsNullOrEmpty(rightVal) || rightField is not null || (rightField is not null && _inlineEditNode == node && _inlineEditField == rightField))
+        {
+            var rStack = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            if (!string.IsNullOrEmpty(rightKey))
+                rStack.Children.Add(new TextBlock { Text = $"{rightKey}: ", FontSize = 9.0, Foreground = CreateBrush("#94A3B8"), VerticalAlignment = VerticalAlignment.Center });
+
+            if (rightField is not null && _inlineEditNode == node && _inlineEditField == rightField)
+                rStack.Children.Add(CreateInlineEditTextBox(node, rightField, 64));
+            else
+            {
+                rightTb = new TextBlock { Text = string.IsNullOrEmpty(rightVal) && rightField is not null ? "-" : rightVal, FontFamily = new FontFamily("Consolas"), FontSize = 9.6, FontWeight = FontWeights.Bold, Foreground = CreateBrush(rightHex), VerticalAlignment = VerticalAlignment.Center };
+                rStack.Children.Add(rightTb);
+                if (rightField is not null) AttachPinDoubleClick(rStack, rightField);
+            }
+
+            Grid.SetColumn(rStack, 2);
+            g.Children.Add(rStack);
+        }
+
+        host.Children.Add(g);
+        return (leftTb, rightTb);
+    }
+
+    private static (TextBlock? LeftValTb, TextBlock? RightValTb) AddBoxParamRow(StackPanel host, string leftKey, string leftVal, string leftHex, string rightKey, string rightVal, string rightHex)
+    {
+        var g = new Grid { Margin = new Thickness(0, 1, 0, 1) };
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        TextBlock? leftTb = null;
+        TextBlock? rightTb = null;
+
         var lStack = new StackPanel { Orientation = Orientation.Horizontal };
         if (!string.IsNullOrEmpty(leftKey))
             lStack.Children.Add(new TextBlock { Text = $"{leftKey}: ", FontSize = 9.0, Foreground = CreateBrush("#94A3B8") });
-        if (!string.IsNullOrEmpty(leftVal))
-            lStack.Children.Add(new TextBlock { Text = leftVal, FontFamily = new FontFamily("Consolas"), FontSize = 9.6, FontWeight = FontWeights.Bold, Foreground = CreateBrush(leftHex) });
+        leftTb = new TextBlock { Text = leftVal, FontFamily = new FontFamily("Consolas"), FontSize = 9.6, FontWeight = FontWeights.Bold, Foreground = CreateBrush(leftHex) };
+        lStack.Children.Add(leftTb);
         Grid.SetColumn(lStack, 0);
         g.Children.Add(lStack);
 
@@ -988,16 +2555,299 @@ public partial class PlcLadderEditorControl : UserControl
             var rStack = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(10, 0, 0, 0) };
             if (!string.IsNullOrEmpty(rightKey))
                 rStack.Children.Add(new TextBlock { Text = $"{rightKey}: ", FontSize = 9.0, Foreground = CreateBrush("#94A3B8") });
-            rStack.Children.Add(new TextBlock { Text = rightVal, FontFamily = new FontFamily("Consolas"), FontSize = 9.6, FontWeight = FontWeights.Bold, Foreground = CreateBrush(rightHex) });
+            rightTb = new TextBlock { Text = rightVal, FontFamily = new FontFamily("Consolas"), FontSize = 9.6, FontWeight = FontWeights.Bold, Foreground = CreateBrush(rightHex) };
+            rStack.Children.Add(rightTb);
             Grid.SetColumn(rStack, 2);
             g.Children.Add(rStack);
         }
 
         host.Children.Add(g);
+        return (leftTb, rightTb);
     }
 
     // =========================================================================
-    // 3. POPUP GỢI Ý 3 CỘT (TAG / DATA BLOCK + TRUY XUẤT THÀNH PHẦN DB ".")
+    // 7. MENU CHUỘT PHẢI THÔNG MINH (DEFINE TAG / RENAME TAG / CALL TYPE / EQUATION / CUT-COPY-PASTE)
+    // =========================================================================
+
+    private ContextMenu BuildNodeContextMenu(LadderNode node, LadderBranch ownerBranch, int netIdx)
+    {
+        var cm = new ContextMenu();
+
+        if (node.Kind != LadderElementKind.ParallelBlock)
+        {
+            var editItem = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxInlineEdit"), InputGestureText = "Enter / F2" };
+            editItem.Click += (_, _) =>
+            {
+                _selectedNetworkIndex = netIdx;
+                _selectedBranch = ownerBranch;
+                _selectedNode = node;
+                if (node.Kind == LadderElementKind.EmptyBox)
+                    OpenEmptyBoxPopup(_renderedNodeVisuals.GetValueOrDefault(node.Id) ?? (UIElement)BtnEmptyBox, node);
+                else
+                    StartInlineEdit(node, GetOrderedEditableFields(node).FirstOrDefault());
+            };
+            cm.Items.Add(editItem);
+
+            var defTagItem = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxDefineTag"), InputGestureText = "Alt+Shift+D" };
+            defTagItem.Click += (_, _) => OpenDefineTagForNode(node);
+            cm.Items.Add(defTagItem);
+
+            var renTagItem = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxRenameTag"), InputGestureText = "Alt+Shift+N" };
+            renTagItem.Click += (_, _) => OpenRenameTagForNode(node);
+            cm.Items.Add(renTagItem);
+
+            if (node.RequiresCallOptions)
+            {
+                var callTypeItem = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxChangeCallType") };
+                callTypeItem.Click += (_, _) =>
+                {
+                    if (PromptCallOptionsForNode(node, isNewInsert: false, pushUndoOnSuccess: true))
+                    {
+                        NotifyProgramChanged();
+                        RenderNetworks();
+                        UpdatePropertyBarForSelectedNode();
+                    }
+                };
+                cm.Items.Add(callTypeItem);
+            }
+
+            if (node.Kind == LadderElementKind.Calculate)
+            {
+                var calcItem = new MenuItem { Header = LocalizationManager.Get("Str.Plc.EditEquationBtn") };
+                calcItem.Click += (_, _) => OpenCalculateEquationDialog(node);
+                cm.Items.Add(calcItem);
+            }
+
+            if (PlcInstructionCatalog.SupportsMultiInput(node.Kind) && node.Kind != LadderElementKind.Calculate)
+            {
+                var addPinItem = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxInsertInputPin") };
+                addPinItem.Click += (_, _) => InsertExtraInputOnNode(node);
+                cm.Items.Add(addPinItem);
+
+                if (node.ExtraInputs is { Count: > 0 })
+                {
+                    var remPinItem = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxRemoveInputPin") };
+                    remPinItem.Click += (_, _) => RemoveLastExtraInputOnNode(node);
+                    cm.Items.Add(remPinItem);
+                }
+            }
+
+            if (PlcInstructionCatalog.SupportsMultiOutput(node.Kind))
+            {
+                var addOutItem = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxInsertOutPin") };
+                addOutItem.Click += (_, _) => InsertExtraOutputOnNode(node);
+                cm.Items.Add(addOutItem);
+
+                if (node.ExtraOutputs is { Count: > 0 })
+                {
+                    var remOutItem = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxRemoveOutPin") };
+                    remOutItem.Click += (_, _) => RemoveLastExtraOutputOnNode(node);
+                    cm.Items.Add(remOutItem);
+                }
+            }
+
+            cm.Items.Add(new Separator());
+        }
+
+        var cutItem = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxCut"), InputGestureText = "Ctrl+X" };
+        cutItem.Click += (_, _) => { _selectedNetworkIndex = netIdx; _selectedBranch = ownerBranch; _selectedNode = node; CutSelection(); };
+        cm.Items.Add(cutItem);
+
+        var copyItem = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxCopy"), InputGestureText = "Ctrl+C" };
+        copyItem.Click += (_, _) => { _selectedNetworkIndex = netIdx; _selectedBranch = ownerBranch; _selectedNode = node; CopySelection(); };
+        cm.Items.Add(copyItem);
+
+        var pasteItem = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxPaste"), InputGestureText = "Ctrl+V", IsEnabled = _clipboardNode is not null };
+        pasteItem.Click += (_, _) => { _selectedNetworkIndex = netIdx; _selectedBranch = ownerBranch; _selectedNode = node; PasteSelection(); };
+        cm.Items.Add(pasteItem);
+
+        var delItem = new MenuItem { Header = LocalizationManager.Get("Str.Plc.CtxDelete"), InputGestureText = "Delete", Foreground = CreateBrush("#EF4444") };
+        delItem.Click += (_, _) => { _selectedNetworkIndex = netIdx; _selectedBranch = ownerBranch; _selectedNode = node; DeleteSelection(); };
+        cm.Items.Add(delItem);
+
+        return cm;
+    }
+
+    private void OpenDefineTagForNode(LadderNode node)
+    {
+        if (_plc is null) return;
+        var prog = _plc.DraftProgram;
+        string raw = !string.IsNullOrWhiteSpace(node.Address) ? node.Address : node.OutputAddress;
+        string suggestedName = !string.IsNullOrWhiteSpace(node.SymbolName)
+            ? PlcAddressHelper.StripQuotes(node.SymbolName)
+            : (!PlcAddressHelper.IsAbsoluteAddress(raw) ? PlcAddressHelper.StripQuotes(raw) : prog.ResolveTagName(raw));
+        string suggestedAddr = PlcAddressHelper.IsAbsoluteAddress(raw) ? PlcProgramModel.NormalizeAddress(raw) : string.Empty;
+        string suggestedType = node.IsContactOrCoilGlyph ? "Bool" : (string.IsNullOrWhiteSpace(node.DataType) ? "Int" : node.DataType);
+
+        var dlg = new PlcDefineTagDialog(prog, suggestedName, suggestedAddr, suggestedType);
+        var owner = Window.GetWindow(this);
+        if (owner is { IsVisible: true }) dlg.Owner = owner;
+
+        if (dlg.ShowDialog() == true)
+        {
+            PushUndoSnapshot();
+            var existing = prog.Tags.FirstOrDefault(t =>
+                t.Name.Equals(dlg.TagName, StringComparison.OrdinalIgnoreCase) ||
+                PlcProgramModel.NormalizeAddress(t.Address).Equals(dlg.TagAddress, StringComparison.OrdinalIgnoreCase));
+            if (existing is not null)
+            {
+                existing.Name = dlg.TagName;
+                existing.Address = dlg.TagAddress;
+                existing.DataType = dlg.TagDataType;
+                if (!string.IsNullOrWhiteSpace(dlg.TagComment)) existing.Comment = dlg.TagComment;
+            }
+            else
+            {
+                prog.Tags.Add(new PlcTagEntry
+                {
+                    Name = dlg.TagName,
+                    Address = dlg.TagAddress,
+                    DataType = dlg.TagDataType,
+                    Comment = dlg.TagComment
+                });
+            }
+
+            if (!string.IsNullOrWhiteSpace(node.Address) || node.IsContactOrCoilGlyph)
+            {
+                node.Address = dlg.TagAddress;
+                node.SymbolName = dlg.TagName;
+            }
+            else if (!string.IsNullOrWhiteSpace(node.OutputAddress))
+            {
+                node.OutputAddress = dlg.TagAddress;
+            }
+
+            NotifyProgramChanged();
+            RenderNetworks();
+            UpdatePropertyBarForSelectedNode();
+            StatusMessageChanged?.Invoke(LocalizationManager.Format("Str.Plc.DefineTagDone", dlg.TagName, dlg.TagAddress));
+        }
+    }
+
+    private void OpenRenameTagForNode(LadderNode node)
+    {
+        if (_plc is null) return;
+        var prog = _plc.DraftProgram;
+        string currentName = prog.ResolveTagName(node.Address, node.SymbolName);
+        if (string.IsNullOrWhiteSpace(currentName) && !PlcAddressHelper.IsAbsoluteAddress(node.Address))
+            currentName = PlcAddressHelper.StripQuotes(node.Address);
+
+        if (string.IsNullOrWhiteSpace(currentName))
+        {
+            OpenDefineTagForNode(node);
+            return;
+        }
+
+        // Bỏ phần ".Q" hoặc ".x0" nếu đang đứng trên truy xuất thành viên / slice
+        int dot = currentName.IndexOf('.');
+        if (dot > 0) currentName = currentName[..dot];
+
+        string? nextName = InputPromptDialog.Prompt(
+            Window.GetWindow(this),
+            LocalizationManager.Get("Str.Plc.CtxRenameTag"),
+            LocalizationManager.Format("Str.Plc.RenameTagPrompt", currentName),
+            currentName);
+
+        if (!string.IsNullOrWhiteSpace(nextName))
+        {
+            string cleanNew = PlcAddressHelper.StripQuotes(nextName.Trim());
+            if (!cleanNew.Equals(currentName, StringComparison.Ordinal))
+            {
+                PushUndoSnapshot();
+                int count = prog.RenameTagEverywhere(currentName, cleanNew);
+                NotifyProgramChanged();
+                RenderNetworks();
+                UpdatePropertyBarForSelectedNode();
+                StatusMessageChanged?.Invoke(LocalizationManager.Format("Str.Plc.RenameTagDone", currentName, cleanNew, count));
+            }
+        }
+    }
+
+    private void OpenCalculateEquationDialog(LadderNode node)
+    {
+        if (_plc is null) return;
+        var dlg = new PlcCalculateDialog(node.DataType, node.ExtraParam);
+        var owner = Window.GetWindow(this);
+        if (owner is { IsVisible: true }) dlg.Owner = owner;
+
+        if (dlg.ShowDialog() == true)
+        {
+            PushUndoSnapshot();
+            node.DataType = dlg.SelectedDataType;
+            node.ExtraParam = dlg.ExpressionText;
+
+            int extraNeeded = Math.Max(0, dlg.RequiredInputs - 2);
+            if (extraNeeded == 0)
+            {
+                node.ExtraInputs = null;
+            }
+            else
+            {
+                node.ExtraInputs ??= new List<string>();
+                while (node.ExtraInputs.Count < extraNeeded)
+                    node.ExtraInputs.Add("0");
+                while (node.ExtraInputs.Count > extraNeeded)
+                    node.ExtraInputs.RemoveAt(node.ExtraInputs.Count - 1);
+            }
+
+            NotifyProgramChanged();
+            RenderNetworks();
+            UpdatePropertyBarForSelectedNode();
+        }
+    }
+
+    private void InsertExtraInputOnNode(LadderNode node)
+    {
+        if (_plc is null) return;
+        PushUndoSnapshot();
+        node.ExtraInputs ??= new List<string>();
+        if (node.ExtraInputs.Count < 14)
+        {
+            node.ExtraInputs.Add("0");
+            NotifyProgramChanged();
+            RenderNetworks();
+            UpdatePropertyBarForSelectedNode();
+        }
+    }
+
+    private void RemoveLastExtraInputOnNode(LadderNode node)
+    {
+        if (_plc is null || node.ExtraInputs is null || node.ExtraInputs.Count == 0) return;
+        PushUndoSnapshot();
+        node.ExtraInputs.RemoveAt(node.ExtraInputs.Count - 1);
+        if (node.ExtraInputs.Count == 0) node.ExtraInputs = null;
+        NotifyProgramChanged();
+        RenderNetworks();
+        UpdatePropertyBarForSelectedNode();
+    }
+
+    private void InsertExtraOutputOnNode(LadderNode node)
+    {
+        if (_plc is null) return;
+        PushUndoSnapshot();
+        node.ExtraOutputs ??= new List<string>();
+        if (node.ExtraOutputs.Count < 14)
+        {
+            node.ExtraOutputs.Add("%MW6");
+            NotifyProgramChanged();
+            RenderNetworks();
+            UpdatePropertyBarForSelectedNode();
+        }
+    }
+
+    private void RemoveLastExtraOutputOnNode(LadderNode node)
+    {
+        if (_plc is null || node.ExtraOutputs is null || node.ExtraOutputs.Count == 0) return;
+        PushUndoSnapshot();
+        node.ExtraOutputs.RemoveAt(node.ExtraOutputs.Count - 1);
+        if (node.ExtraOutputs.Count == 0) node.ExtraOutputs = null;
+        NotifyProgramChanged();
+        RenderNetworks();
+        UpdatePropertyBarForSelectedNode();
+    }
+
+    // =========================================================================
+    // 8. POPUP GỢI Ý 3 CỘT (USER TAGS + SYSTEM/CLOCK MEMORY + DB MEMBERS + SLICES)
     // =========================================================================
 
     private void OnOpenAutocompleteFromPropClick(object sender, RoutedEventArgs e)
@@ -1007,13 +2857,15 @@ public partial class PlcLadderEditorControl : UserControl
         OpenTagAutocompletePopup(btn, _selectedNode, field);
     }
 
-    private void OpenTagAutocompletePopup(UIElement anchor, LadderNode node, string targetField)
+    private void OpenTagAutocompletePopup(UIElement anchor, LadderNode? node, string targetField, PlcWatchEntry? watchEntry = null)
     {
         if (_plc is null) return;
 
         _autoTargetNode = node;
+        _autoTargetWatch = watchEntry;
         _autoTargetField = targetField;
-        _autoExpandedDb = null;
+        _autoExpandedTag = null;
+        _autoExpandedIsSlice = false;
 
         TagAutocompletePopup.PlacementTarget = anchor;
         _updatingAutoSearch = true;
@@ -1037,7 +2889,6 @@ public partial class PlcLadderEditorControl : UserControl
         string raw = TbAutoSearch.Text ?? string.Empty;
         TxtAutoSearchHint.Visibility = string.IsNullOrEmpty(raw) ? Visibility.Visible : Visibility.Collapsed;
 
-        // Gõ dấu chấm sau tên Data Block (VD: "TD11." hoặc TD11.) -> tự động mở rộng thuộc tính nội bộ DB!
         int dot = raw.IndexOf('.');
         if (dot > 0)
         {
@@ -1046,11 +2897,27 @@ public partial class PlcLadderEditorControl : UserControl
                 d.Name.Equals(left, StringComparison.OrdinalIgnoreCase) ||
                 d.Address.TrimStart('%').Equals(left, StringComparison.OrdinalIgnoreCase));
             if (db is not null)
-                _autoExpandedDb = db;
+            {
+                _autoExpandedTag = db;
+                _autoExpandedIsSlice = false;
+            }
+            else
+            {
+                var sliceTag = _plc.DraftProgram.Tags.FirstOrDefault(t =>
+                    t.Name.Equals(left, StringComparison.OrdinalIgnoreCase) &&
+                    PlcDataTypeHelper.TryParse(t.DataType, out var dt) &&
+                    PlcDataTypeHelper.CanSlice(dt));
+                if (sliceTag is not null)
+                {
+                    _autoExpandedTag = sliceTag;
+                    _autoExpandedIsSlice = true;
+                }
+            }
         }
         else if (string.IsNullOrWhiteSpace(raw))
         {
-            _autoExpandedDb = null;
+            _autoExpandedTag = null;
+            _autoExpandedIsSlice = false;
         }
 
         RebuildAutocompleteResults();
@@ -1066,20 +2933,17 @@ public partial class PlcLadderEditorControl : UserControl
         else if (e.Key == Key.Enter)
         {
             if (_autoRowActions.Count > 0)
-            {
                 _autoRowActions[0].Invoke();
-            }
             else if (!string.IsNullOrWhiteSpace(TbAutoSearch.Text))
-            {
                 ApplyAutocompleteSelection(TbAutoSearch.Text.Trim(), string.Empty);
-            }
             e.Handled = true;
         }
     }
 
     private void OnAutoBackToAllClick(object sender, RoutedEventArgs e)
     {
-        _autoExpandedDb = null;
+        _autoExpandedTag = null;
+        _autoExpandedIsSlice = false;
         _updatingAutoSearch = true;
         TbAutoSearch.Text = string.Empty;
         _updatingAutoSearch = false;
@@ -1097,20 +2961,22 @@ public partial class PlcLadderEditorControl : UserControl
         var prog = _plc.DraftProgram;
         string query = (TbAutoSearch.Text ?? string.Empty).Trim();
 
-        // Chế độ 2: Đang xem thuộc tính nội bộ của 1 Data Block (VD: "TD11".IN, "TD11".Q, "TD11".PT, "TD11".ET)
-        if (_autoExpandedDb is not null)
+        // Chế độ 2: Đang mở rộng thuộc tính DB ("T1".Q, .ET) hoặc Slice ("Tag".x0, .b0, .w0)
+        if (_autoExpandedTag is not null)
         {
             AutoDbHeaderBanner.Visibility = Visibility.Visible;
-            TxtAutoActiveDb.Text = $"\"{_autoExpandedDb.Name}\" ({_autoExpandedDb.Address.TrimStart('%')})";
+            TxtAutoActiveDb.Text = $"\"{_autoExpandedTag.Name}\" ({_autoExpandedTag.Address})";
 
             string memberFilter = string.Empty;
             int dot = query.IndexOf('.');
             if (dot >= 0 && dot < query.Length - 1)
                 memberFilter = query[(dot + 1)..].Trim();
-            else if (dot < 0 && !query.Equals(_autoExpandedDb.Name, StringComparison.OrdinalIgnoreCase))
+            else if (dot < 0 && !query.Equals(_autoExpandedTag.Name, StringComparison.OrdinalIgnoreCase))
                 memberFilter = query;
 
-            var members = PlcAddressHelper.GetDbMembers(_autoExpandedDb.DataType)
+            var members = (_autoExpandedIsSlice
+                ? PlcAddressHelper.GetSliceMembers(_autoExpandedTag.DataType)
+                : PlcAddressHelper.GetDbMembers(_autoExpandedTag.DataType))
                 .Where(m => string.IsNullOrEmpty(memberFilter) ||
                             m.Name.Contains(memberFilter, StringComparison.OrdinalIgnoreCase) ||
                             m.DataType.Contains(memberFilter, StringComparison.OrdinalIgnoreCase))
@@ -1118,14 +2984,14 @@ public partial class PlcLadderEditorControl : UserControl
 
             foreach (var mem in members)
             {
-                string symbolicMember = $"\"{_autoExpandedDb.Name}\".{mem.Name}";
-                string absMember = $"{PlcProgramModel.NormalizeAddress(_autoExpandedDb.Address)}.{mem.Name}";
+                string symbolicMember = $"\"{_autoExpandedTag.Name}\".{mem.Name}";
+                string absMember = $"{PlcProgramModel.NormalizeAddress(_autoExpandedTag.Address)}.{mem.Name}";
                 Action selectAction = () => ApplyAutocompleteSelection(symbolicMember, symbolicMember);
                 _autoRowActions.Add(selectAction);
 
                 AutoResultsStack.Children.Add(CreateAutocompleteRow(
-                    iconText: ".",
-                    iconBgHex: "#0284C7",
+                    iconText: _autoExpandedIsSlice ? "S" : ".",
+                    iconBgHex: _autoExpandedIsSlice ? "#7C3AED" : "#0284C7",
                     displayName: $".{mem.Name}  ({mem.Description})",
                     dataType: mem.DataType,
                     absAddr: absMember,
@@ -1133,30 +2999,39 @@ public partial class PlcLadderEditorControl : UserControl
                     onExpandDb: null));
             }
 
-            if (members.Count == 0)
-                AddAutocompleteEmptyRow();
+            if (members.Count == 0) AddAutocompleteEmptyRow();
             return;
         }
 
-        // Chế độ 1: Liệt kê toàn bộ PLC Tags + Data Blocks đã tạo (3 cột: Icon & Name | Data type | Address)
+        // Chế độ 1: PLC Tags + Data Blocks + System & Clock Memory
         AutoDbHeaderBanner.Visibility = Visibility.Collapsed;
 
-        var combined = new List<(PlcTagEntry Entry, bool IsDb)>();
+        var combined = new List<(PlcTagEntry Entry, string Badge, string BgHex, bool CanExpand, bool IsSlice)>();
         var seenAddr = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        // 1A. User Tags
         foreach (var tag in prog.Tags)
         {
             string norm = PlcProgramModel.NormalizeAddress(tag.Address);
             bool isDb = norm.StartsWith("%DB", StringComparison.OrdinalIgnoreCase) && !norm.Contains('.');
+            bool isSliceable = !isDb && PlcDataTypeHelper.TryParse(tag.DataType, out var dt) && PlcDataTypeHelper.CanSlice(dt);
             if (!string.IsNullOrWhiteSpace(norm)) seenAddr.Add(norm);
-            combined.Add((tag, isDb));
+            combined.Add((tag, isDb ? "DB" : "T", isDb ? "#0F766E" : "#2563EB", isDb || isSliceable, isSliceable));
         }
 
+        // 1B. Data Blocks chưa nằm trong Tags
         foreach (var db in prog.GetAllDataBlocks())
         {
             string norm = PlcProgramModel.NormalizeAddress(db.Address);
             if (seenAddr.Add(norm))
-                combined.Add((db, true));
+                combined.Add((db, "DB", "#0F766E", true, false));
+        }
+
+        // 1C. System & Clock Memory (luôn có mặt trong Autocomplete khi được bật!)
+        foreach (var sys in prog.GetSystemAndClockTags())
+        {
+            bool isClock = sys.Name.StartsWith("Clock_", StringComparison.OrdinalIgnoreCase);
+            combined.Add((sys, isClock ? "CLK" : "SYS", isClock ? "#D97706" : "#0891B2", false, false));
         }
 
         var filtered = combined.Where(item =>
@@ -1165,52 +3040,46 @@ public partial class PlcLadderEditorControl : UserControl
             item.Entry.Address.Contains(query, StringComparison.OrdinalIgnoreCase) ||
             item.Entry.DataType.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
 
-        foreach (var (entry, isDb) in filtered)
+        foreach (var (entry, badge, bgHex, canExpand, isSlice) in filtered)
         {
             string normAddr = PlcProgramModel.NormalizeAddress(entry.Address);
-            if (isDb)
-            {
-                var capturedDb = entry;
-                Action expandAction = () =>
+            var captured = entry;
+            Action? expandAction = canExpand
+                ? () =>
                 {
-                    _autoExpandedDb = capturedDb;
+                    _autoExpandedTag = captured;
+                    _autoExpandedIsSlice = isSlice;
                     _updatingAutoSearch = true;
-                    TbAutoSearch.Text = $"\"{capturedDb.Name}\".";
+                    TbAutoSearch.Text = $"\"{captured.Name}\".";
                     TbAutoSearch.CaretIndex = TbAutoSearch.Text.Length;
                     _updatingAutoSearch = false;
                     TxtAutoSearchHint.Visibility = Visibility.Collapsed;
                     RebuildAutocompleteResults();
                     TbAutoSearch.Focus();
+                }
+                : null;
+
+            Action clickAction = (badge == "DB")
+                ? expandAction!
+                : () =>
+                {
+                    string pickVal = entry.IsSystemGenerated ? $"\"{entry.Name}\"" : normAddr;
+                    ApplyAutocompleteSelection(pickVal, entry.Name);
                 };
-                _autoRowActions.Add(expandAction);
 
-                AutoResultsStack.Children.Add(CreateAutocompleteRow(
-                    iconText: "DB",
-                    iconBgHex: "#0F766E",
-                    displayName: $"\"{entry.Name}\"",
-                    dataType: entry.DataType,
-                    absAddr: normAddr.TrimStart('%'),
-                    onClick: expandAction,
-                    onExpandDb: expandAction));
-            }
-            else
-            {
-                Action pickTag = () => ApplyAutocompleteSelection(normAddr, entry.Name);
-                _autoRowActions.Add(pickTag);
+            _autoRowActions.Add(clickAction);
 
-                AutoResultsStack.Children.Add(CreateAutocompleteRow(
-                    iconText: "T",
-                    iconBgHex: "#2563EB",
-                    displayName: string.IsNullOrWhiteSpace(entry.Name) ? normAddr : $"\"{entry.Name}\"",
-                    dataType: entry.DataType,
-                    absAddr: normAddr,
-                    onClick: pickTag,
-                    onExpandDb: null));
-            }
+            AutoResultsStack.Children.Add(CreateAutocompleteRow(
+                iconText: badge,
+                iconBgHex: bgHex,
+                displayName: string.IsNullOrWhiteSpace(entry.Name) ? normAddr : $"\"{entry.Name}\"",
+                dataType: entry.DataType,
+                absAddr: badge == "DB" ? normAddr.TrimStart('%') : normAddr,
+                onClick: clickAction,
+                onExpandDb: expandAction));
         }
 
-        if (filtered.Count == 0)
-            AddAutocompleteEmptyRow();
+        if (filtered.Count == 0) AddAutocompleteEmptyRow();
     }
 
     private UIElement CreateAutocompleteRow(
@@ -1224,23 +3093,24 @@ public partial class PlcLadderEditorControl : UserControl
     {
         var rowGrid = new Grid();
         rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(82) });
         rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(78) });
-        rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(74) });
 
         var nameDock = new DockPanel { LastChildFill = true };
         var badge = new Border
         {
             Background = CreateBrush(iconBgHex),
             CornerRadius = new CornerRadius(3),
-            Width = 20,
+            MinWidth = 22,
             Height = 16,
+            Padding = new Thickness(3, 0, 3, 0),
             Margin = new Thickness(0, 0, 6, 0),
             VerticalAlignment = VerticalAlignment.Center,
             Child = new TextBlock
             {
                 Text = iconText,
                 FontFamily = new FontFamily("Consolas"),
-                FontSize = 8.8,
+                FontSize = 8.4,
                 FontWeight = FontWeights.Bold,
                 Foreground = Brushes.White,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -1284,7 +3154,7 @@ public partial class PlcLadderEditorControl : UserControl
         var typeTb = new TextBlock
         {
             Text = dataType,
-            FontSize = 10.5,
+            FontSize = 10.4,
             VerticalAlignment = VerticalAlignment.Center,
             TextTrimming = TextTrimming.CharacterEllipsis
         };
@@ -1296,7 +3166,7 @@ public partial class PlcLadderEditorControl : UserControl
         {
             Text = absAddr,
             FontFamily = new FontFamily("Consolas"),
-            FontSize = 10.6,
+            FontSize = 10.4,
             FontWeight = FontWeights.Bold,
             Foreground = CreateBrush("#2DD4BF"),
             VerticalAlignment = VerticalAlignment.Center,
@@ -1337,8 +3207,19 @@ public partial class PlcLadderEditorControl : UserControl
 
     private void ApplyAutocompleteSelection(string value, string symbol)
     {
-        if (_plc is null || _autoTargetNode is null) return;
+        if (_plc is null) return;
 
+        if (_autoTargetWatch is not null)
+        {
+            _autoTargetWatch.Expression = !string.IsNullOrWhiteSpace(symbol) && !symbol.Contains('.') ? $"\"{symbol}\"" : value;
+            TagAutocompletePopup.IsOpen = false;
+            NotifyProgramChanged();
+            RenderWatchTable();
+            return;
+        }
+
+        if (_autoTargetNode is null) return;
+        PushUndoSnapshot();
         switch (_autoTargetField)
         {
             case "Param1":
@@ -1348,6 +3229,7 @@ public partial class PlcLadderEditorControl : UserControl
                 _autoTargetNode.Param2 = value;
                 break;
             case "Out":
+            case "OutputAddress":
                 _autoTargetNode.OutputAddress = value;
                 break;
             default:
@@ -1363,1002 +3245,20 @@ public partial class PlcLadderEditorControl : UserControl
         UpdatePropertyBarForSelectedNode();
     }
 
-    // =========================================================================
-    // 4. THANH CHỈNH SỬA NHANH THÔNG SỐ (HỖ TRỢ ĐẦY ĐỦ 10 NHÓM + EMPTY BOX)
-    // =========================================================================
-
-    private void UpdatePropertyBarForSelectedNode()
-    {
-        PanelPropAddress.Visibility = Visibility.Collapsed;
-        PanelPropSymbol.Visibility = Visibility.Collapsed;
-        PanelPropParam1.Visibility = Visibility.Collapsed;
-        PanelPropParam2.Visibility = Visibility.Collapsed;
-        PanelPropExtra.Visibility = Visibility.Collapsed;
-        PanelPropOut.Visibility = Visibility.Collapsed;
-        BtnApplyNodeProps.Visibility = Visibility.Collapsed;
-
-        if (_plc is null || _selectedNode is null || _selectedNode.Kind == LadderElementKind.ParallelBlock)
-        {
-            TxtSelectedNodeSummary.Text = LocalizationManager.Get("Str.Plc.DoubleClickHint");
-            return;
-        }
-
-        var n = _selectedNode;
-        BtnApplyNodeProps.Visibility = Visibility.Visible;
-
-        if (n.Kind == LadderElementKind.EmptyBox)
-        {
-            TxtSelectedNodeSummary.Text = "[Empty box]";
-            PanelPropAddress.Visibility = Visibility.Visible;
-            BtnPickPropAddress.Visibility = Visibility.Collapsed;
-            LblPropAddress.Text = "Instruction:";
-            TbPropAddress.Text = n.Address == "???" ? string.Empty : n.Address;
-            return;
-        }
-
-        BtnPickPropAddress.Visibility = Visibility.Visible;
-        var meta = PlcInstructionCatalog.Get(n.Kind);
-        TxtSelectedNodeSummary.Text = $"[{meta?.Symbol ?? n.Kind.ToString()}]";
-
-        if (meta?.AddrLabel is not null)
-        {
-            PanelPropAddress.Visibility = Visibility.Visible;
-            LblPropAddress.Text = $"{meta.AddrLabel}:";
-            TbPropAddress.Text = n.Address;
-
-            if (n.Kind is not (LadderElementKind.Jump or LadderElementKind.JumpNot or LadderElementKind.Label or LadderElementKind.JumpList or LadderElementKind.Switch))
-            {
-                PanelPropSymbol.Visibility = Visibility.Visible;
-                TbPropSymbol.Text = _plc.DraftProgram.ResolveTagName(n.Address, n.SymbolName);
-            }
-        }
-        if (meta?.Param1Label is not null)
-        {
-            PanelPropParam1.Visibility = Visibility.Visible;
-            LblPropParam1.Text = $"{meta.Param1Label}:";
-            TbPropParam1.Text = n.Param1;
-        }
-        if (meta?.Param2Label is not null)
-        {
-            PanelPropParam2.Visibility = Visibility.Visible;
-            LblPropParam2.Text = $"{meta.Param2Label}:";
-            TbPropParam2.Text = n.Param2;
-        }
-        if (meta?.ExtraLabel is not null)
-        {
-            PanelPropExtra.Visibility = Visibility.Visible;
-            LblPropExtra.Text = $"{meta.ExtraLabel}:";
-            TbPropExtra.Text = n.ExtraParam;
-        }
-        if (meta?.OutLabel is not null)
-        {
-            PanelPropOut.Visibility = Visibility.Visible;
-            LblPropOut.Text = $"{meta.OutLabel}:";
-            TbPropOut.Text = n.OutputAddress;
-        }
-    }
-
-    private void OnPropTextBoxKeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter)
-        {
-            ApplyNodeProperties();
-            e.Handled = true;
-        }
-    }
-
-    private void OnApplyNodePropsClick(object sender, RoutedEventArgs e) => ApplyNodeProperties();
-
-    private void ApplyNodeProperties()
-    {
-        if (_plc is null || _selectedNode is null) return;
-
-        // Nếu đang ở Empty box [F8] -> chuyển đổi thành hàm/lệnh thực tế theo tên người dùng gõ!
-        if (_selectedNode.Kind == LadderElementKind.EmptyBox)
-        {
-            string typed = TbPropAddress.Text.Trim();
-            if (PlcInstructionCatalog.TryResolveByName(typed, out var resolvedKind))
-            {
-                var replacement = PlcInstructionCatalog.CreateDefaultNode(resolvedKind, _plc.DraftProgram);
-                _selectedNode.Kind = replacement.Kind;
-                _selectedNode.Address = replacement.Address;
-                _selectedNode.SymbolName = replacement.SymbolName;
-                _selectedNode.Param1 = replacement.Param1;
-                _selectedNode.Param2 = replacement.Param2;
-                _selectedNode.ExtraParam = replacement.ExtraParam;
-                _selectedNode.OutputAddress = replacement.OutputAddress;
-
-                if (_selectedNode.RequiresCallOptions)
-                    PromptCallOptionsForNode(_selectedNode, isNewInsert: true);
-
-                NotifyProgramChanged();
-                RenderNetworks();
-                UpdatePropertyBarForSelectedNode();
-            }
-            else
-            {
-                _selectedNode.Address = string.IsNullOrEmpty(typed) ? "???" : typed;
-                RenderNetworks();
-            }
-            return;
-        }
-
-        if (PanelPropAddress.Visibility == Visibility.Visible)
-        {
-            string rawAddr = TbPropAddress.Text.Trim();
-            _selectedNode.Address = PlcProgramModel.NormalizeAddress(rawAddr);
-        }
-
-        if (PanelPropSymbol.Visibility == Visibility.Visible)
-        {
-            string sym = PlcAddressHelper.StripQuotes(TbPropSymbol.Text.Trim());
-            _selectedNode.SymbolName = sym;
-            if (!string.IsNullOrWhiteSpace(sym) &&
-                !string.IsNullOrWhiteSpace(_selectedNode.Address) &&
-                PlcAddressHelper.IsAbsoluteAddress(_selectedNode.Address) &&
-                !_selectedNode.Address.Contains(".Q", StringComparison.OrdinalIgnoreCase))
-            {
-                string norm = PlcProgramModel.NormalizeAddress(_selectedNode.Address);
-                string inferredType = _selectedNode.IsTimer ? "IEC_Timer"
-                    : (_selectedNode.IsCounter ? "IEC_Counter"
-                    : (norm.StartsWith("%MD") ? "Real"
-                    : (norm.StartsWith("%MW") ? "Int"
-                    : (norm.StartsWith("%MB") ? "Byte" : "Bool"))));
-                _plc.DraftProgram.EnsureTagExists(norm, sym, inferredType);
-            }
-        }
-        if (PanelPropParam1.Visibility == Visibility.Visible) _selectedNode.Param1 = TbPropParam1.Text.Trim();
-        if (PanelPropParam2.Visibility == Visibility.Visible) _selectedNode.Param2 = TbPropParam2.Text.Trim();
-        if (PanelPropExtra.Visibility == Visibility.Visible) _selectedNode.ExtraParam = TbPropExtra.Text.Trim();
-        if (PanelPropOut.Visibility == Visibility.Visible) _selectedNode.OutputAddress = TbPropOut.Text.Trim();
-
-        NotifyProgramChanged();
-        RenderNetworks();
-    }
-
-    // =========================================================================
-    // 5. BẢNG KÝ HIỆU BIẾN PLC TAGS CHUẨN TIA PORTAL V21 + ADDRESS PICKER POPUP
-    // =========================================================================
-
-    private void RenderTagTable()
-    {
-        TagRowsStack.Children.Clear();
-        if (_plc is null) return;
-
-        // Dòng tiêu đề 11 cột chuẩn TIA Portal V21
-        TagRowsStack.Children.Add(BuildTagHeaderRow());
-
-        var tags = _plc.DraftProgram.Tags;
-        for (int i = 0; i < tags.Count; i++)
-        {
-            var tag = tags[i];
-            string liveVal = _isSimulating && _plc.IsPowered ? _plc.Runtime.FormatLiveValueForAddress(tag.Address) : "—";
-            TagRowsStack.Children.Add(BuildTagDataRow(i + 1, tag, liveVal));
-        }
-
-        // Dòng <Add new> cuối bảng chuẩn TIA Portal V21
-        TagRowsStack.Children.Add(BuildAddNewTagRow(tags.Count + 1));
-    }
-
-    private static Grid CreateTagColumnsGrid()
-    {
-        var g = new Grid();
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });   // #
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });   // Icon
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(142) });  // Name
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });   // Data type
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(122) });  // Address + picker
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });   // Retain
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(66) });   // Accessible
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(58) });   // Writable
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });   // Visible
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(86) });   // Live
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 110 }); // Comment
-        return g;
-    }
-
-    private Border BuildTagHeaderRow()
-    {
-        var border = new Border
-        {
-            Padding = new Thickness(6, 5, 6, 5),
-            Margin = new Thickness(0, 0, 0, 3),
-            CornerRadius = new CornerRadius(4),
-            BorderThickness = new Thickness(1)
-        };
-        border.SetResourceReference(Border.BackgroundProperty, "SubtleSurfaceBrush");
-        border.SetResourceReference(Border.BorderBrushProperty, "BorderSubtleBrush");
-
-        var g = CreateTagColumnsGrid();
-        AddHeaderCell(g, 0, "#", center: true);
-        AddHeaderCell(g, 1, "", center: true);
-        AddHeaderCell(g, 2, LocalizationManager.Get("Str.Plc.TagColName"));
-        AddHeaderCell(g, 3, LocalizationManager.Get("Str.Plc.TagColType"));
-        AddHeaderCell(g, 4, LocalizationManager.Get("Str.Plc.TagColAddr"));
-        AddHeaderCell(g, 5, LocalizationManager.Get("Str.Plc.TagColRetain"), center: true);
-        AddHeaderCell(g, 6, LocalizationManager.Get("Str.Plc.TagColAccessible"), center: true);
-        AddHeaderCell(g, 7, LocalizationManager.Get("Str.Plc.TagColWritable"), center: true);
-        AddHeaderCell(g, 8, LocalizationManager.Get("Str.Plc.TagColVisible"), center: true);
-        AddHeaderCell(g, 9, LocalizationManager.Get("Str.Plc.TagLive"));
-        AddHeaderCell(g, 10, LocalizationManager.Get("Str.Plc.TagColComment"));
-
-        border.Child = g;
-        return border;
-    }
-
-    private Border BuildTagDataRow(int rowNum, PlcTagEntry tag, string liveVal)
-    {
-        bool isSelected = tag == _selectedTag;
-        bool isDb = PlcProgramModel.NormalizeAddress(tag.Address).StartsWith("%DB", StringComparison.OrdinalIgnoreCase);
-
-        var border = new Border
-        {
-            Padding = new Thickness(6, 3.5, 6, 3.5),
-            Margin = new Thickness(0, 0, 0, 2.5),
-            CornerRadius = new CornerRadius(4),
-            BorderThickness = new Thickness(1)
-        };
-        border.SetResourceReference(Border.BackgroundProperty, isSelected ? "MenuHoverBrush" : "CardBgBrush");
-        border.SetResourceReference(Border.BorderBrushProperty, isSelected ? "AccentCyanBrush" : "BorderSubtleBrush");
-
-        var g = CreateTagColumnsGrid();
-
-        // Col 0: #
-        var numTb = new TextBlock
-        {
-            Text = rowNum.ToString(CultureInfo.InvariantCulture),
-            FontSize = 10.5,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        numTb.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondaryBrush");
-        Grid.SetColumn(numTb, 0);
-        g.Children.Add(numTb);
-
-        // Col 1: Tag / DB Icon
-        var iconBadge = new Border
-        {
-            Width = 18,
-            Height = 16,
-            CornerRadius = new CornerRadius(3),
-            Background = CreateBrush(isDb ? "#0F766E" : "#2563EB"),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            Child = new TextBlock
-            {
-                Text = isDb ? "DB" : "T",
-                FontFamily = new FontFamily("Consolas"),
-                FontSize = 8.4,
-                FontWeight = FontWeights.Bold,
-                Foreground = Brushes.White,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            }
-        };
-        Grid.SetColumn(iconBadge, 1);
-        g.Children.Add(iconBadge);
-
-        // Col 2: Name
-        var tbName = CreateEditableCell(tag.Name, v => { tag.Name = v; NotifyProgramChanged(); },
-            onEnter: () => HandleTagRowEnter(tag));
-        Grid.SetColumn(tbName, 2);
-        g.Children.Add(tbName);
-
-        if (tag == _pendingFocusTag)
-        {
-            _pendingFocusTag = null;
-            Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
-            {
-                tbName.Focus();
-                tbName.SelectAll();
-            });
-        }
-
-        // Col 3: Data type ComboBox
-        var cbType = new ComboBox
-        {
-            Margin = new Thickness(0, 0, 5, 0),
-            FontSize = 10.8,
-            VerticalContentAlignment = VerticalAlignment.Center
-        };
-        foreach (string dt in PlcAddressHelper.SupportedDataTypes)
-            cbType.Items.Add(dt);
-        if (!PlcAddressHelper.SupportedDataTypes.Contains(tag.DataType, StringComparer.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(tag.DataType))
-            cbType.Items.Add(tag.DataType);
-        cbType.SelectedItem = cbType.Items.Cast<string>().FirstOrDefault(x => x.Equals(tag.DataType, StringComparison.OrdinalIgnoreCase)) ?? "Bool";
-        cbType.IsEnabled = !isDb;
-        cbType.SelectionChanged += (_, _) =>
-        {
-            if (cbType.SelectedItem is string chosen && !chosen.Equals(tag.DataType, StringComparison.Ordinal))
-            {
-                tag.DataType = chosen;
-                NotifyProgramChanged();
-            }
-        };
-        Grid.SetColumn(cbType, 3);
-        g.Children.Add(cbType);
-
-        // Col 4: Address TextBox + Address Picker dropdown arrow button (▾)
-        var addrDock = new DockPanel { Margin = new Thickness(0, 0, 5, 0) };
-        var btnPicker = new Button
-        {
-            Content = "▾",
-            Width = 20,
-            Padding = new Thickness(0),
-            Margin = new Thickness(2, 0, 0, 0),
-            FontSize = 10,
-            IsEnabled = !isDb,
-            ToolTip = LocalizationManager.Get("Str.Plc.AddrPickerTitle")
-        };
-        btnPicker.SetResourceReference(StyleProperty, "ToolbarButtonStyle");
-        btnPicker.Click += (_, e) =>
-        {
-            e.Handled = true;
-            OpenAddressPicker(addrDock, tag);
-        };
-        DockPanel.SetDock(btnPicker, Dock.Right);
-        addrDock.Children.Add(btnPicker);
-
-        TextBox tbAddr = null!;
-        tbAddr = CreateEditableCell(tag.Address, v =>
-        {
-            string norm = PlcProgramModel.NormalizeAddress(v);
-            tag.Address = norm;
-            if (tbAddr.Text != norm) tbAddr.Text = norm;
-            NotifyProgramChanged();
-        }, mono: true, onEnter: () =>
-        {
-            string norm = PlcProgramModel.NormalizeAddress(tbAddr.Text.Trim());
-            tag.Address = norm;
-            tbAddr.Text = norm;
-            NotifyProgramChanged();
-            HandleTagRowEnter(tag);
-        });
-        tbAddr.Margin = new Thickness(0);
-        addrDock.Children.Add(tbAddr);
-        Grid.SetColumn(addrDock, 4);
-        g.Children.Add(addrDock);
-
-        // Col 5-8: Retain, Accessible, Writable, Visible checkboxes
-        AddTagCheckbox(g, 5, tag.Retain, v => { tag.Retain = v; NotifyProgramChanged(); });
-        AddTagCheckbox(g, 6, tag.Accessible, v => { tag.Accessible = v; NotifyProgramChanged(); });
-        AddTagCheckbox(g, 7, tag.Writable, v => { tag.Writable = v; NotifyProgramChanged(); });
-        AddTagCheckbox(g, 8, tag.Visible, v => { tag.Visible = v; NotifyProgramChanged(); });
-
-        // Col 9: Live Value
-        var tbLive = new TextBlock
-        {
-            Text = liveVal,
-            FontFamily = new FontFamily("Consolas"),
-            FontSize = 10.6,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = CreateBrush(liveVal.StartsWith("TRUE") ? "#22C55E" : "#94A3B8"),
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(4, 0, 4, 0),
-            TextTrimming = TextTrimming.CharacterEllipsis
-        };
-        Grid.SetColumn(tbLive, 9);
-        g.Children.Add(tbLive);
-
-        // Col 10: Comment
-        var tbComment = CreateEditableCell(tag.Comment, v => { tag.Comment = v; NotifyProgramChanged(); },
-            onEnter: () => HandleTagRowEnter(tag));
-        tbComment.Margin = new Thickness(0);
-        Grid.SetColumn(tbComment, 10);
-        g.Children.Add(tbComment);
-
-        border.PreviewMouseLeftButtonDown += (_, _) => { _selectedTag = tag; };
-        border.Child = g;
-        return border;
-    }
-
-    private Border BuildAddNewTagRow(int nextRowNum)
-    {
-        var border = new Border
-        {
-            Padding = new Thickness(6, 4, 6, 4),
-            Margin = new Thickness(0, 2, 0, 4),
-            CornerRadius = new CornerRadius(4),
-            BorderThickness = new Thickness(1)
-        };
-        border.SetResourceReference(Border.BackgroundProperty, "SubtleSurfaceBrush");
-        border.SetResourceReference(Border.BorderBrushProperty, "BorderSubtleBrush");
-
-        var g = CreateTagColumnsGrid();
-
-        var numTb = new TextBlock
-        {
-            Text = nextRowNum.ToString(CultureInfo.InvariantCulture),
-            FontSize = 10.2,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        numTb.SetResourceReference(TextBlock.ForegroundProperty, "TextMutedBrush");
-        Grid.SetColumn(numTb, 0);
-        g.Children.Add(numTb);
-
-        var plusTb = new TextBlock
-        {
-            Text = "+",
-            FontSize = 12,
-            FontWeight = FontWeights.Bold,
-            Foreground = CreateBrush("#22C55E"),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        Grid.SetColumn(plusTb, 1);
-        g.Children.Add(plusTb);
-
-        var inputGrid = new Grid { Margin = new Thickness(0, 0, 5, 0) };
-        var tbNewName = new TextBox
-        {
-            Padding = new Thickness(4, 2, 4, 2),
-            FontSize = 11
-        };
-        tbNewName.SetResourceReference(TextBox.BackgroundProperty, "InputBgBrush");
-        tbNewName.SetResourceReference(TextBox.ForegroundProperty, "TextPrimaryBrush");
-        tbNewName.SetResourceReference(TextBox.BorderBrushProperty, "BorderSubtleBrush");
-
-        var phTb = new TextBlock
-        {
-            Text = LocalizationManager.Get("Str.Plc.TagAddNew"),
-            FontSize = 10.8,
-            FontStyle = FontStyles.Italic,
-            IsHitTestVisible = false,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(6, 0, 0, 0)
-        };
-        phTb.SetResourceReference(TextBlock.ForegroundProperty, "TextMutedBrush");
-        tbNewName.TextChanged += (_, _) => phTb.Visibility = string.IsNullOrEmpty(tbNewName.Text) ? Visibility.Visible : Visibility.Collapsed;
-        tbNewName.KeyDown += (_, e) =>
-        {
-            if (e.Key == Key.Enter)
-            {
-                e.Handled = true;
-                AddTagFromAddNewRow(tbNewName.Text.Trim());
-            }
-        };
-
-        inputGrid.Children.Add(tbNewName);
-        inputGrid.Children.Add(phTb);
-        Grid.SetColumn(inputGrid, 2);
-        g.Children.Add(inputGrid);
-
-        string previewAddr = ComputeNextDefaultTagAddress(out string nextType);
-        var nextTypeTb = new TextBlock { Text = nextType, FontSize = 10.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) };
-        nextTypeTb.SetResourceReference(TextBlock.ForegroundProperty, "TextMutedBrush");
-        Grid.SetColumn(nextTypeTb, 3);
-        g.Children.Add(nextTypeTb);
-
-        var nextAddrTb = new TextBlock { Text = previewAddr, FontFamily = new FontFamily("Consolas"), FontSize = 10.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) };
-        nextAddrTb.SetResourceReference(TextBlock.ForegroundProperty, "TextMutedBrush");
-        Grid.SetColumn(nextAddrTb, 4);
-        g.Children.Add(nextAddrTb);
-
-        border.Child = g;
-        return border;
-    }
-
-    private string ComputeNextDefaultTagAddress(out string dataType)
-    {
-        dataType = "Bool";
-        if (_plc is null) return "%I0.0";
-
-        // Lấy tag gần nhất không phải DB để tiếp tục dải địa chỉ (VD: %I0.0 -> %I0.1, %Q0.0 -> %Q0.1, %MW0 -> %MW2)
-        var lastIoTag = _plc.DraftProgram.Tags.LastOrDefault(t =>
-            !PlcProgramModel.NormalizeAddress(t.Address).StartsWith("%DB", StringComparison.OrdinalIgnoreCase));
-
-        if (lastIoTag is null)
-            return "%I0.0";
-
-        dataType = PlcAddressHelper.SupportedDataTypes.Contains(lastIoTag.DataType, StringComparer.OrdinalIgnoreCase)
-            ? lastIoTag.DataType
-            : "Bool";
-        return PlcAddressHelper.ComputeNextAddress(lastIoTag.Address, dataType);
-    }
-
-    private void HandleTagRowEnter(PlcTagEntry currentTag)
-    {
-        if (_plc is null) return;
-        var tags = _plc.DraftProgram.Tags;
-        int idx = tags.IndexOf(currentTag);
-        if (idx < 0) return;
-
-        string dt = PlcAddressHelper.SupportedDataTypes.Contains(currentTag.DataType, StringComparer.OrdinalIgnoreCase)
-            ? currentTag.DataType
-            : "Bool";
-        string nextAddr = PlcAddressHelper.ComputeNextAddress(currentTag.Address, dt);
-
-        var nextEntry = new PlcTagEntry
-        {
-            Name = $"Tag_{tags.Count + 1}",
-            Address = nextAddr,
-            DataType = dt
-        };
-
-        tags.Insert(idx + 1, nextEntry);
-        _selectedTag = nextEntry;
-        _pendingFocusTag = nextEntry;
-        NotifyProgramChanged();
-        RenderTagTable();
-    }
-
-    private void AddTagFromAddNewRow(string typedName)
-    {
-        if (_plc is null) return;
-        string nextAddr = ComputeNextDefaultTagAddress(out string nextType);
-        var entry = new PlcTagEntry
-        {
-            Name = string.IsNullOrWhiteSpace(typedName) ? $"Tag_{_plc.DraftProgram.Tags.Count + 1}" : typedName,
-            Address = nextAddr,
-            DataType = nextType
-        };
-        _plc.DraftProgram.Tags.Add(entry);
-        _selectedTag = entry;
-        _pendingFocusTag = string.IsNullOrWhiteSpace(typedName) ? entry : null;
-        NotifyProgramChanged();
-        RenderTagTable();
-    }
-
-    private void AddHeaderCell(Grid g, int col, string text, bool center = false)
-    {
-        var tb = new TextBlock
-        {
-            Text = text,
-            FontSize = 10.2,
-            FontWeight = FontWeights.Bold,
-            HorizontalAlignment = center ? HorizontalAlignment.Center : HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        tb.SetResourceReference(TextBlock.ForegroundProperty, "AccentCyanBrush");
-        Grid.SetColumn(tb, col);
-        g.Children.Add(tb);
-    }
-
-    private static void AddTagCheckbox(Grid g, int col, bool isChecked, Action<bool> onChanged)
-    {
-        var cb = new CheckBox
-        {
-            IsChecked = isChecked,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        cb.Checked += (_, _) => onChanged(true);
-        cb.Unchecked += (_, _) => onChanged(false);
-        Grid.SetColumn(cb, col);
-        g.Children.Add(cb);
-    }
-
-    private TextBox CreateEditableCell(string initial, Action<string> onChanged, bool mono = false, Action? onEnter = null)
-    {
-        var tb = new TextBox
-        {
-            Text = initial,
-            Margin = new Thickness(0, 0, 5, 0),
-            Padding = new Thickness(4, 2, 4, 2),
-            FontSize = 11,
-            FontFamily = mono ? new FontFamily("Consolas") : new FontFamily("Segoe UI")
-        };
-        tb.SetResourceReference(TextBox.BackgroundProperty, "InputBgBrush");
-        tb.SetResourceReference(TextBox.ForegroundProperty, "TextPrimaryBrush");
-        tb.SetResourceReference(TextBox.BorderBrushProperty, "BorderSubtleBrush");
-        tb.LostFocus += (_, _) => onChanged(tb.Text.Trim());
-        tb.KeyDown += (_, e) =>
-        {
-            if (e.Key == Key.Enter)
-            {
-                onChanged(tb.Text.Trim());
-                onEnter?.Invoke();
-                e.Handled = true;
-            }
-        };
-        return tb;
-    }
-
-    // --- Address Picker Popup handlers ---
-    private void OpenAddressPicker(UIElement anchor, PlcTagEntry tag)
-    {
-        _addrPickerTag = tag;
-        _updatingAddrPickerUi = true;
-
-        PlcAddressHelper.TryParseAddressParts(tag.Address, out string opId, out string opType, out int byteAddr, out int bitNum);
-
-        CbAddrOpId.SelectedIndex = opId switch { "Q" => 1, "M" => 2, _ => 0 };
-        CbAddrOpType.SelectedIndex = opType switch { "Byte" => 1, "Word" => 2, "DWord" => 3, _ => 0 };
-        TbAddrByte.Text = byteAddr.ToString(CultureInfo.InvariantCulture);
-        CbAddrBit.SelectedIndex = Math.Clamp(bitNum, 0, 7);
-
-        _updatingAddrPickerUi = false;
-        UpdateAddressPickerPreview();
-
-        AddressPickerPopup.PlacementTarget = anchor;
-        AddressPickerPopup.IsOpen = true;
-    }
-
-    private void OnAddressPickerFieldChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_updatingAddrPickerUi || !IsInitialized) return;
-        UpdateAddressPickerPreview();
-    }
-
-    private void OnAddressPickerByteChanged(object sender, TextChangedEventArgs e)
-    {
-        if (_updatingAddrPickerUi || !IsInitialized) return;
-        UpdateAddressPickerPreview();
-    }
-
-    private string BuildAddressFromPicker(out string opType)
-    {
-        string opId = (CbAddrOpId.SelectedItem as ComboBoxItem)?.Content as string ?? "I";
-        opType = (CbAddrOpType.SelectedItem as ComboBoxItem)?.Content as string ?? "Bit";
-        int byteAddr = int.TryParse(TbAddrByte.Text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int b) ? b : 0;
-        int bitNum = Math.Clamp(CbAddrBit.SelectedIndex, 0, 7);
-        return PlcAddressHelper.BuildAddress(opId, opType, byteAddr, bitNum);
-    }
-
-    private void UpdateAddressPickerPreview()
-    {
-        string built = BuildAddressFromPicker(out string opType);
-        CbAddrBit.IsEnabled = opType == "Bit";
-        TxtAddrPickerPreview.Text = built;
-    }
-
-    private void OnAddressPickerConfirmClick(object sender, RoutedEventArgs e)
-    {
-        if (_addrPickerTag is not null)
-        {
-            string built = BuildAddressFromPicker(out string opType);
-            _addrPickerTag.Address = built;
-            if (!PlcAddressHelper.IsDataTypeCompatibleWithOperandType(_addrPickerTag.DataType, opType))
-                _addrPickerTag.DataType = PlcAddressHelper.DefaultDataTypeForOperandType(opType);
-
-            NotifyProgramChanged();
-            RenderTagTable();
-        }
-        AddressPickerPopup.IsOpen = false;
-    }
-
-    private void OnAddressPickerCancelClick(object sender, RoutedEventArgs e) => AddressPickerPopup.IsOpen = false;
-
-    private void OnAddTagClick(object sender, RoutedEventArgs e)
-    {
-        if (_plc is null) return;
-        string nextAddr = ComputeNextDefaultTagAddress(out string nextType);
-        var entry = new PlcTagEntry
-        {
-            Name = $"Tag_{_plc.DraftProgram.Tags.Count + 1}",
-            Address = nextAddr,
-            DataType = nextType
-        };
-        _plc.DraftProgram.Tags.Add(entry);
-        _selectedTag = entry;
-        _pendingFocusTag = entry;
-        NotifyProgramChanged();
-        RenderTagTable();
-    }
-
-    private void OnDeleteTagClick(object sender, RoutedEventArgs e)
-    {
-        if (_plc is null || _selectedTag is null) return;
-        _plc.DraftProgram.Tags.Remove(_selectedTag);
-        _selectedTag = null;
-        NotifyProgramChanged();
-        RenderTagTable();
-    }
-
-    // =========================================================================
-    // 6. COMPILE & DOWNLOAD (HIỆU ỨNG NẠP 1.5s + NHẤP NHÁY LED PLC)
-    // =========================================================================
-
-    public PlcCompileResult CompileCurrentProgram()
-    {
-        var empty = new PlcCompileResult();
-        if (_plc is null) return empty;
-
-        var res = PlcProgramCompiler.Compile(_plc.DraftProgram);
-        _plc.HasCompileError = !res.Success;
-        if (!res.Success)
-            _plc.CpuState = PlcCpuState.Error;
-
-        DiagnosticsStack.Children.Clear();
-        if (res.Success)
-        {
-            TxtCompileSummary.Text = LocalizationManager.Format("Str.Plc.CompileOk", res.WarningCount);
-            TxtCompileSummary.Foreground = CreateBrush("#22C55E");
-        }
-        else
-        {
-            TxtCompileSummary.Text = LocalizationManager.Format("Str.Plc.CompileFail", res.ErrorCount, res.WarningCount);
-            TxtCompileSummary.Foreground = CreateBrush("#EF4444");
-        }
-
-        if (res.Diagnostics.Count > 0)
-        {
-            DiagnosticsScroller.Visibility = Visibility.Visible;
-            foreach (var diag in res.Diagnostics)
-            {
-                var dBtn = new Button
-                {
-                    Content = (diag.IsError ? "🔴 " : "🟡 ") + diag.Message,
-                    HorizontalContentAlignment = HorizontalAlignment.Left,
-                    Background = Brushes.Transparent,
-                    BorderThickness = new Thickness(0),
-                    Foreground = CreateBrush(diag.IsError ? "#FCA5A5" : "#FDE047"),
-                    FontSize = 10.8,
-                    Padding = new Thickness(2, 1.5, 2, 1.5),
-                    Cursor = Cursors.Hand
-                };
-                dBtn.Click += (_, _) => JumpToDiagnostic(diag);
-                DiagnosticsStack.Children.Add(dBtn);
-            }
-        }
-        else
-        {
-            DiagnosticsScroller.Visibility = Visibility.Collapsed;
-        }
-
-        UpdateCpuStateBadges();
-        PlcHardwareVisualChanged?.Invoke();
-        StatusMessageChanged?.Invoke(TxtCompileSummary.Text);
-        return res;
-    }
-
-    private void JumpToDiagnostic(PlcDiagnostic diag)
-    {
-        if (_plc is null || diag.NetworkNumber <= 0 || diag.NetworkNumber > _plc.DraftProgram.Networks.Count)
-            return;
-
-        RbTabLadder.IsChecked = true;
-        _selectedNetworkIndex = diag.NetworkNumber - 1;
-        var net = _plc.DraftProgram.Networks[_selectedNetworkIndex];
-        net.IsCollapsed = false;
-        _selectedBranch = net.MainBranch;
-        _selectedNode = null;
-
-        if (!string.IsNullOrEmpty(diag.NodeId) && TryFindNodeById(net.MainBranch, diag.NodeId, out var foundBranch, out var foundNode))
-        {
-            _selectedBranch = foundBranch;
-            _selectedNode = foundNode;
-        }
-
-        RenderNetworks();
-        UpdatePropertyBarForSelectedNode();
-    }
-
-    private static bool TryFindNodeById(LadderBranch branch, string nodeId, out LadderBranch foundBranch, out LadderNode foundNode)
-    {
-        foreach (var n in branch.Nodes)
-        {
-            if (n.Id == nodeId) { foundBranch = branch; foundNode = n; return true; }
-            if (n.Kind == LadderElementKind.ParallelBlock && n.Branches is not null)
-            {
-                foreach (var sub in n.Branches)
-                    if (TryFindNodeById(sub, nodeId, out foundBranch, out foundNode)) return true;
-            }
-        }
-        foundBranch = branch;
-        foundNode = null!;
-        return false;
-    }
-
-    private void OnCompileClick(object sender, RoutedEventArgs e) => CompileCurrentProgram();
-
-    private async void OnDownloadClick(object sender, RoutedEventArgs e)
-    {
-        if (_plc is null || _plc.IsDownloading) return;
-
-        var res = CompileCurrentProgram();
-        if (!res.Success)
-        {
-            TxtCompileSummary.Text = LocalizationManager.Get("Str.Plc.DownloadBlocked");
-            TxtCompileSummary.Foreground = CreateBrush("#EF4444");
-            StatusMessageChanged?.Invoke(TxtCompileSummary.Text);
-            return;
-        }
-
-        var targetPlc = _plc;
-        BtnDownload.IsEnabled = false;
-        BtnCompile.IsEnabled = false;
-        targetPlc.IsDownloading = true;
-        targetPlc.CpuState = PlcCpuState.Downloading;
-        DownloadProgressBar.Visibility = Visibility.Visible;
-        DownloadProgressBar.Value = 0;
-
-        TxtCompileSummary.Text = LocalizationManager.Format("Str.Plc.Downloading", targetPlc.DisplayName);
-        TxtCompileSummary.Foreground = CreateBrush("#F59E0B");
-        UpdateCpuStateBadges();
-
-        const int steps = 30;
-        for (int s = 1; s <= steps; s++)
-        {
-            targetPlc.DownloadProgress = s / (double)steps;
-            targetPlc.UpdateVisualAnimation(0.08, isSimulating: true);
-            DownloadProgressBar.Value = targetPlc.DownloadProgress * 100.0;
-            PlcHardwareVisualChanged?.Invoke();
-            await Task.Delay(50);
-        }
-
-        targetPlc.IsDownloading = false;
-        targetPlc.DownloadProgress = 0;
-        targetPlc.CommitDownloadedProgram(targetPlc.DraftProgram);
-
-        DownloadProgressBar.Visibility = Visibility.Collapsed;
-        BtnDownload.IsEnabled = true;
-        BtnCompile.IsEnabled = true;
-
-        TxtCompileSummary.Text = LocalizationManager.Format("Str.Plc.DownloadDone", targetPlc.DisplayName);
-        TxtCompileSummary.Foreground = CreateBrush("#22C55E");
-        StatusMessageChanged?.Invoke(TxtCompileSummary.Text);
-
-        NotifyProgramChanged();
-        UpdateCpuStateBadges();
-        PlcHardwareVisualChanged?.Invoke();
-    }
-
-    // =========================================================================
-    // 7. NETWORK, PARALLEL BRANCH, CPU, ZOOM & THU GỌN
-    // =========================================================================
-
-    private void OnAddNetworkClick(object sender, RoutedEventArgs e)
+    private void InsertNetworkBelowCurrent()
     {
         if (_plc is null) return;
         RbTabLadder.IsChecked = true;
-        int n = _plc.DraftProgram.Networks.Count + 1;
-        var net = new LadderNetwork { Title = $"Network {n}" };
-        _plc.DraftProgram.Networks.Add(net);
-        _selectedNetworkIndex = _plc.DraftProgram.Networks.Count - 1;
+        PushUndoSnapshot();
+        var nets = GetActiveNetworks();
+        int insertIdx = nets.Count == 0 ? 0 : Math.Clamp(_selectedNetworkIndex + 1, 0, nets.Count);
+        var net = new LadderNetwork { Title = $"Network {insertIdx + 1}" };
+        nets.Insert(insertIdx, net);
+        _selectedNetworkIndex = insertIdx;
         _selectedBranch = net.MainBranch;
         _selectedNode = null;
         NotifyProgramChanged();
         RenderNetworks();
         UpdatePropertyBarForSelectedNode();
-    }
-
-    private void OnOpenParallelBranchClick(object sender, RoutedEventArgs e)
-    {
-        if (_plc is null || _plc.DraftProgram.Networks.Count == 0) return;
-        RbTabLadder.IsChecked = true;
-
-        var net = _plc.DraftProgram.Networks[Math.Clamp(_selectedNetworkIndex, 0, _plc.DraftProgram.Networks.Count - 1)];
-        var branch = _selectedBranch ?? net.MainBranch;
-
-        if (_selectedNode is not null && _selectedNode.Kind == LadderElementKind.ParallelBlock && _selectedNode.Branches is not null)
-        {
-            var newSub = new LadderBranch();
-            _selectedNode.Branches.Add(newSub);
-            _selectedBranch = newSub;
-            _selectedNode = null;
-        }
-        else if (_selectedNode is not null && branch.Nodes.Contains(_selectedNode))
-        {
-            int idx = branch.Nodes.IndexOf(_selectedNode);
-            var wrapped = _selectedNode;
-            var newSub = new LadderBranch();
-            var pBlock = new LadderNode
-            {
-                Kind = LadderElementKind.ParallelBlock,
-                Branches = [new LadderBranch { Nodes = [wrapped] }, newSub]
-            };
-            branch.Nodes[idx] = pBlock;
-            _selectedBranch = newSub;
-            _selectedNode = null;
-        }
-        else
-        {
-            var sub1 = new LadderBranch();
-            var sub2 = new LadderBranch();
-            branch.Nodes.Add(new LadderNode { Kind = LadderElementKind.ParallelBlock, Branches = [sub1, sub2] });
-            _selectedBranch = sub1;
-            _selectedNode = null;
-        }
-
-        NotifyProgramChanged();
-        RenderNetworks();
-        UpdatePropertyBarForSelectedNode();
-    }
-
-    private void OnCloseParallelBranchClick(object sender, RoutedEventArgs e)
-    {
-        if (_plc is null || _plc.DraftProgram.Networks.Count == 0) return;
-        var net = _plc.DraftProgram.Networks[Math.Clamp(_selectedNetworkIndex, 0, _plc.DraftProgram.Networks.Count - 1)];
-        _selectedBranch = net.MainBranch;
-        _selectedNode = net.MainBranch.Nodes.LastOrDefault();
-        RenderNetworks();
-        UpdatePropertyBarForSelectedNode();
-    }
-
-    private void OnDeleteSelectedNodeClick(object sender, RoutedEventArgs e)
-    {
-        if (_plc is null || _selectedNode is null || _selectedBranch is null) return;
-        _selectedBranch.Nodes.Remove(_selectedNode);
-        _selectedNode = _selectedBranch.Nodes.LastOrDefault();
-        NotifyProgramChanged();
-        RenderNetworks();
-        UpdatePropertyBarForSelectedNode();
-    }
-
-    private void OnCpuRunClick(object sender, RoutedEventArgs e)
-    {
-        if (_plc is null) return;
-        _plc.SetRunMode();
-        UpdateCpuStateBadges();
-        PlcHardwareVisualChanged?.Invoke();
-    }
-
-    private void OnCpuStopClick(object sender, RoutedEventArgs e)
-    {
-        if (_plc is null) return;
-        _plc.SetStopMode();
-        UpdateCpuStateBadges();
-        PlcHardwareVisualChanged?.Invoke();
-    }
-
-    private void OnTabChanged(object sender, RoutedEventArgs e)
-    {
-        if (!IsLoaded) return;
-        AddressPickerPopup.IsOpen = false;
-        TagAutocompletePopup.IsOpen = false;
-        RefreshAllViews();
-    }
-
-    private void OnToggleInstructionsClick(object sender, RoutedEventArgs e)
-    {
-        _isInstructionsVisible = !_isInstructionsVisible;
-        InstructionsPanelBorder.Visibility = _isInstructionsVisible ? Visibility.Visible : Visibility.Collapsed;
-        InstructionsColumn.Width = _isInstructionsVisible ? new GridLength(264) : new GridLength(0);
-    }
-
-    private void OnHideEditorClick(object sender, RoutedEventArgs e) => HideRequested?.Invoke();
-
-    public void SetZoomPercent(double percent)
-    {
-        double clamped = Math.Clamp(Math.Round(percent), 50, 200);
-        _updatingZoomUi = true;
-        LadderZoomTransform.ScaleX = clamped / 100.0;
-        LadderZoomTransform.ScaleY = clamped / 100.0;
-        if (SliderLadderZoom is not null) SliderLadderZoom.Value = clamped;
-        if (CbLadderZoom is not null)
-        {
-            foreach (ComboBoxItem item in CbLadderZoom.Items)
-            {
-                if (item.Tag is string s && double.TryParse(s, out double v) && Math.Abs(v - clamped) < 1.0)
-                {
-                    CbLadderZoom.SelectedItem = item;
-                    break;
-                }
-            }
-        }
-        _updatingZoomUi = false;
-    }
-
-    private void OnZoomSliderValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-    {
-        if (_updatingZoomUi || LadderZoomTransform is null) return;
-        SetZoomPercent(e.NewValue);
-    }
-
-    private void OnZoomComboChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_updatingZoomUi || LadderZoomTransform is null) return;
-        if (CbLadderZoom.SelectedItem is ComboBoxItem item && item.Tag is string s && double.TryParse(s, out double v))
-            SetZoomPercent(v);
-    }
-
-    private void OnLadderPreviewMouseWheel(object sender, MouseWheelEventArgs e)
-    {
-        if (Keyboard.Modifiers == ModifierKeys.Control)
-        {
-            SetZoomPercent(SliderLadderZoom.Value + (e.Delta > 0 ? 15.0 : -15.0));
-            e.Handled = true;
-        }
-    }
-
-    private void NotifyProgramChanged() => ProgramEdited?.Invoke();
-
-    private static SolidColorBrush CreateBrush(string hex)
-    {
-        var b = (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
-        b.Freeze();
-        return b;
     }
 }

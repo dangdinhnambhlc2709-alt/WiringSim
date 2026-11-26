@@ -1539,11 +1539,13 @@ public static class ComponentRenderer
             dc.DrawText(ft, new Point(plc.X + t.RelX - ft.Width / 2.0, botCover.Bottom - 11));
         }
 
+        bool canOutputDq = plc.CpuState == PlcCpuState.Run ||
+                           (plc.CpuState == PlcCpuState.Stop && plc.LoadedProgram.StopOutputMode == PlcStopOutputMode.FreezeLastValue);
         for (int i = 0; i < plc.DqTerminals.Length; i++)
         {
             var term = plc.DqTerminals[i];
             Point lp = new(plc.X + term.RelX, botCover.Top + 7);
-            bool on = plc.IsPowered && plc.CpuState == PlcCpuState.Run && plc.Runtime.Dq[i];
+            bool on = plc.IsPowered && canOutputDq && !plc.IsDownloading && !plc.HasOutputShortFault && plc.Runtime.Dq[i];
             if (on)
                 dc.DrawEllipse(CreateRadialGlow("#AA22C55E", "#0022C55E"), null, lp, 7, 7);
             dc.DrawEllipse(CreateSolid(on ? "#22C55E" : "#334155"), CreatePen(on ? "#DCFCE7" : "#475569", 0.7), lp, 3.0, 3.0);
@@ -1575,8 +1577,8 @@ public static class ComponentRenderer
         bool errLit = errActive && blinkHigh;
         string errHex = errLit ? "#EF4444" : "#334155";
 
-        // 3. MAINT LED: Vàng cam khi đang nạp hoặc bảo trì
-        bool maintLit = plc.IsDownloading && !blinkHigh;
+        // 3. MAINT LED: Vàng cam khi đang nạp, bảo trì hoặc đang kích hoạt Force Table (:P)
+        bool maintLit = (plc.IsDownloading && !blinkHigh) || (plc.IsPowered && plc.Runtime.HasActiveForces);
         string maintHex = maintLit ? "#F59E0B" : "#334155";
 
         DrawPlcStatusLedRow(dc, new Point(statusBox.X + 14, statusBox.Y + 16), runHex, runLit, "RUN/STOP", dpiScale);
@@ -2077,15 +2079,26 @@ public static class ComponentRenderer
     public static FormattedText FormatText(string text, double fontSize, Typeface typeface, Brush brush, double dpiScale) =>
         new(text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, typeface, fontSize, brush, dpiScale);
 
+    private static readonly Dictionary<string, SolidColorBrush> SolidBrushCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<(string Hex, double Thickness), Pen> PenCache = new();
+    private static readonly Dictionary<(string TopHex, string BottomHex), LinearGradientBrush> VerticalGradCache = new();
+    private static readonly Dictionary<(string CenterHex, string EdgeHex), RadialGradientBrush> RadialGlowCache = new();
+
     public static SolidColorBrush CreateSolid(string hex)
     {
-        var b = (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
+        if (SolidBrushCache.TryGetValue(hex, out var cached))
+            return cached;
+        var b = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)!);
         b.Freeze();
+        SolidBrushCache[hex] = b;
         return b;
     }
 
     public static Pen CreatePen(string hex, double thickness)
     {
+        var key = (hex.ToUpperInvariant(), thickness);
+        if (PenCache.TryGetValue(key, out var cached))
+            return cached;
         var p = new Pen(CreateSolid(hex), thickness)
         {
             StartLineCap = PenLineCap.Round,
@@ -2093,25 +2106,34 @@ public static class ComponentRenderer
             LineJoin = PenLineJoin.Round
         };
         p.Freeze();
+        PenCache[key] = p;
         return p;
     }
 
     private static LinearGradientBrush CreateVerticalGradient(string topHex, string bottomHex)
     {
+        var key = (topHex.ToUpperInvariant(), bottomHex.ToUpperInvariant());
+        if (VerticalGradCache.TryGetValue(key, out var cached))
+            return cached;
         var g = new LinearGradientBrush(
             (Color)ColorConverter.ConvertFromString(topHex)!,
             (Color)ColorConverter.ConvertFromString(bottomHex)!,
             90.0);
         g.Freeze();
+        VerticalGradCache[key] = g;
         return g;
     }
 
     public static RadialGradientBrush CreateRadialGlow(string centerHex, string edgeHex)
     {
+        var key = (centerHex.ToUpperInvariant(), edgeHex.ToUpperInvariant());
+        if (RadialGlowCache.TryGetValue(key, out var cached))
+            return cached;
         var g = new RadialGradientBrush(
             (Color)ColorConverter.ConvertFromString(centerHex)!,
             (Color)ColorConverter.ConvertFromString(edgeHex)!);
         g.Freeze();
+        RadialGlowCache[key] = g;
         return g;
     }
 }

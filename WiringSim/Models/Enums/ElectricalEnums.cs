@@ -413,5 +413,55 @@ public enum LadderElementKind
     ShiftRight = 170,
     ShiftLeft = 171,
     RotateRight = 172,
-    RotateLeft = 173
+    RotateLeft = 173,
+
+    // Nhóm 11: Extended instructions (Date/Time RTC, String + Char, Block Call)
+    ReadSysTime = 180,
+    ReadLocTime = 181,
+    TimeAdd = 182,
+    TimeSub = 183,
+    TimeDiff = 184,
+    TimeConv = 185,
+    StringConv = 186,
+    StringLen = 187,
+    StringConcat = 188,
+    StringLeft = 189,
+    StringRight = 190,
+    StringMid = 191,
+    StringDelete = 192,
+    StringInsert = 193,
+    StringReplace = 194,
+    StringFind = 195,
+    CallBlock = 196,
+
+    // Nhóm 12: Technology instructions (PWM, HSC, PID)
+    CtrlPwm = 200,
+    CtrlHsc = 201,
+    PidCompact = 202,
+
+    // Nhóm 13: Communication instructions (Modbus RTU / TCP)
+    ModbusCommLoad = 210,
+    ModbusMaster = 211,
+    ModbusTcpClient = 212
+}
+
+public enum PlcBlockKind
+{
+    OB1_Main = 0,
+    OB100_Startup = 1,
+    FC = 2,
+    FB = 3
+}
+
+public enum PlcStopOutputMode
+{
+    ResetToZero = 0,
+    FreezeLastValue = 1
+}
+
+public enum PlcDiagSeverity
+{
+    Info = 0,
+    Warning = 1,
+    Error = 2
 }

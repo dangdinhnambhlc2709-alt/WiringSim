@@ -79,7 +79,7 @@
                 </DockPanel>
             </Border>
 
-            <!-- Trình lập trình PLC Ladder chuẩn TIA Portal -->
+            <!-- Trình lập trình PLC Ladder chuẩn IEC 61131-3 -->
             <controls:PlcLadderEditorControl x:Name="LadderEditor" Grid.Row="1" />
         </Grid>
     </Border>

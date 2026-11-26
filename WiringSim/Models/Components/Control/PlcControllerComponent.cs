@@ -33,6 +33,7 @@ public sealed class PlcControllerComponent : ElectricalComponent
     public bool IsPowered { get; private set; }
     public double SupplyVoltage { get; private set; } = 24.0;
     public bool HasCompileError { get; set; }
+    public bool HasPendingDownload { get; set; }
     public bool HasOutputShortFault { get; private set; }
     public string? PlcFaultMessage { get; private set; }
     public bool IsDownloading { get; set; }
@@ -104,23 +105,37 @@ public sealed class PlcControllerComponent : ElectricalComponent
         DraftProgram = compiledProgram.Clone();
         LoadedProgram = compiledProgram.Clone();
         HasCompileError = false;
+        HasPendingDownload = false;
         HasOutputShortFault = false;
         PlcFaultMessage = null;
         Runtime.ResetAllMemory();
+        Runtime.LogDiagnostic(0x0103, PlcDiagSeverity.Info, "Download", $"Program downloaded to {DisplayName} ({LoadedProgram.Networks.Count} OB1 networks, {LoadedProgram.AdditionalBlocks.Count} extra blocks).");
         CpuState = PlcCpuState.Run;
     }
 
     public void SetRunMode()
     {
+        bool wasNotRun = CpuState != PlcCpuState.Run;
         HasOutputShortFault = false;
         PlcFaultMessage = null;
         CpuState = PlcCpuState.Run;
+        if (wasNotRun)
+        {
+            Runtime.NotifyStopToRunTransition();
+            Runtime.LogDiagnostic(0x0101, PlcDiagSeverity.Info, "CPU", $"{DisplayName} transitioned STOP → RUN.");
+        }
     }
 
     public void SetStopMode()
     {
+        bool wasRun = CpuState == PlcCpuState.Run;
         CpuState = PlcCpuState.Stop;
-        Runtime.ClearOutputsAndOverlay();
+        if (LoadedProgram.StopOutputMode == PlcStopOutputMode.ResetToZero)
+            Runtime.ClearOutputsAndOverlay();
+        else
+            Runtime.ClearLiveOverlay(); // FreezeLastValue: giữ nguyên trạng thái DQ cuối cùng
+        if (wasRun)
+            Runtime.LogDiagnostic(0x0104, PlcDiagSeverity.Warning, "CPU", $"{DisplayName} transitioned RUN → STOP ({LoadedProgram.StopOutputMode}).");
     }
 
     public void TriggerOutputShortFault(string reason)
@@ -129,6 +144,7 @@ public sealed class PlcControllerComponent : ElectricalComponent
         PlcFaultMessage = reason;
         CpuState = PlcCpuState.Error;
         Runtime.ClearOutputsAndOverlay();
+        Runtime.LogDiagnostic(0x8901, PlcDiagSeverity.Error, "Hardware", reason);
     }
 
     public override IEnumerable<(Terminal Terminal, PotentialToken Token)> GetSourceOutputs()
@@ -139,7 +155,9 @@ public sealed class PlcControllerComponent : ElectricalComponent
         yield return (AuxLPlus, new PotentialToken(Id, AuxLPlus.Id, CurrentKind.DC, PhaseType.DC_Plus, SupplyVoltage));
         yield return (AuxM, new PotentialToken(Id, AuxM.Id, CurrentKind.DC, PhaseType.DC_Minus, 0.0));
 
-        if (CpuState != PlcCpuState.Run || HasOutputShortFault || IsDownloading)
+        if (CpuState == PlcCpuState.Error || HasOutputShortFault || IsDownloading)
+            yield break;
+        if (CpuState != PlcCpuState.Run && LoadedProgram.StopOutputMode != PlcStopOutputMode.FreezeLastValue)
             yield break;
 
         for (int i = 0; i < DqTerminals.Length; i++)
@@ -172,6 +190,7 @@ public sealed class PlcControllerComponent : ElectricalComponent
                           SupplyLPlus.ActivePotentials.Any(p => p.CurrentKind == CurrentKind.DC && p.Phase == PhaseType.DC_Plus) &&
                           SupplyM.ActivePotentials.Any(p => p.CurrentKind == CurrentKind.DC && p.Phase == PhaseType.DC_Minus);
 
+        bool wasPowered = IsPowered;
         IsPowered = correctPol;
         if (!IsPowered)
         {
@@ -179,6 +198,12 @@ public sealed class PlcControllerComponent : ElectricalComponent
             Array.Clear(Runtime.Ai);
             Runtime.ClearOutputsAndOverlay();
             return;
+        }
+        if (!wasPowered)
+        {
+            Runtime.LogDiagnostic(0x0100, PlcDiagSeverity.Info, "Power", $"{DisplayName} 24VDC power ON ({vSup:0.0}V).");
+            if (CpuState == PlcCpuState.Run)
+                Runtime.NotifyStopToRunTransition();
         }
 
         SupplyVoltage = Math.Round(vSup, 1);
@@ -190,11 +215,12 @@ public sealed class PlcControllerComponent : ElectricalComponent
             Runtime.Di[i] = inKind == CurrentKind.DC && vIn >= 12.0;
         }
 
-        // 2. Đọc 2 ngõ vào tương tự AI0, AI1 (0–10VDC -> 0–27648)
+        // 2. Đọc 2 ngõ vào tương tự AI0, AI1 chuẩn CPU 1214C:
+        //    0..10.0V -> 0..27648 (Rated), 10.0..11.7589V -> 27649..32511 (Overshoot), >11.7589V -> 32767 (Overflow)
         double vAi0 = ElectricalAnalysisHelper.GetOperatingVoltageAcross(Ai0, SupplyM, out var k0);
         double vAi1 = ElectricalAnalysisHelper.GetOperatingVoltageAcross(Ai1, SupplyM, out var k1);
-        Runtime.Ai[0] = k0 == CurrentKind.DC ? (int)Math.Round(Math.Clamp(vAi0, 0.0, 10.0) * 2764.8) : 0;
-        Runtime.Ai[1] = k1 == CurrentKind.DC ? (int)Math.Round(Math.Clamp(vAi1, 0.0, 10.0) * 2764.8) : 0;
+        Runtime.Ai[0] = k0 == CurrentKind.DC ? ConvertOnboardAiVoltage(vAi0) : 0;
+        Runtime.Ai[1] = k1 == CurrentKind.DC ? ConvertOnboardAiVoltage(vAi1) : 0;
 
         // 3. Nếu CPU đang ở chế độ RUN (và không đang nạp/lỗi), thực thi vòng quét Ladder OB1!
         if (CpuState == PlcCpuState.Run && !IsDownloading && !HasOutputShortFault)
@@ -207,8 +233,18 @@ public sealed class PlcControllerComponent : ElectricalComponent
         }
         else
         {
-            Runtime.ClearOutputsAndOverlay();
+            if (LoadedProgram.StopOutputMode == PlcStopOutputMode.ResetToZero || HasOutputShortFault || IsDownloading)
+                Runtime.ClearOutputsAndOverlay();
+            else
+                Runtime.ClearLiveOverlay();
         }
+    }
+
+    private static int ConvertOnboardAiVoltage(double volts)
+    {
+        if (volts <= 0.0) return 0;
+        if (volts > 11.7589) return 32767; // Overflow (Part 2 CPU 1214C spec)
+        return Math.Clamp((int)Math.Round(volts * 2764.8), 0, 32511); // 0..27648 rated, 27649..32511 overshoot
     }
 
     public override void UpdateVisualAnimation(double deltaSeconds, bool isSimulating)
@@ -248,10 +284,12 @@ public sealed class PlcControllerComponent : ElectricalComponent
         {
             var parsed = JsonSerializer.Deserialize<PlcProgramModel>(lJson, ProgramJsonOptions);
             if (parsed is not null) LoadedProgram = parsed;
+            HasPendingDownload = props.TryGetValue("DraftProgramJson", out var dj) && !string.Equals(dj, lJson, StringComparison.Ordinal);
         }
         else
         {
             LoadedProgram = DraftProgram.Clone();
+            HasPendingDownload = false;
         }
     }
 }

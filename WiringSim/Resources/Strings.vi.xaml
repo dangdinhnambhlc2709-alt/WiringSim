@@ -402,12 +402,13 @@
     <sys:String x:Key="Str.Vfd.PotLabel">Núm chiết áp ảo đặt tần số (P02 = 1):</sys:String>
     <sys:String x:Key="Str.Vfd.ExtPotLabel">Mức chiết áp ngoài 10V–AI1–GND (P02 = 2):</sys:String>
     <sys:String x:Key="Str.Vfd.ParamTableTitle">BẢNG THÔNG SỐ CÀI ĐẶT (P01 – P06)</sys:String>
-    <sys:String x:Key="Str.Vfd.P01">P01 • Nguồn lệnh chạy (0: Phím Keypad | 1: Chân ngoài FWD/REV-COM)</sys:String>
-    <sys:String x:Key="Str.Vfd.P02">P02 • Nguồn đặt tần số (0: Phím ▲/▼ | 1: Núm xoay | 2: Chiết áp ngoài AI1)</sys:String>
+    <sys:String x:Key="Str.Vfd.P01">P01 • Nguồn lệnh chạy (0: Keypad | 1: Chân ngoài FWD/REV | 2: Modbus)</sys:String>
+    <sys:String x:Key="Str.Vfd.P02">P02 • Nguồn đặt tần số (0: ▲/▼ | 1: Núm xoay | 2: AI1 | 3: Modbus)</sys:String>
     <sys:String x:Key="Str.Vfd.P03">P03 • Tần số tối đa Max Freq (10.0 – 400.0 Hz)</sys:String>
     <sys:String x:Key="Str.Vfd.P04">P04 • Thời gian tăng tốc ACC (0.5 – 60.0 s)</sys:String>
     <sys:String x:Key="Str.Vfd.P05">P05 • Thời gian giảm tốc DEC (0.5 – 60.0 s)</sys:String>
     <sys:String x:Key="Str.Vfd.P06">P06 • Tần số đa cấp DI1 / DI2 (Mặc định 25.0 Hz / 40.0 Hz)</sys:String>
+    <sys:String x:Key="Str.Vfd.P07">P07 • Địa chỉ Modbus Slave ID (1 – 247, liên kết trực tiếp PLC)</sys:String>
     <sys:String x:Key="Str.Vfd.ModeBtn">MODE / PRG</sys:String>
     <sys:String x:Key="Str.Vfd.SetBtn">SET / ENTER</sys:String>
     <sys:String x:Key="Str.Vfd.DirBtn">Đảo FWD/REV</sys:String>
@@ -518,18 +519,20 @@
     <sys:String x:Key="Str.Preset4.Name">4. Mạch điều khiển Rơ-le trung gian bằng cảm biến tiệm cận 2 dây AC 220V</sys:String>
     <sys:String x:Key="Str.Preset4.Guide">Chuyển sang [▶ Chạy Mô Phỏng] → Bấm vào đầu cảm biến 2 dây AC (B1): dòng điện đi nối tiếp L → BN → BU → cuộn hút K1 (sụt áp ~3.5V, đo Volt ~216.5V) để hút rơ-le và bật đèn báo H1!</sys:String>
 
-    <!-- v1.3: PLC & Trình lập trình Ladder chuẩn TIA Portal -->
+    <!-- v1.3: PLC & Trình lập trình Ladder chuẩn IEC 61131-3 -->
     <sys:String x:Key="Str.Cat.Programmable">7. ĐIỀU KHIỂN LẬP TRÌNH (PLC)</sys:String>
     <sys:String x:Key="Str.Comp.Plc.Title">PLC (14 DI / 10 DQ / 2 AI)</sys:String>
     <sys:String x:Key="Str.Comp.Plc.Sub">14 DI • 10 DQ • 2 AI • Ladder OB1</sys:String>
     <sys:String x:Key="Str.Vis.PlcOpenLadder">Mở trình lập trình Ladder</sys:String>
     <sys:String x:Key="Str.Toolbar.PlcLadder">Trình lập trình Ladder</sys:String>
-    <sys:String x:Key="Str.Toolbar.PlcLadderTip">Ẩn / Hiện khung lập trình PLC Ladder (TIA Portal Style)</sys:String>
+    <sys:String x:Key="Str.Toolbar.PlcLadderTip">Ẩn / Hiện trình lập trình PLC Ladder (chuẩn IEC 61131-3)</sys:String>
 
     <sys:String x:Key="Str.Menu.PlcOpenLadder">💻 Mở trình lập trình Ladder (OB1)</sys:String>
     <sys:String x:Key="Str.Menu.PlcTagTable">🏷 Mở bảng ký hiệu biến (PLC Tag Table)</sys:String>
     <sys:String x:Key="Str.Menu.PlcRun">▶ Chuyển CPU sang RUN</sys:String>
     <sys:String x:Key="Str.Menu.PlcStop">⏹ Chuyển CPU sang STOP</sys:String>
+    <sys:String x:Key="Str.Menu.PlcSysMem">⚙ Bật System Memory (MB{0}: FirstScan, AlwaysTRUE/FALSE)</sys:String>
+    <sys:String x:Key="Str.Menu.PlcClkMem">⏱ Bật Clock Memory (MB{0}: 10Hz..0.5Hz)</sys:String>
 
     <sys:String x:Key="Str.Plc.EditorTitle">Trình lập trình PLC — Ladder (OB1)</sys:String>
     <sys:String x:Key="Str.Plc.TabLadder">Ladder (OB1)</sys:String>
@@ -594,10 +597,10 @@
     <sys:String x:Key="Str.Plc.ErrInvalidPt">Network {0}: Sai định dạng thời gian PT '{1}' (VD đúng: T#3s, T#500ms, T#1m).</sys:String>
     <sys:String x:Key="Str.Plc.ErrInvalidPv">Network {0}: Thiếu hoặc sai giá trị đặt PV '{1}' cho Bộ đếm.</sys:String>
 
-    <sys:String x:Key="Str.Preset5.Name">5. Điều khiển đèn tuần tự bằng PLC (Timer TON &amp; So sánh %MW)</sys:String>
-    <sys:String x:Key="Str.Preset5.Guide">Chuyển sang [▶ Chạy Mô Phỏng] → Bấm nút START (%I0.0): PLC tự động chạy tuần tự 3 đèn H1 → H2 → H3 cách nhau 3 giây bằng Timer TON (%DB1) &amp; So sánh %MW2 ("SEQUENCE"). Quan sát đường thông mạch xanh lá trong cửa sổ Ladder!</sys:String>
+    <sys:String x:Key="Str.Preset5.Name">5. Điều khiển đèn tuần tự bằng PLC (FirstScan, Clock_1Hz, TON, T# &amp; NORM_X/SCALE_X)</sys:String>
+    <sys:String x:Key="Str.Preset5.Guide">Chuyển sang [▶ Chạy Mô Phỏng] → Bấm START (%I0.0): PLC khởi tạo bằng "FirstScan", chạy tuần tự H1→H2→H3 mỗi 3 giây (TON %DB1 &amp; so sánh trực tiếp T#1500ms), nhấp nháy H4 bằng "Clock_1Hz" và chuẩn hóa Analog AI0 qua NORM_X/SCALE_X!</sys:String>
 
-    <!-- v1.3 Full 10-Category TIA Portal Instruction Tree -->
+    <!-- v1.3 Full 10-Category PLC Instruction Tree -->
     <sys:String x:Key="Str.Plc.SearchHint">Tìm lệnh PLC (VD: TON, NORM_X, SHR)...</sys:String>
     <sys:String x:Key="Str.Plc.EmptyBoxBtn">Empty box [F8]</sys:String>
     <sys:String x:Key="Str.Plc.InsertInputBtn">--| Đầu vào</sys:String>
@@ -628,8 +631,8 @@
     <sys:String x:Key="Str.Plc.D.SET">Cuộn chốt bit lên 1</sys:String>
     <sys:String x:Key="Str.Plc.D.SET_BF">Chốt dải N bit liên tiếp lên 1</sys:String>
     <sys:String x:Key="Str.Plc.D.RESET_BF">Xóa dải N bit liên tiếp về 0</sys:String>
-    <sys:String x:Key="Str.Plc.D.SR">Khối chốt ưu tiên Set</sys:String>
-    <sys:String x:Key="Str.Plc.D.RS">Khối chốt ưu tiên Reset</sys:String>
+    <sys:String x:Key="Str.Plc.D.SR">Khối chốt ưu tiên Reset (R1)</sys:String>
+    <sys:String x:Key="Str.Plc.D.RS">Khối chốt ưu tiên Set (S1)</sys:String>
     <sys:String x:Key="Str.Plc.D.P">Tiếp điểm bắt sườn lên biến</sys:String>
     <sys:String x:Key="Str.Plc.D.N">Tiếp điểm bắt sườn xuống biến</sys:String>
     <sys:String x:Key="Str.Plc.D.COILP">Cuộn xuất xung sườn lên</sys:String>
@@ -766,11 +769,11 @@
     <sys:String x:Key="Str.Plc.D.ROR">Xoay vòng sang phải N bit</sys:String>
     <sys:String x:Key="Str.Plc.D.ROL">Xoay vòng sang trái N bit</sys:String>
 
-    <!-- Hotfix v1.3.1: Cửa sổ nổi PLC Ladder & Cơ chế TIA Portal V21 -->
+    <!-- Cửa sổ nổi PLC Ladder & Cơ chế chuẩn IEC 61131-3 -->
     <sys:String x:Key="Str.Plc.WindowTitle">WiringSim — Trình lập trình PLC</sys:String>
     <sys:String x:Key="Str.Plc.CompactBtn">PLC Ladder</sys:String>
 
-    <!-- TIA Portal V21: PLC Tags Table, Address Picker, Call options & DB Autocomplete -->
+    <!-- PLC Tags Table, Address Picker, Call options & DB Autocomplete -->
     <sys:String x:Key="Str.Plc.TagColName">Name</sys:String>
     <sys:String x:Key="Str.Plc.TagColType">Data type</sys:String>
     <sys:String x:Key="Str.Plc.TagColAddr">Address</sys:String>
@@ -804,12 +807,192 @@
     <sys:String x:Key="Str.Plc.ErrUnassignedDb">Network {0}: Khối Timer / Counter chưa được gán Data Block (&lt;???&gt;). Hãy bấm vào &lt;???&gt; để mở Call options!</sys:String>
     <sys:String x:Key="Str.Plc.ClickAssignDbTip">Nhấp để mở hộp thoại Call options và gán Data Block</sys:String>
 
-    <sys:String x:Key="Str.Plc.AutoSearchHint">Tìm Tag, địa chỉ hoặc gõ 'TênDB.' để xem thuộc tính...</sys:String>
+    <sys:String x:Key="Str.Plc.AutoSearchHint">Tìm Tag, System/Clock, địa chỉ hoặc gõ 'Tên.' để mở DB/Slice...</sys:String>
     <sys:String x:Key="Str.Plc.AutoColName">Name</sys:String>
     <sys:String x:Key="Str.Plc.AutoColType">Data type</sys:String>
     <sys:String x:Key="Str.Plc.AutoColAddr">Address</sys:String>
     <sys:String x:Key="Str.Plc.AutoBackToAll">← Tất cả Tag &amp; Data Block</sys:String>
     <sys:String x:Key="Str.Plc.AutoEmpty">Không tìm thấy Tag hoặc Data Block phù hợp.</sys:String>
-    <sys:String x:Key="Str.Plc.DoubleClickHint">Nhấp đúp địa chỉ trên Ladder để chọn Tag / thuộc tính DB (VD: "TD11".Q)</sys:String>
+    <sys:String x:Key="Str.Plc.DoubleClickHint">Nhấp đúp hoặc nhấn Enter/F2 để sửa địa chỉ (Tab nhảy chân, chuột phải mở Menu thông minh)</sys:String>
+
+    <!-- Nâng cấp PLC IEC 61131-3: Favorites, Display Modes, ContextMenu, CALCULATE, Define Tag, Watch Table, System/Clock -->
+    <sys:String x:Key="Str.Plc.TabWatch">Watch Table</sys:String>
+    <sys:String x:Key="Str.Plc.PropType">Kiểu:</sys:String>
+    <sys:String x:Key="Str.Plc.FavoritesLabel">★ Favorites</sys:String>
+    <sys:String x:Key="Str.Plc.FavoritesDropHint">Kéo lệnh từ thư viện vào đây để ghim</sys:String>
+    <sys:String x:Key="Str.Plc.FavRightClickUnpin">Chuột phải để bỏ ghim khỏi Favorites</sys:String>
+    <sys:String x:Key="Str.Plc.FavUnpin">Bỏ ghim '{0}' khỏi Favorites</sys:String>
+    <sys:String x:Key="Str.Plc.FavResetDefault">Khôi phục Favorites mặc định</sys:String>
+    <sys:String x:Key="Str.Plc.FavPinnedMsg">Đã ghim lệnh '{0}' lên thanh Favorites.</sys:String>
+    <sys:String x:Key="Str.Plc.DragToFavTip">Bấm để chèn hoặc kéo thả lên thanh Favorites để ghim nhanh</sys:String>
+
+    <sys:String x:Key="Str.Plc.DisplayModeTip">Chuyển đổi 3 chế độ hiển thị địa chỉ (Ký hiệu &amp; Tuyệt đối | Chỉ ký hiệu | Chỉ tuyệt đối)</sys:String>
+    <sys:String x:Key="Str.Plc.DispModeBoth">🏷 Ký hiệu + %Địa chỉ</sys:String>
+    <sys:String x:Key="Str.Plc.DispModeSym">🏷 Chỉ ký hiệu ("Tag")</sys:String>
+    <sys:String x:Key="Str.Plc.DispModeAbs">🔢 Chỉ địa chỉ (%I0.0)</sys:String>
+
+    <sys:String x:Key="Str.Plc.SysClkBtn">⏱ System/Clock</sys:String>
+    <sys:String x:Key="Str.Plc.SysClkTip">Bật/tắt vùng nhớ hệ thống (FirstScan, AlwaysTRUE/FALSE) &amp; Xung nhịp vuông (Clock_10Hz..0.5Hz)</sys:String>
+    <sys:String x:Key="Str.Plc.SysClkTitle">Cấu hình System &amp; Clock Memory PLC</sys:String>
+    <sys:String x:Key="Str.Plc.SysMemEnable">Bật System Memory bits</sys:String>
+    <sys:String x:Key="Str.Plc.ClkMemEnable">Bật Clock Memory bits (xung vuông tự động)</sys:String>
+    <sys:String x:Key="Str.Plc.SysClkNote">Mặc định: Clock Memory ở MB0 (%M0.0..%M0.7) và System Memory ở MB1 (%M1.0..%M1.3). Tránh dùng trùng địa chỉ cho biến người dùng.</sys:String>
+    <sys:String x:Key="Str.Plc.SysClkTagSection">── BIẾN HỆ THỐNG &amp; XUNG NHỊP VUÔNG TỰ ĐỘNG (SYSTEM &amp; CLOCK MEMORY) ──</sys:String>
+
+    <sys:String x:Key="Str.Plc.EmptyBoxPrompt">Gõ tên lệnh PLC (TON, CMP, ADD, NORM_X, CALCULATE...) rồi nhấn Enter:</sys:String>
+    <sys:String x:Key="Str.Plc.EditEquationBtn">fx Sửa biểu thức...</sys:String>
+    <sys:String x:Key="Str.Plc.InsertPinBtn">+ Thêm chân vào</sys:String>
+    <sys:String x:Key="Str.Plc.UndefinedTagTip">Biến chưa khai báo trong PLC Tags — Chuột phải chọn 'Define tag...' (Alt+Shift+D) để gán địa chỉ ngay</sys:String>
+
+    <sys:String x:Key="Str.Plc.CtxInlineEdit">Sửa nhanh tại chỗ</sys:String>
+    <sys:String x:Key="Str.Plc.CtxDefineTag">Define tag...</sys:String>
+    <sys:String x:Key="Str.Plc.CtxRenameTag">Rename tag...</sys:String>
+    <sys:String x:Key="Str.Plc.CtxChangeCallType">Change call type...</sys:String>
+    <sys:String x:Key="Str.Plc.CtxInsertInputPin">+ Thêm chân đầu vào (Insert input)</sys:String>
+    <sys:String x:Key="Str.Plc.CtxRemoveInputPin">- Xóa chân đầu vào cuối</sys:String>
+    <sys:String x:Key="Str.Plc.CtxCut">Cắt (Cut)</sys:String>
+    <sys:String x:Key="Str.Plc.CtxCopy">Sao chép (Copy)</sys:String>
+    <sys:String x:Key="Str.Plc.CtxPaste">Dán (Paste)</sys:String>
+    <sys:String x:Key="Str.Plc.CtxDelete">Xóa (Delete)</sys:String>
+    <sys:String x:Key="Str.Plc.CtxInsertNetBelow">Chèn Network mới bên dưới</sys:String>
+    <sys:String x:Key="Str.Plc.CtxRenameNet">Đổi tiêu đề Network...</sys:String>
+    <sys:String x:Key="Str.Plc.CtxRenameNetPrompt">Nhập tiêu đề mới cho Network {0}:</sys:String>
+
+    <sys:String x:Key="Str.Plc.StatusCopiedNode">Đã sao chép phần tử Ladder vào Clipboard.</sys:String>
+    <sys:String x:Key="Str.Plc.StatusCopiedNet">Đã sao chép toàn bộ Network vào Clipboard.</sys:String>
+    <sys:String x:Key="Str.Plc.StatusPasted">Đã dán từ Clipboard.</sys:String>
+
+    <sys:String x:Key="Str.Plc.DefineTagTitle">Khai báo biến tại chỗ (Define Tag)</sys:String>
+    <sys:String x:Key="Str.Plc.DefineTagSubtitle">Gán địa chỉ vùng nhớ và kiểu dữ liệu cho biến mới trong bảng PLC Tags</sys:String>
+    <sys:String x:Key="Str.Plc.DefineTagErrName">Tên biến (Tag Name) không được để trống!</sys:String>
+    <sys:String x:Key="Str.Plc.DefineTagDone">Đã khai báo biến "{0}" → {1} trong PLC Tags.</sys:String>
+    <sys:String x:Key="Str.Plc.RenameTagPrompt">Nhập tên mới cho biến "{0}" (tự động đồng bộ toàn bộ chương trình):</sys:String>
+    <sys:String x:Key="Str.Plc.RenameTagDone">Đã đổi tên "{0}" → "{1}" ({2} vị trí được cập nhật).</sys:String>
+
+    <sys:String x:Key="Str.Plc.CalcDlgTitle">Biểu thức tính toán (CALCULATE)</sys:String>
+    <sys:String x:Key="Str.Plc.CalcDlgSubtitle">Nhập công thức với IN1..INn (VD: ((IN4 - IN5) / (IN2 - IN3)) * (IN1 - IN3) + IN5). Khối sẽ tự sinh đủ số chân đầu vào.</sys:String>
+    <sys:String x:Key="Str.Plc.CalcDataType">Kiểu dữ liệu (Data type):</sys:String>
+    <sys:String x:Key="Str.Plc.CalcExprLabel">Biểu thức (OUT = ...):</sys:String>
+    <sys:String x:Key="Str.Plc.CalcFuncsLabel">Toán tử &amp; hàm toán học hỗ trợ (bấm để chèn nhanh):</sys:String>
+    <sys:String x:Key="Str.Plc.CalcInputsDetected">Tự động sinh: IN1 .. IN{0}</sys:String>
+    <sys:String x:Key="Str.Plc.CalcExprOk">✅ Biểu thức hợp lệ.</sys:String>
+    <sys:String x:Key="Str.Plc.CalcErrEmpty">Biểu thức CALCULATE không được để trống!</sys:String>
+    <sys:String x:Key="Str.Plc.CalcErrSyntax">Lỗi cú pháp trong biểu thức CALCULATE!</sys:String>
+    <sys:String x:Key="Str.Plc.CalcErrMissingParen">Thiếu dấu ngoặc đóng ')' trong biểu thức!</sys:String>
+    <sys:String x:Key="Str.Plc.CalcErrUnexpected">Ký tự không hợp lệ gần '{0}'.</sys:String>
+    <sys:String x:Key="Str.Plc.CalcErrUnknownIdent">Tên biến hoặc hàm không hỗ trợ: '{0}' (dùng IN1..IN32 hoặc ABS, SQRT, SIN...).</sys:String>
+
+    <sys:String x:Key="Str.Plc.ErrImmediateOnlyIO">Hậu tố đọc/ghi tức thời ':P' chỉ hỗ trợ cho ngõ vào/ra vật lý %I hoặc %Q ('{0}').</sys:String>
+    <sys:String x:Key="Str.Plc.ErrCannotReadImmediateOut">Không thể đọc từ ngõ ra tức thời ':P' ('{0}'); chỉ dùng để ghi tức thời!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrSliceNotSupported">Kiểu dữ liệu '{1}' của '{0}' không hỗ trợ cắt lớp (Slice Access).</sys:String>
+    <sys:String x:Key="Str.Plc.ErrSliceOutOfRange">Chỉ số cắt lớp (Slice) trong '{0}' vượt phạm vi cho phép ({1}).</sys:String>
+
+    <sys:String x:Key="Str.Plc.WatchAdd">+ Thêm biến theo dõi</sys:String>
+    <sys:String x:Key="Str.Plc.WatchDelete">Xóa dòng</sys:String>
+    <sys:String x:Key="Str.Plc.WatchModifyAll">⚡ Ép tất cả dòng đã chọn</sys:String>
+    <sys:String x:Key="Str.Plc.WatchClearForce">↺ Hủy ép ngõ vào I/AI</sys:String>
+    <sys:String x:Key="Str.Plc.WatchTip">Theo dõi trực tuyến theo DEC/HEX/BIN/FLOAT/TIME/BOOL và nhập giá trị để ép trực tiếp (Modify Now) khi mô phỏng</sys:String>
+    <sys:String x:Key="Str.Plc.WatchColExpr">Tên biến / Biểu thức</sys:String>
+    <sys:String x:Key="Str.Plc.WatchColFmt">Định dạng</sys:String>
+    <sys:String x:Key="Str.Plc.WatchColMonitor">Giá trị trực tuyến</sys:String>
+    <sys:String x:Key="Str.Plc.WatchColModify">Giá trị ép (Modify)</sys:String>
+    <sys:String x:Key="Str.Plc.WatchColAction">Thao tác</sys:String>
+    <sys:String x:Key="Str.Plc.WatchModifyNow">⚡ Modify</sys:String>
+    <sys:String x:Key="Str.Plc.WatchNeedSim">Cần chạy mô phỏng và cấp nguồn 24VDC cho PLC để ép giá trị trực tuyến!</sys:String>
+    <sys:String x:Key="Str.Plc.WatchModifiedOk">⚡ Đã ghi giá trị {1} vào {0}.</sys:String>
+    <sys:String x:Key="Str.Plc.WatchModifiedCount">⚡ Đã ghi trực tuyến {0} biến trong Watch Table.</sys:String>
+    <sys:String x:Key="Str.Plc.WatchClearedForce">Đã hủy toàn bộ giá trị ép ngõ vào/ra từ Watch Table.</sys:String>
+
+    <sys:String x:Key="Str.Plc.ErrDuplicateLabel">Network {0}: Nhãn nhảy LABEL '{1}' bị trùng với Network {2} (mỗi nhãn phải là duy nhất)!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrSysClkOverlap">Cấu hình lỗi: Byte System Memory (MB{0}) đang trùng với Byte Clock Memory (MB{0})!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrWriteSysClkBit">Không thể ghi đè vùng nhớ System/Clock Memory ('{0}')!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrTrigPosition">Network {0}: Lệnh {1} không được đặt ở đầu nhánh (thiếu điều kiện trước) hoặc cuối nhánh!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrBitFieldPosition">Network {0}: Lệnh {1} phải nằm ở vị trí ngoài cùng bên phải của nhánh!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrLabelPosition">Network {0}: Nhãn LABEL '{1}' phải đặt ở đầu Network (không nằm trong nhánh song song)!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrDbMemberRequired">Địa chỉ '{0}' là khối DB chưa chỉ rõ thành viên (hãy dùng VD: {0}.Q hoặc {0}.DBX0.0)!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrTimerDbRequired">Network {0}: Lệnh {1} yêu cầu DB kiểu IEC_Timer nhưng '{2}' là kiểu '{3}'!</sys:String>
+    <sys:String x:Key="Str.Plc.OnlineOutOfSync">● ONLINE ≠ OFFLINE</sys:String>
+    <sys:String x:Key="Str.Plc.OnlineOutOfSyncTip">Chương trình đang sửa (Offline) khác với chương trình đang chạy trong PLC (Online). Hãy bấm Download để đồng bộ!</sys:String>
+    <sys:String x:Key="Str.Plc.DefineTagErrTypeMismatch">Kiểu dữ liệu '{0}' không khớp kích thước địa chỉ '{1}'!</sys:String>
+    <sys:String x:Key="Str.Plc.DefineTagErrSysClk">Địa chỉ '{0}' thuộc vùng System/Clock Memory (chỉ đọc)!</sys:String>
+    <sys:String x:Key="Str.Plc.InsertOutPinBtn">+ Thêm ngõ ra OUT</sys:String>
+    <sys:String x:Key="Str.Plc.CtxInsertOutPin">+ Thêm ngõ ra OUT (Insert output)</sys:String>
+    <sys:String x:Key="Str.Plc.CtxRemoveOutPin">- Xóa ngõ ra OUT cuối</sys:String>
+
+    <!-- Nhóm 11-13: Extended, Technology (PWM/HSC/PID), Communication (Modbus/VFD) -->
+    <sys:String x:Key="Str.Plc.Cat11">11. Mở rộng (RTC, Chuỗi &amp; CALL)</sys:String>
+    <sys:String x:Key="Str.Plc.Cat12">12. Công nghệ (PWM, HSC &amp; PID)</sys:String>
+    <sys:String x:Key="Str.Plc.Cat13">13. Truyền thông (Modbus RTU/TCP)</sys:String>
+
+    <sys:String x:Key="Str.Plc.D.RD_SYS_T">Đọc thời gian hệ thống UTC (DTL)</sys:String>
+    <sys:String x:Key="Str.Plc.D.RD_LOC_T">Đọc thời gian địa phương CPU (DTL)</sys:String>
+    <sys:String x:Key="Str.Plc.D.T_ADD">Cộng thời gian (Time/DTL + Time)</sys:String>
+    <sys:String x:Key="Str.Plc.D.T_SUB">Trừ thời gian (Time/DTL - Time)</sys:String>
+    <sys:String x:Key="Str.Plc.D.T_DIFF">Hiệu giữa hai mốc DTL ra Time</sys:String>
+    <sys:String x:Key="Str.Plc.D.T_CONV">Chuyển đổi kiểu Time / DInt / DTL</sys:String>
+    <sys:String x:Key="Str.Plc.D.S_CONV">Chuyển đổi giữa Chuỗi (String) và Số</sys:String>
+    <sys:String x:Key="Str.Plc.D.LEN">Đo độ dài chuỗi ký tự (0..254)</sys:String>
+    <sys:String x:Key="Str.Plc.D.CONCAT">Nối hai chuỗi ký tự (IN1 + IN2)</sys:String>
+    <sys:String x:Key="Str.Plc.D.LEFT">Trích L ký tự bên trái chuỗi</sys:String>
+    <sys:String x:Key="Str.Plc.D.RIGHT">Trích L ký tự bên phải chuỗi</sys:String>
+    <sys:String x:Key="Str.Plc.D.MID">Trích L ký tự từ vị trí P (1-based)</sys:String>
+    <sys:String x:Key="Str.Plc.D.DELETE">Xóa L ký tự từ vị trí P trong chuỗi</sys:String>
+    <sys:String x:Key="Str.Plc.D.INSERT">Chèn chuỗi IN2 vào sau vị trí P</sys:String>
+    <sys:String x:Key="Str.Plc.D.REPLACE">Thay thế L ký tự tại vị trí P bằng IN2</sys:String>
+    <sys:String x:Key="Str.Plc.D.FIND">Tìm vị trí chuỗi con IN2 trong IN1</sys:String>
+    <sys:String x:Key="Str.Plc.D.CALL">Gọi khối hàm FC / FB</sys:String>
+    <sys:String x:Key="Str.Plc.D.CTRL_PWM">Phát xung PWM1..4 (%QW1000..1006 → DQ)</sys:String>
+    <sys:String x:Key="Str.Plc.D.CTRL_HSC">Bộ đếm tốc độ cao HSC1..6 (%ID1000..1020)</sys:String>
+    <sys:String x:Key="Str.Plc.D.PID">Bộ điều khiển PID vòng kín (Anti-windup)</sys:String>
+    <sys:String x:Key="Str.Plc.D.MB_LOAD">Cấu hình cổng Modbus RTU (Baud/Parity)</sys:String>
+    <sys:String x:Key="Str.Plc.D.MB_MASTER">Truyền thông Modbus RTU Master (CRC-16 → VFD)</sys:String>
+    <sys:String x:Key="Str.Plc.D.MB_CLIENT">Truyền thông Modbus TCP Client (40001.. → VFD)</sys:String>
+
+    <!-- Force Table, Diagnostics Buffer, Multi-Block OB/FC/FB, Export/Import Text, Watchdog -->
+    <sys:String x:Key="Str.Plc.TabForce">Force Table</sys:String>
+    <sys:String x:Key="Str.Plc.TabDiag">Chẩn đoán</sys:String>
+    <sys:String x:Key="Str.Plc.ForceBadgeTip">Đang có giá trị ép Force (:P) kích hoạt trên phần cứng PLC!</sys:String>
+    <sys:String x:Key="Str.Plc.ForceAdd">+ Thêm dòng Force</sys:String>
+    <sys:String x:Key="Str.Plc.ForceStart">⚡ Kích hoạt Force</sys:String>
+    <sys:String x:Key="Str.Plc.ForceStopAll">⏹ Dừng toàn bộ Force</sys:String>
+    <sys:String x:Key="Str.Plc.ForceDelete">Xóa dòng</sys:String>
+    <sys:String x:Key="Str.Plc.ForceTip">Ép cứng ngõ vào/ra ngoại vi (:P) độc lập với chương trình. Không thể ép chân đang gán PWM/HSC.</sys:String>
+    <sys:String x:Key="Str.Plc.ForceColAddr">Địa chỉ ngoại vi (:P)</sys:String>
+    <sys:String x:Key="Str.Plc.ForceColVal">Giá trị Force</sys:String>
+    <sys:String x:Key="Str.Plc.ForceColLive">Trạng thái hiện tại</sys:String>
+    <sys:String x:Key="Str.Plc.ForceColComment">Ghi chú</sys:String>
+    <sys:String x:Key="Str.Plc.ForceErrOnlyIO">Force Table chỉ hỗ trợ địa chỉ ngoại vi vật lý %I / %Q / %IW64 / %IW66 (:P)!</sys:String>
+    <sys:String x:Key="Str.Plc.ForceErrProtectedIo">Không thể ép '{0}': chân phần cứng đang được sử dụng bởi {1}!</sys:String>
+    <sys:String x:Key="Str.Plc.ForceAppliedOk">⚡ Đã áp dụng Force Table thành công.</sys:String>
+    <sys:String x:Key="Str.Plc.ForceStoppedOk">Đã tắt toàn bộ giá trị ép Force Table.</sys:String>
+
+    <sys:String x:Key="Str.Plc.DiagClear">Xóa nhật ký</sys:String>
+    <sys:String x:Key="Str.Plc.DiagTip">Nhật ký sự kiện CPU (Diagnostics Buffer): nguồn, chuyển chế độ STOP/RUN, Download, lỗi phần cứng &amp; runtime</sys:String>
+    <sys:String x:Key="Str.Plc.DiagColTime">Thời gian</sys:String>
+    <sys:String x:Key="Str.Plc.DiagColId">Mã sự kiện</sys:String>
+    <sys:String x:Key="Str.Plc.DiagColSev">Mức độ</sys:String>
+    <sys:String x:Key="Str.Plc.DiagColCat">Nhóm</sys:String>
+    <sys:String x:Key="Str.Plc.DiagColMsg">Nội dung chẩn đoán</sys:String>
+    <sys:String x:Key="Str.Plc.DiagEmpty">Chưa có sự kiện nào trong bộ đệm chẩn đoán CPU.</sys:String>
+
+    <sys:String x:Key="Str.Plc.BlockLabel">Khối:</sys:String>
+    <sys:String x:Key="Str.Plc.BlockAddOb100">+ OB100</sys:String>
+    <sys:String x:Key="Str.Plc.BlockAddFc">+ FC</sys:String>
+    <sys:String x:Key="Str.Plc.BlockAddFb">+ FB</sys:String>
+    <sys:String x:Key="Str.Plc.BlockDelete">Xóa khối</sys:String>
+    <sys:String x:Key="Str.Plc.ErrMissingBlock">Network {0}: Không tìm thấy khối hàm FC/FB '{1}' để gọi bằng CALL!</sys:String>
+
+    <sys:String x:Key="Str.Plc.ExportTextBtn">📄 Xuất Text</sys:String>
+    <sys:String x:Key="Str.Plc.ImportTextBtn">📥 Nhập Text</sys:String>
+    <sys:String x:Key="Str.Plc.ExportTextTip">Xuất toàn bộ chương trình PLC sang tệp văn bản có cấu trúc (.plctxt)</sys:String>
+    <sys:String x:Key="Str.Plc.ImportTextTip">Nhập chương trình PLC từ tệp văn bản có cấu trúc (.plctxt)</sys:String>
+    <sys:String x:Key="Str.Plc.ExportTextOk">📄 Đã xuất chương trình PLC sang tệp: {0}</sys:String>
+    <sys:String x:Key="Str.Plc.ImportTextOk">📥 Đã nhập chương trình PLC thành công ({0} Network OB1, {1} khối bổ sung).</sys:String>
+    <sys:String x:Key="Str.Plc.ImportTextFail">Lỗi nhập tệp văn bản PLC: {0}</sys:String>
+
+    <sys:String x:Key="Str.Plc.WatchdogLabel">Watchdog chu kỳ tối đa (ms):</sys:String>
+    <sys:String x:Key="Str.Plc.StopOutModeLabel">Ngõ ra DQ khi STOP:</sys:String>
+    <sys:String x:Key="Str.Plc.StopOutZero">Đặt về 0 (OFF)</sys:String>
+    <sys:String x:Key="Str.Plc.StopOutFreeze">Giữ nguyên giá trị cuối (Freeze)</sys:String>
 
 </ResourceDictionary>

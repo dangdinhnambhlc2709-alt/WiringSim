@@ -54,7 +54,7 @@ public static class UpdateService
     private static HttpClient CreateHttpClient(TimeSpan timeout)
     {
         var c = new HttpClient { Timeout = timeout };
-        c.DefaultRequestHeaders.UserAgent.ParseAdd("WiringSim-Updater/1.1.1");
+        c.DefaultRequestHeaders.UserAgent.ParseAdd("WiringSim-Updater/1.3.3");
         c.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         return c;
     }

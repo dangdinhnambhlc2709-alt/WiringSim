@@ -1093,6 +1093,25 @@ public static class ContextMenuBuilder
             plc.SetStopMode();
             notify(LocalizationManager.Format("Str.Status.UpdatedProp", plc.DisplayName, "CPU STOP"));
         }));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(CreateCheckOption(
+            LocalizationManager.Format("Str.Menu.PlcSysMem", plc.DraftProgram.SystemMemoryByte),
+            plc.DraftProgram.EnableSystemMemory, () =>
+            {
+                plc.DraftProgram.EnableSystemMemory = !plc.DraftProgram.EnableSystemMemory;
+                plc.LoadedProgram.EnableSystemMemory = plc.DraftProgram.EnableSystemMemory;
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", plc.DisplayName,
+                    $"System Memory={(plc.DraftProgram.EnableSystemMemory ? "ON" : "OFF")}"));
+            }));
+        menu.Items.Add(CreateCheckOption(
+            LocalizationManager.Format("Str.Menu.PlcClkMem", plc.DraftProgram.ClockMemoryByte),
+            plc.DraftProgram.EnableClockMemory, () =>
+            {
+                plc.DraftProgram.EnableClockMemory = !plc.DraftProgram.EnableClockMemory;
+                plc.LoadedProgram.EnableClockMemory = plc.DraftProgram.EnableClockMemory;
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", plc.DisplayName,
+                    $"Clock Memory={(plc.DraftProgram.EnableClockMemory ? "ON" : "OFF")}"));
+            }));
     }
 
     private static void BuildVoltmeterItems(ContextMenu menu, VoltmeterComponent vm, Action<string> notify)

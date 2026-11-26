@@ -39,7 +39,10 @@ public static class PlcInstructionCatalog
         (7, "Str.Plc.Cat7", "#06B6D4"),
         (8, "Str.Plc.Cat8", "#F97316"),
         (9, "Str.Plc.Cat9", "#8B5CF6"),
-        (10, "Str.Plc.Cat10", "#10B981")
+        (10, "Str.Plc.Cat10", "#10B981"),
+        (11, "Str.Plc.Cat11", "#0EA5E9"),
+        (12, "Str.Plc.Cat12", "#F43F5E"),
+        (13, "Str.Plc.Cat13", "#EAB308")
     ];
 
     private static readonly List<PlcInstructionMeta> _all = new();
@@ -204,7 +207,7 @@ public static class PlcInstructionCatalog
         Add(LadderElementKind.WordDeco, 9, null, "DECO", "DECO", "Str.Plc.D.DECO", "#8B5CF6", false, true, false, null, "IN", null, null, "OUT");
         Add(LadderElementKind.WordEnco, 9, null, "ENCO", "ENCO", "Str.Plc.D.ENCO", "#8B5CF6", false, true, false, null, "IN", null, null, "OUT");
         Add(LadderElementKind.WordSel, 9, null, "SEL", "SEL", "Str.Plc.D.SEL", "#8B5CF6", false, true, false, "G", "IN0", "IN1", null, "OUT");
-        Add(LadderElementKind.WordMux, 9, null, "MUX", "MUX", "Str.Plc.D.MUX", "#8B5CF6", false, true, false, "K", "IN0", "IN1", "IN2", "OUT");
+        Add(LadderElementKind.WordMux, 9, null, "MUX", "MUX", "Str.Plc.D.MUX", "#8B5CF6", false, true, false, "K", "IN0", "IN1", "ELSE", "OUT");
         Add(LadderElementKind.WordDemux, 9, null, "DEMUX", "DEMUX", "Str.Plc.D.DEMUX", "#8B5CF6", false, true, false, "K", "IN", "OUT0", "OUT1", "OUT2");
 
         // =========================================================================
@@ -214,6 +217,41 @@ public static class PlcInstructionCatalog
         Add(LadderElementKind.ShiftLeft, 10, null, "SHL", "SHL", "Str.Plc.D.SHL", "#10B981", false, true, false, null, "IN", "N", null, "OUT");
         Add(LadderElementKind.RotateRight, 10, null, "ROR", "ROR", "Str.Plc.D.ROR", "#10B981", false, true, false, null, "IN", "N", null, "OUT");
         Add(LadderElementKind.RotateLeft, 10, null, "ROL", "ROL", "Str.Plc.D.ROL", "#10B981", false, true, false, null, "IN", "N", null, "OUT");
+
+        // =========================================================================
+        // NHÓM 11: Extended instructions (Date/Time RTC, String + Char, Block CALL)
+        // =========================================================================
+        Add(LadderElementKind.ReadSysTime, 11, "Date & Time", "RD_SYS_T", "RD_SYS_T", "Str.Plc.D.RD_SYS_T", "#0EA5E9", false, true, false, null, null, null, null, "OUT");
+        Add(LadderElementKind.ReadLocTime, 11, "Date & Time", "RD_LOC_T", "RD_LOC_T", "Str.Plc.D.RD_LOC_T", "#0EA5E9", false, true, false, null, null, null, null, "OUT");
+        Add(LadderElementKind.TimeAdd, 11, "Date & Time", "T_ADD", "T_ADD", "Str.Plc.D.T_ADD", "#0EA5E9", false, true, false, null, "IN1", "IN2", null, "OUT");
+        Add(LadderElementKind.TimeSub, 11, "Date & Time", "T_SUB", "T_SUB", "Str.Plc.D.T_SUB", "#0EA5E9", false, true, false, null, "IN1", "IN2", null, "OUT");
+        Add(LadderElementKind.TimeDiff, 11, "Date & Time", "T_DIFF", "T_DIFF", "Str.Plc.D.T_DIFF", "#0EA5E9", false, true, false, null, "IN1", "IN2", null, "OUT");
+        Add(LadderElementKind.TimeConv, 11, "Date & Time", "T_CONV", "T_CONV", "Str.Plc.D.T_CONV", "#0EA5E9", false, true, false, null, "IN", null, null, "OUT");
+        Add(LadderElementKind.StringConv, 11, "String + Char", "S_CONV", "S_CONV", "Str.Plc.D.S_CONV", "#38BDF8", false, true, false, null, "IN", null, null, "OUT");
+        Add(LadderElementKind.StringLen, 11, "String + Char", "LEN", "LEN", "Str.Plc.D.LEN", "#38BDF8", false, true, false, null, "IN", null, null, "OUT");
+        Add(LadderElementKind.StringConcat, 11, "String + Char", "CONCAT", "CONCAT", "Str.Plc.D.CONCAT", "#38BDF8", false, true, false, null, "IN1", "IN2", null, "OUT");
+        Add(LadderElementKind.StringLeft, 11, "String + Char", "LEFT", "LEFT", "Str.Plc.D.LEFT", "#38BDF8", false, true, false, null, "IN", "L", null, "OUT");
+        Add(LadderElementKind.StringRight, 11, "String + Char", "RIGHT", "RIGHT", "Str.Plc.D.RIGHT", "#38BDF8", false, true, false, null, "IN", "L", null, "OUT");
+        Add(LadderElementKind.StringMid, 11, "String + Char", "MID", "MID", "Str.Plc.D.MID", "#38BDF8", false, true, false, null, "IN", "L", "P", "OUT");
+        Add(LadderElementKind.StringDelete, 11, "String + Char", "DELETE", "DELETE", "Str.Plc.D.DELETE", "#38BDF8", false, true, false, null, "IN", "L", "P", "OUT");
+        Add(LadderElementKind.StringInsert, 11, "String + Char", "INSERT", "INSERT", "Str.Plc.D.INSERT", "#38BDF8", false, true, false, null, "IN1", "IN2", "P", "OUT");
+        Add(LadderElementKind.StringReplace, 11, "String + Char", "REPLACE", "REPLACE", "Str.Plc.D.REPLACE", "#38BDF8", false, true, false, null, "IN1", "IN2", "L,P", "OUT");
+        Add(LadderElementKind.StringFind, 11, "String + Char", "FIND", "FIND", "Str.Plc.D.FIND", "#38BDF8", false, true, false, null, "IN1", "IN2", null, "OUT");
+        Add(LadderElementKind.CallBlock, 11, "Blocks", "CALL", "CALL", "Str.Plc.D.CALL", "#0284C7", false, true, false, "Block", "DB");
+
+        // =========================================================================
+        // NHÓM 12: Technology instructions (PWM, HSC, PID_Compact)
+        // =========================================================================
+        Add(LadderElementKind.CtrlPwm, 12, "Pulse / HSC", "CTRL_PWM", "CTRL_PWM", "Str.Plc.D.CTRL_PWM", "#F43F5E", false, true, true, "DB", "PWM", "ENABLE", "FREQ", "STATUS");
+        Add(LadderElementKind.CtrlHsc, 12, "Pulse / HSC", "CTRL_HSC", "CTRL_HSC", "Str.Plc.D.CTRL_HSC", "#F43F5E", false, true, true, "DB", "HSC", "NEW_CV", "DIR,RV", "STATUS");
+        Add(LadderElementKind.PidCompact, 12, "PID Control", "PID_Compact", "PID_Compact", "Str.Plc.D.PID", "#E11D48", false, true, true, "DB", "Setpoint", "Input", "Kp,Ti,Td", "Output");
+
+        // =========================================================================
+        // NHÓM 13: Communication instructions (Modbus RTU / TCP -> VFD)
+        // =========================================================================
+        Add(LadderElementKind.ModbusCommLoad, 13, "Modbus RTU", "Modbus_Comm_Load", "MB_COMM_LOAD", "Str.Plc.D.MB_LOAD", "#EAB308", false, true, true, "DB", "PORT", "BAUD", "PARITY", "STATUS");
+        Add(LadderElementKind.ModbusMaster, 13, "Modbus RTU", "Modbus_Master", "Modbus_Master", "Str.Plc.D.MB_MASTER", "#EAB308", false, true, true, "DB", "MB_ADDR", "MODE", "ADDR,LEN", "DATA_PTR");
+        Add(LadderElementKind.ModbusTcpClient, 13, "Modbus TCP", "MB_CLIENT", "MB_CLIENT", "Str.Plc.D.MB_CLIENT", "#D97706", false, true, true, "DB", "UNIT_ID", "MB_MODE", "ADDR,LEN", "DATA_PTR");
     }
 
     private static void Add(
@@ -255,6 +293,92 @@ public static class PlcInstructionCatalog
 
     public static bool IsComparator(LadderElementKind kind) =>
         _byKind.TryGetValue(kind, out var m) && m.GroupIndex == 4;
+
+    public static bool SupportsMultiInput(LadderElementKind kind) => kind is
+        LadderElementKind.MathAdd or
+        LadderElementKind.MathMul or
+        LadderElementKind.MathMin or
+        LadderElementKind.MathMax or
+        LadderElementKind.WordAnd or
+        LadderElementKind.WordOr or
+        LadderElementKind.WordXor or
+        LadderElementKind.WordMux or
+        LadderElementKind.Calculate;
+
+    public static string GetExtraInputLabel(LadderElementKind kind, int extraZeroBasedIndex) =>
+        kind == LadderElementKind.WordMux
+            ? $"IN{extraZeroBasedIndex + 2}"
+            : $"IN{extraZeroBasedIndex + 3}";
+
+    public static bool SupportsMultiOutput(LadderElementKind kind) => kind == LadderElementKind.Move;
+
+    public static bool SupportsDataTypeSelector(LadderElementKind kind) => kind is
+        LadderElementKind.Calculate or
+        LadderElementKind.CounterCTU or LadderElementKind.CounterCTD or LadderElementKind.CounterCTUD or
+        LadderElementKind.MathAdd or LadderElementKind.MathSub or LadderElementKind.MathMul or LadderElementKind.MathDiv or
+        LadderElementKind.MathMod or LadderElementKind.MathNeg or LadderElementKind.MathInc or LadderElementKind.MathDec or
+        LadderElementKind.MathAbs or LadderElementKind.MathMin or LadderElementKind.MathMax or LadderElementKind.MathLimit or
+        LadderElementKind.CmpEqual or LadderElementKind.CmpNotEqual or LadderElementKind.CmpGreaterOrEqual or
+        LadderElementKind.CmpLessOrEqual or LadderElementKind.CmpGreater or LadderElementKind.CmpLess or
+        LadderElementKind.InRange or LadderElementKind.OutRange or
+        LadderElementKind.Move or LadderElementKind.Swap or
+        LadderElementKind.NormX or LadderElementKind.ScaleX or LadderElementKind.Convert or LadderElementKind.StringConv or LadderElementKind.TimeConv or
+        LadderElementKind.Round or LadderElementKind.Ceil or LadderElementKind.Floor or LadderElementKind.Trunc or
+        LadderElementKind.WordAnd or LadderElementKind.WordOr or LadderElementKind.WordXor or LadderElementKind.WordInvert or
+        LadderElementKind.WordDeco or LadderElementKind.WordEnco or
+        LadderElementKind.ShiftRight or LadderElementKind.ShiftLeft or LadderElementKind.RotateRight or LadderElementKind.RotateLeft;
+
+    public static string[] GetSupportedDataTypesForInstruction(LadderElementKind kind) => kind switch
+    {
+        LadderElementKind.Convert => ["Int", "DInt", "Real", "LReal", "Time", "Bcd16", "Bcd32", "SInt", "USInt", "UInt", "UDInt", "Byte", "Word", "DWord", "Char"],
+        LadderElementKind.StringConv => ["String", "Int", "DInt", "Real", "LReal"],
+        LadderElementKind.TimeConv => ["DInt", "Time", "DTL"],
+        LadderElementKind.Calculate => ["Int", "DInt", "Real", "LReal", "SInt", "USInt", "UInt", "UDInt"],
+        LadderElementKind.CounterCTU or LadderElementKind.CounterCTD or LadderElementKind.CounterCTUD =>
+            ["Int", "DInt", "SInt", "USInt", "UInt", "UDInt"],
+        LadderElementKind.MathMod or LadderElementKind.MathInc or LadderElementKind.MathDec =>
+            ["Int", "DInt", "SInt", "USInt", "UInt", "UDInt"],
+        LadderElementKind.Swap => ["Word", "DWord", "Int", "UInt", "DInt", "UDInt"],
+        LadderElementKind.WordDeco or LadderElementKind.WordEnco => ["Word", "Byte", "DWord"],
+        LadderElementKind.Round or LadderElementKind.Ceil or LadderElementKind.Floor or LadderElementKind.Trunc =>
+            ["DInt", "Int", "SInt", "USInt", "UInt", "UDInt"],
+        LadderElementKind.NormX => ["Int", "DInt", "UInt", "UDInt", "Real"],
+        LadderElementKind.ScaleX => ["Real", "Int", "DInt", "UInt"],
+        LadderElementKind.WordAnd or LadderElementKind.WordOr or LadderElementKind.WordXor or LadderElementKind.WordInvert or
+        LadderElementKind.ShiftRight or LadderElementKind.ShiftLeft or LadderElementKind.RotateRight or LadderElementKind.RotateLeft =>
+            ["Word", "Byte", "DWord", "Int", "DInt"],
+        LadderElementKind.CmpEqual or LadderElementKind.CmpNotEqual or LadderElementKind.CmpGreaterOrEqual or
+        LadderElementKind.CmpLessOrEqual or LadderElementKind.CmpGreater or LadderElementKind.CmpLess or
+        LadderElementKind.InRange or LadderElementKind.OutRange =>
+            ["Int", "DInt", "Real", "Time", "Word", "DWord", "Byte", "UInt", "UDInt"],
+        _ => ["Int", "DInt", "Real", "Time", "SInt", "USInt", "UInt", "UDInt", "Byte", "Word", "DWord"]
+    };
+
+    public static IReadOnlyList<LadderElementKind> DefaultFavoriteInstructions { get; } =
+    [
+        LadderElementKind.ContactNO,
+        LadderElementKind.ContactNC,
+        LadderElementKind.CoilOut,
+        LadderElementKind.TimerTON,
+        LadderElementKind.CounterCTU,
+        LadderElementKind.CmpEqual,
+        LadderElementKind.Move
+    ];
+
+    public static List<PlcInstructionMeta> SearchByPrefixOrText(string? query, int maxCount = 12)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return _all.Take(maxCount).ToList();
+
+        string q = query.Trim();
+        return _all
+            .OrderByDescending(m => m.BoxHeader.StartsWith(q, StringComparison.OrdinalIgnoreCase) || m.Symbol.StartsWith(q, StringComparison.OrdinalIgnoreCase))
+            .Where(m => m.BoxHeader.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                        m.Symbol.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                        GetDescription(m).Contains(q, StringComparison.OrdinalIgnoreCase))
+            .Take(maxCount)
+            .ToList();
+    }
 
     /// <summary>Phân giải tên lệnh gõ trực tiếp trong Empty Box [F8] (VD: "TON", "NORM_X", "SCALE_X", "ADD", "SHR", "JMP"...).</summary>
     public static bool TryResolveByName(string? typedName, out LadderElementKind kind)
@@ -302,7 +426,7 @@ public static class PlcInstructionCatalog
         }
     }
 
-    public static LadderNode CreateDefaultNode(LadderElementKind kind, PlcProgramModel prog)
+    public static LadderNode CreateDefaultNode(LadderElementKind kind, PlcProgramModel prog, bool allocateDbTag = true)
     {
         if (kind == LadderElementKind.EmptyBox)
             return new LadderNode { Kind = LadderElementKind.EmptyBox, Address = "???" };
@@ -327,7 +451,7 @@ public static class PlcInstructionCatalog
                 return new LadderNode { Kind = kind, Address = "%Q0.0", Param1 = "4" };
             case LadderElementKind.FlipFlopSR:
             case LadderElementKind.FlipFlopRS:
-                return new LadderNode { Kind = kind, Address = "%M0.0", Param1 = "%I0.1" };
+                return new LadderNode { Kind = kind, Address = "%M2.0", Param1 = "%I0.1" };
             case LadderElementKind.EdgePositive:
             case LadderElementKind.EdgeNegative:
             case LadderElementKind.CoilEdgePositive:
@@ -339,8 +463,10 @@ public static class PlcInstructionCatalog
             case LadderElementKind.RTrig:
             case LadderElementKind.FTrig:
             {
+                if (!allocateDbTag)
+                    return new LadderNode { Kind = kind, Address = "<???>" };
                 string db = prog.AllocateNextDbAddress();
-                prog.EnsureTagExists(db, $"TRIG_{db[3..]}", "IEC_Trig");
+                prog.EnsureTagExists(db, $"TRIG_{db[3..]}", "IEC_Trig", overwriteDataType: true);
                 return new LadderNode { Kind = kind, Address = db };
             }
 
@@ -354,8 +480,12 @@ public static class PlcInstructionCatalog
             case LadderElementKind.CoilTOF:
             case LadderElementKind.CoilTONR:
             {
-                string db = prog.AllocateNextDbAddress();
-                prog.EnsureTagExists(db, $"TIMER_{db[3..]}", "IEC_Timer");
+                string db = "<???>";
+                if (allocateDbTag)
+                {
+                    db = prog.AllocateNextDbAddress();
+                    prog.EnsureTagExists(db, $"TIMER_{db[3..]}", "IEC_Timer", overwriteDataType: true);
+                }
                 return new LadderNode
                 {
                     Kind = kind,
@@ -374,15 +504,21 @@ public static class PlcInstructionCatalog
             case LadderElementKind.CounterCTD:
             case LadderElementKind.CounterCTUD:
             {
-                string db = prog.AllocateNextDbAddress();
-                prog.EnsureTagExists(db, $"COUNTER_{db[3..]}", "IEC_Counter");
+                string db = "<???>";
+                if (allocateDbTag)
+                {
+                    db = prog.AllocateNextDbAddress();
+                    prog.EnsureTagExists(db, $"COUNTER_{db[3..]}", "IEC_Counter", overwriteDataType: true);
+                }
                 return new LadderNode
                 {
                     Kind = kind,
                     Address = db,
+                    DataType = "Int",
                     Param1 = "5",
                     Param2 = "%I0.2",
-                    OutputAddress = kind == LadderElementKind.CounterCTUD ? "%I0.3" : string.Empty
+                    OutputAddress = kind == LadderElementKind.CounterCTUD ? "%I0.3" : string.Empty,
+                    ExtraParam = kind == LadderElementKind.CounterCTUD ? "%I0.4" : string.Empty
                 };
             }
 
@@ -415,7 +551,7 @@ public static class PlcInstructionCatalog
 
             // Nhóm 5: Math
             case LadderElementKind.Calculate:
-                return new LadderNode { Kind = kind, Param1 = "%MW2", Param2 = "10", ExtraParam = "IN1 * 2 + IN2", OutputAddress = "%MW4" };
+                return new LadderNode { Kind = kind, DataType = "Real", Param1 = "%MD10", Param2 = "2.0", ExtraParam = "IN1 * IN2", OutputAddress = "%MD14" };
             case LadderElementKind.MathAdd:
             case LadderElementKind.MathSub:
             case LadderElementKind.MathMul:
@@ -525,6 +661,54 @@ public static class PlcInstructionCatalog
             case LadderElementKind.RotateRight:
             case LadderElementKind.RotateLeft:
                 return new LadderNode { Kind = kind, Param1 = "%MW2", Param2 = "1", OutputAddress = "%MW4" };
+
+            // Nhóm 11: Extended (RTC, String, CALL)
+            case LadderElementKind.ReadSysTime:
+            case LadderElementKind.ReadLocTime:
+                return new LadderNode { Kind = kind, OutputAddress = "%DB10.DBD0" };
+            case LadderElementKind.TimeAdd:
+            case LadderElementKind.TimeSub:
+                return new LadderNode { Kind = kind, Param1 = "T#1s", Param2 = "T#500ms", OutputAddress = "%MD40" };
+            case LadderElementKind.TimeDiff:
+                return new LadderNode { Kind = kind, Param1 = "%DB10.DBD0", Param2 = "%DB10.DBD12", OutputAddress = "%MD40" };
+            case LadderElementKind.TimeConv:
+                return new LadderNode { Kind = kind, DataType = "DInt", Param1 = "T#2s", OutputAddress = "%MD40" };
+            case LadderElementKind.StringConv:
+                return new LadderNode { Kind = kind, DataType = "String", Param1 = "%MW20", OutputAddress = "%DB11.DBD0" };
+            case LadderElementKind.StringLen:
+                return new LadderNode { Kind = kind, Param1 = "'HELLO'", OutputAddress = "%MW20" };
+            case LadderElementKind.StringConcat:
+                return new LadderNode { Kind = kind, Param1 = "'PLC_'", Param2 = "'RUN'", OutputAddress = "%DB11.DBD0" };
+            case LadderElementKind.StringLeft:
+            case LadderElementKind.StringRight:
+                return new LadderNode { Kind = kind, Param1 = "'WIRINGSIM'", Param2 = "4", OutputAddress = "%DB11.DBD0" };
+            case LadderElementKind.StringMid:
+            case LadderElementKind.StringDelete:
+                return new LadderNode { Kind = kind, Param1 = "'WIRINGSIM'", Param2 = "3", ExtraParam = "2", OutputAddress = "%DB11.DBD0" };
+            case LadderElementKind.StringInsert:
+                return new LadderNode { Kind = kind, Param1 = "'PLCSIM'", Param2 = "'_'", ExtraParam = "3", OutputAddress = "%DB11.DBD0" };
+            case LadderElementKind.StringReplace:
+                return new LadderNode { Kind = kind, Param1 = "'PLC_OLD'", Param2 = "'NEW'", ExtraParam = "3,5", OutputAddress = "%DB11.DBD0" };
+            case LadderElementKind.StringFind:
+                return new LadderNode { Kind = kind, Param1 = "'MOTOR_RUN'", Param2 = "'RUN'", OutputAddress = "%MW20" };
+            case LadderElementKind.CallBlock:
+                return new LadderNode { Kind = kind, Address = "FC1", Param1 = string.Empty };
+
+            // Nhóm 12: Technology (PWM, HSC, PID_Compact)
+            case LadderElementKind.CtrlPwm:
+                return new LadderNode { Kind = kind, Address = allocateDbTag ? prog.AllocateNextDbAddress() : "<???>", Param1 = "1", Param2 = "TRUE", ExtraParam = "10.0", OutputAddress = "%MW60" };
+            case LadderElementKind.CtrlHsc:
+                return new LadderNode { Kind = kind, Address = allocateDbTag ? prog.AllocateNextDbAddress() : "<???>", Param1 = "1", Param2 = "0", ExtraParam = "1,100", OutputAddress = "%MW62" };
+            case LadderElementKind.PidCompact:
+                return new LadderNode { Kind = kind, Address = allocateDbTag ? prog.AllocateNextDbAddress() : "<???>", Param1 = "50.0", Param2 = "%MD28", ExtraParam = "1.5,5.0,0.0", OutputAddress = "%MD64" };
+
+            // Nhóm 13: Communication (Modbus RTU / TCP -> VFD)
+            case LadderElementKind.ModbusCommLoad:
+                return new LadderNode { Kind = kind, Address = allocateDbTag ? prog.AllocateNextDbAddress() : "<???>", Param1 = "1", Param2 = "9600", ExtraParam = "0", OutputAddress = "%MW70" };
+            case LadderElementKind.ModbusMaster:
+                return new LadderNode { Kind = kind, Address = allocateDbTag ? prog.AllocateNextDbAddress() : "<???>", Param1 = "1", Param2 = "1", ExtraParam = "40001,1", OutputAddress = "%MW72" };
+            case LadderElementKind.ModbusTcpClient:
+                return new LadderNode { Kind = kind, Address = allocateDbTag ? prog.AllocateNextDbAddress() : "<???>", Param1 = "1", Param2 = "1", ExtraParam = "40001,1", OutputAddress = "%MW74" };
 
             default:
                 return new LadderNode { Kind = kind };

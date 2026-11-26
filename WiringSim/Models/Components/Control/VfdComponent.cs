@@ -19,11 +19,21 @@ public sealed class VfdComponent : ElectricalComponent
     public override ComponentCategory Category => ComponentCategory.SwitchingAndControl;
 
     // --- Thông số cài đặt P01 – P06 ---
-    /// <summary>P01: 0 = Phím RUN/STOP trên Keypad | 1 = Chân kích ngoài (FWD/REV nối COM).</summary>
+    /// <summary>P01: 0 = Phím RUN/STOP trên Keypad | 1 = Chân kích ngoài (FWD/REV nối COM) | 2 = Truyền thông Modbus.</summary>
     public int P01_RunSource { get; set; } = 0;
 
-    /// <summary>P02: 0 = Phím ▲/▼ trên Keypad | 1 = Núm chiết áp ảo trên Keypad | 2 = Chiết áp ngoài 10V-AI1-GND.</summary>
+    /// <summary>P02: 0 = Phím ▲/▼ trên Keypad | 1 = Núm chiết áp ảo trên Keypad | 2 = Chiết áp ngoài 10V-AI1-GND | 3 = Truyền thông Modbus.</summary>
     public int P02_FreqSource { get; set; } = 0;
+
+    /// <summary>Địa chỉ trạm Modbus Slave ID của biến tần (1..247, mặc định 1).</summary>
+    public int ModbusSlaveId { get; set; } = 1;
+
+    // --- Thanh ghi điều khiển qua Modbus RTU/TCP (40001..40005) ---
+    public bool ModbusControlActive { get; private set; }
+    public bool ModbusRunCommand { get; private set; }
+    public bool ModbusReverse { get; private set; }
+    public double ModbusTargetFreqHz { get; private set; }
+    public ushort ModbusLastControlWord { get; private set; }
 
     /// <summary>P03: Tần số tối đa (10.0 – 400.0 Hz, mặc định 50.0 Hz).</summary>
     public double P03_MaxFreqHz { get; set; } = 50.0;
@@ -127,15 +137,74 @@ public sealed class VfdComponent : ElectricalComponent
         }
         else
         {
-            raw = P02_FreqSource switch
-            {
-                1 => DialFreqHz,
-                2 => EvaluateExternalAnalogHz(),
-                _ => KeypadTargetFreqHz
-            };
+            if (P02_FreqSource == 3 || ModbusControlActive)
+                raw = ModbusTargetFreqHz;
+            else
+                raw = P02_FreqSource switch
+                {
+                    1 => DialFreqHz,
+                    2 => EvaluateExternalAnalogHz(),
+                    _ => KeypadTargetFreqHz
+                };
         }
 
         return Math.Clamp(raw, 0.0, P03_MaxFreqHz);
+    }
+
+    /// <summary>
+    /// Đọc thanh ghi Modbus Holding/Input chuẩn VFD (40001..40005 hoặc offset 0x2000/0x2001/0x3000..0x3002).
+    /// </summary>
+    public ushort ReadModbusRegister(int address) => address switch
+    {
+        40001 or 0x2000 => ModbusLastControlWord,
+        40002 or 0x2001 => (ushort)Math.Clamp(Math.Round(ModbusTargetFreqHz * 100.0), 0, 65535),
+        40003 or 0x3000 => (ushort)((IsRunning ? 1 : 0) | (CurrentSignedFreqHz < -0.05 ? 2 : 0) | (HasFault ? 4 : 0) | (IsPowered ? 8 : 0)),
+        40004 or 0x3001 => (ushort)Math.Clamp(Math.Round(CurrentOutputFreqHz * 100.0), 0, 65535),
+        40005 or 0x3002 => (ushort)Math.Clamp(Math.Round(OutputCurrentAmps * 10.0), 0, 65535),
+        _ => 0
+    };
+
+    /// <summary>
+    /// Ghi thanh ghi Modbus điều khiển biến tần:
+    /// - 40001 (0x2000): 1 = RUN FWD, 2 = RUN REV, 5 hoặc 0 = STOP, 7 = FAULT RESET.
+    /// - 40002 (0x2001): Tần số đặt × 100 Hz (VD: 5000 = 50.00 Hz, 2500 = 25.00 Hz).
+    /// </summary>
+    public bool WriteModbusRegister(int address, ushort value)
+    {
+        switch (address)
+        {
+            case 40001:
+            case 0x2000:
+                ModbusControlActive = true;
+                ModbusLastControlWord = value;
+                switch (value)
+                {
+                    case 1:
+                        ModbusRunCommand = true;
+                        ModbusReverse = false;
+                        break;
+                    case 2:
+                        ModbusRunCommand = true;
+                        ModbusReverse = true;
+                        break;
+                    case 7:
+                        HasFault = false;
+                        break;
+                    default: // 0, 5, ...
+                        ModbusRunCommand = false;
+                        break;
+                }
+                return true;
+
+            case 40002:
+            case 0x2001:
+                ModbusControlActive = true;
+                ModbusTargetFreqHz = Math.Clamp(value / 100.0, 0.0, P03_MaxFreqHz);
+                return true;
+
+            default:
+                return false;
+        }
     }
 
     private double EvaluateExternalAnalogHz()
@@ -219,10 +288,15 @@ public sealed class VfdComponent : ElectricalComponent
         IsExternalDi1Active = comNet >= 0 && Di1.NetId == comNet;
         IsExternalDi2Active = comNet >= 0 && Di2.NetId == comNet;
 
-        // 3. Xác định lệnh chạy và chiều quay theo thông số P01
+        // 3. Xác định lệnh chạy và chiều quay theo thông số P01 (hoặc lệnh Modbus nếu đang kích hoạt)
         bool runCmd;
         int dirSign = 1;
-        if (P01_RunSource == 1)
+        if (P01_RunSource == 2 || ModbusControlActive)
+        {
+            runCmd = ModbusRunCommand;
+            dirSign = ModbusReverse ? -1 : 1;
+        }
+        else if (P01_RunSource == 1)
         {
             if (IsExternalFwdActive && !IsExternalRevActive) { runCmd = true; dirSign = 1; }
             else if (IsExternalRevActive && !IsExternalFwdActive) { runCmd = true; dirSign = -1; }
@@ -262,6 +336,11 @@ public sealed class VfdComponent : ElectricalComponent
         IsPowered = false;
         HasFault = false;
         KeypadRunCommand = false;
+        ModbusControlActive = false;
+        ModbusRunCommand = false;
+        ModbusReverse = false;
+        ModbusTargetFreqHz = 0.0;
+        ModbusLastControlWord = 0;
         CurrentSignedFreqHz = 0.0;
         OutputCurrentAmps = 0.0;
         IsExternalFwdActive = IsExternalRevActive = IsExternalDi1Active = IsExternalDi2Active = false;
@@ -278,13 +357,14 @@ public sealed class VfdComponent : ElectricalComponent
         ["P06_DI2"] = P06_Di2FreqHz.ToString(CultureInfo.InvariantCulture),
         ["KeypadFreq"] = KeypadTargetFreqHz.ToString(CultureInfo.InvariantCulture),
         ["DialFreq"] = DialFreqHz.ToString(CultureInfo.InvariantCulture),
-        ["ExtAnalogPct"] = ExternalAnalogPercent.ToString(CultureInfo.InvariantCulture)
+        ["ExtAnalogPct"] = ExternalAnalogPercent.ToString(CultureInfo.InvariantCulture),
+        ["ModbusSlaveId"] = ModbusSlaveId.ToString(CultureInfo.InvariantCulture)
     };
 
     public override void ImportProperties(IReadOnlyDictionary<string, string> props)
     {
-        if (props.TryGetValue("P01", out var s1) && int.TryParse(s1, out int p1)) P01_RunSource = Math.Clamp(p1, 0, 1);
-        if (props.TryGetValue("P02", out var s2) && int.TryParse(s2, out int p2)) P02_FreqSource = Math.Clamp(p2, 0, 2);
+        if (props.TryGetValue("P01", out var s1) && int.TryParse(s1, out int p1)) P01_RunSource = Math.Clamp(p1, 0, 2);
+        if (props.TryGetValue("P02", out var s2) && int.TryParse(s2, out int p2)) P02_FreqSource = Math.Clamp(p2, 0, 3);
         if (props.TryGetValue("P03", out var s3) && double.TryParse(s3, CultureInfo.InvariantCulture, out double p3)) P03_MaxFreqHz = Math.Clamp(p3, 10.0, 400.0);
         if (props.TryGetValue("P04", out var s4) && double.TryParse(s4, CultureInfo.InvariantCulture, out double p4)) P04_AccelSeconds = Math.Clamp(p4, 0.5, 60.0);
         if (props.TryGetValue("P05", out var s5) && double.TryParse(s5, CultureInfo.InvariantCulture, out double p5)) P05_DecelSeconds = Math.Clamp(p5, 0.5, 60.0);
@@ -293,5 +373,6 @@ public sealed class VfdComponent : ElectricalComponent
         if (props.TryGetValue("KeypadFreq", out var kf) && double.TryParse(kf, CultureInfo.InvariantCulture, out double kv)) KeypadTargetFreqHz = Math.Clamp(kv, 0.0, P03_MaxFreqHz);
         if (props.TryGetValue("DialFreq", out var df) && double.TryParse(df, CultureInfo.InvariantCulture, out double dv)) DialFreqHz = Math.Clamp(dv, 0.0, P03_MaxFreqHz);
         if (props.TryGetValue("ExtAnalogPct", out var ep) && double.TryParse(ep, CultureInfo.InvariantCulture, out double ev)) ExternalAnalogPercent = Math.Clamp(ev, 0.0, 100.0);
+        if (props.TryGetValue("ModbusSlaveId", out var ms) && int.TryParse(ms, out int sid)) ModbusSlaveId = Math.Clamp(sid, 1, 247);
     }
 }
