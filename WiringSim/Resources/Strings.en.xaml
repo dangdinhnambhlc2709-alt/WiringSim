@@ -518,4 +518,252 @@
     <sys:String x:Key="Str.Preset4.Name">4. Intermediate Relay Control via 2-Wire AC 220V Proximity Sensor</sys:String>
     <sys:String x:Key="Str.Preset4.Guide">Switch to [▶ Simulate] → Click the 2-wire AC sensor (B1): current flows in series L → BN → BU → Relay K1 coil (~3.5V drop, Voltmeter reads ~216.5V) energizing K1 and lighting H1!</sys:String>
 
+    <!-- v1.3: Siemens S7-1200 PLC (CPU 1214C) & TIA Portal Ladder Editor -->
+    <sys:String x:Key="Str.Cat.Programmable">7. PROGRAMMABLE CONTROL (PLC)</sys:String>
+    <sys:String x:Key="Str.Comp.PlcS71200.Title">PLC S7-1200 (CPU 1214C)</sys:String>
+    <sys:String x:Key="Str.Comp.PlcS71200.Sub">14 DI • 10 DQ • 2 AI • Ladder OB1</sys:String>
+    <sys:String x:Key="Str.Vis.PlcOpenLadder">Open Ladder Editor</sys:String>
+    <sys:String x:Key="Str.Toolbar.PlcLadder">Ladder Editor</sys:String>
+    <sys:String x:Key="Str.Toolbar.PlcLadderTip">Show / Hide PLC Ladder Editor Panel (TIA Portal Style)</sys:String>
+
+    <sys:String x:Key="Str.Menu.PlcOpenLadder">💻 Open Ladder Editor (OB1)</sys:String>
+    <sys:String x:Key="Str.Menu.PlcTagTable">🏷 Open PLC Tag Table</sys:String>
+    <sys:String x:Key="Str.Menu.PlcRun">▶ Switch CPU to RUN</sys:String>
+    <sys:String x:Key="Str.Menu.PlcStop">⏹ Switch CPU to STOP</sys:String>
+
+    <sys:String x:Key="Str.Plc.EditorTitle">PLC S7-1200 Programmer — Ladder (OB1)</sys:String>
+    <sys:String x:Key="Str.Plc.TabLadder">Ladder (OB1)</sys:String>
+    <sys:String x:Key="Str.Plc.TabTags">PLC Tag Table</sys:String>
+    <sys:String x:Key="Str.Plc.ToggleInstructions">Instructions</sys:String>
+    <sys:String x:Key="Str.Plc.HideEditorTip">Hide Ladder Editor Panel</sys:String>
+    <sys:String x:Key="Str.Plc.Compile">Compile</sys:String>
+    <sys:String x:Key="Str.Plc.CompileTip">Compile &amp; syntax-check Ladder networks</sys:String>
+    <sys:String x:Key="Str.Plc.Download">Download</sys:String>
+    <sys:String x:Key="Str.Plc.DownloadTip">Compile and download program into PLC S7-1200 memory</sys:String>
+    <sys:String x:Key="Str.Plc.AddNetwork">+ Network</sys:String>
+    <sys:String x:Key="Str.Plc.DelNode">Delete Node</sys:String>
+    <sys:String x:Key="Str.Plc.OpenBranch">Open Branch //</sys:String>
+    <sys:String x:Key="Str.Plc.CloseBranch">Close Branch</sys:String>
+    <sys:String x:Key="Str.Plc.OnlineMonitor">ONLINE</sys:String>
+    <sys:String x:Key="Str.Plc.NoPlcSelected">No PLC S7-1200 selected on the canvas. Drag a PLC S7-1200 from the Library onto the workspace.</sys:String>
+
+    <sys:String x:Key="Str.Plc.InstrHeader">PLC INSTRUCTIONS</sys:String>
+    <sys:String x:Key="Str.Plc.GrpBit">1. Bit Logic</sys:String>
+    <sys:String x:Key="Str.Plc.GrpTimer">2. Timers (DB)</sys:String>
+    <sys:String x:Key="Str.Plc.GrpCounter">3. Counters (DB)</sys:String>
+    <sys:String x:Key="Str.Plc.GrpCompare">4. Comparators</sys:String>
+    <sys:String x:Key="Str.Plc.GrpMath">5. Math &amp; Move</sys:String>
+
+    <sys:String x:Key="Str.Plc.PropBarHint">Select any Ladder element to edit its address / parameters inline:</sys:String>
+    <sys:String x:Key="Str.Plc.PropAddr">Address:</sys:String>
+    <sys:String x:Key="Str.Plc.PropTag">Tag Name:</sys:String>
+    <sys:String x:Key="Str.Plc.PropParam1">Param 1:</sys:String>
+    <sys:String x:Key="Str.Plc.PropParam2">Param 2:</sys:String>
+    <sys:String x:Key="Str.Plc.PropOut">Output OUT:</sys:String>
+    <sys:String x:Key="Str.Plc.PropApply">Apply</sys:String>
+
+    <sys:String x:Key="Str.Plc.TagName">Symbol Name (Tag)</sys:String>
+    <sys:String x:Key="Str.Plc.TagAddr">Absolute Address</sys:String>
+    <sys:String x:Key="Str.Plc.TagType">Data Type</sys:String>
+    <sys:String x:Key="Str.Plc.TagLive">Live Value</sys:String>
+    <sys:String x:Key="Str.Plc.TagAdd">+ Add Tag</sys:String>
+    <sys:String x:Key="Str.Plc.TagDelete">Delete Tag</sys:String>
+
+    <sys:String x:Key="Str.Plc.CompileOk">✅ Compile succeeded: 0 errors, {0} warnings.</sys:String>
+    <sys:String x:Key="Str.Plc.CompileFail">❌ Compile failed: {0} errors, {1} warnings. Click an error to jump to its network.</sys:String>
+    <sys:String x:Key="Str.Plc.Downloading">⏳ Downloading program to {0} (CPU 1214C)...</sys:String>
+    <sys:String x:Key="Str.Plc.DownloadDone">✅ Downloaded to {0}! CPU switched to RUN mode.</sys:String>
+    <sys:String x:Key="Str.Plc.DownloadBlocked">❌ Cannot download to PLC while compile errors exist!</sys:String>
+    <sys:String x:Key="Str.Plc.OutputShortFault">PLC OUTPUT SHORT CIRCUIT [{0}]: Outputs protected and ERROR LED activated!</sys:String>
+
+    <sys:String x:Key="Str.Plc.WarnNoNetworks">Program has no Networks.</sys:String>
+    <sys:String x:Key="Str.Plc.WarnEmptyNetwork">Network {0} is empty.</sys:String>
+    <sys:String x:Key="Str.Plc.ErrOpenBranchNoOutput">Network {0}: Open branch — missing output coil or execution block at branch end!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrEmptyParallel">Network {0}: Parallel branch contains an empty rung!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrEmptyAddr">Address cannot be empty!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrInvalidAddr">Invalid bit address syntax '{0}' (e.g. %I0.0, %Q0.0, %M0.0, %DB1.Q).</sys:String>
+    <sys:String x:Key="Str.Plc.ErrNotWritableBit">Cannot write to bit address '{0}' (must be %Q or %M).</sys:String>
+    <sys:String x:Key="Str.Plc.ErrCannotWriteInput">Cannot use input '{0}' as a writable coil or edge memory!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrAddrOutOfRange">Address '{0}' is outside hardware range ({1}).</sys:String>
+    <sys:String x:Key="Str.Plc.ErrMissingOperand">Missing operand or parameter value!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrTargetMustBeWord">Output OUT '{0}' must be a writable Word (%MW or %QW), not a constant!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrInvalidWordAddr">Invalid Word address or constant '{0}' (e.g. %MW2, %IW64, %DB1.CV, 10).</sys:String>
+    <sys:String x:Key="Str.Plc.ErrMissingDb">Missing %DB data block address for Timer / Counter!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrInvalidDb">Invalid DB block name '{0}' (expected %DB1, %DB2...).</sys:String>
+    <sys:String x:Key="Str.Plc.ErrDuplicateDb">Network {0}: Duplicate DB block '{1}' already used in Network {2}!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrInvalidPt">Network {0}: Invalid PT time literal '{1}' (expected e.g. T#3s, T#500ms, T#1m).</sys:String>
+    <sys:String x:Key="Str.Plc.ErrInvalidPv">Network {0}: Missing or invalid preset value PV '{1}' for Counter.</sys:String>
+
+    <sys:String x:Key="Str.Preset5.Name">5. Sequential Lights Control via PLC S7-1200 (TON Timer &amp; %MW Compare)</sys:String>
+    <sys:String x:Key="Str.Preset5.Guide">Switch to [▶ Simulate] → Press START (%I0.0): PLC sequences H1 → H2 → H3 every 3s using TON (%DB1) &amp; %MW2 ("SEQUENCE") comparators. Watch live green Online Monitoring in the Ladder Editor!</sys:String>
+
+    <!-- v1.3 Full 10-Category TIA Portal Instruction Tree -->
+    <sys:String x:Key="Str.Plc.SearchHint">Search PLC instructions (e.g. TON, NORM_X, SHR)...</sys:String>
+    <sys:String x:Key="Str.Plc.EmptyBoxBtn">Empty box [F8]</sys:String>
+    <sys:String x:Key="Str.Plc.InsertInputBtn">--| Insert input</sys:String>
+    <sys:String x:Key="Str.Plc.PropExtra">Param 3:</sys:String>
+    <sys:String x:Key="Str.Plc.ErrMissingLabel">Network {0}: Jump target LABEL '{1}' does not exist in program!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrInfiniteJumpLoop">Network {0}: Infinite jump loop detected targeting LABEL '{1}' (Network {2})!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrEmptyBoxUnresolved">Network {0}: Empty box '{1}' has no valid instruction assigned!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrEmptyLabel">Network {0}: LABEL name or jump destination cannot be empty!</sys:String>
+
+    <sys:String x:Key="Str.Plc.Cat1">1. Bit logic operations</sys:String>
+    <sys:String x:Key="Str.Plc.Cat2">2. Timer operations (DB)</sys:String>
+    <sys:String x:Key="Str.Plc.Cat3">3. Counter operations (DB)</sys:String>
+    <sys:String x:Key="Str.Plc.Cat4">4. Comparator operations</sys:String>
+    <sys:String x:Key="Str.Plc.Cat5">5. Math functions</sys:String>
+    <sys:String x:Key="Str.Plc.Cat6">6. Move operations</sys:String>
+    <sys:String x:Key="Str.Plc.Cat7">7. Conversion operations</sys:String>
+    <sys:String x:Key="Str.Plc.Cat8">8. Program control operations</sys:String>
+    <sys:String x:Key="Str.Plc.Cat9">9. Word logic operations</sys:String>
+    <sys:String x:Key="Str.Plc.Cat10">10. Shift and rotate</sys:String>
+
+    <!-- Group 1 Descriptions -->
+    <sys:String x:Key="Str.Plc.D.NO">Normally open contact</sys:String>
+    <sys:String x:Key="Str.Plc.D.NC">Normally closed contact</sys:String>
+    <sys:String x:Key="Str.Plc.D.NOT">Invert RLO</sys:String>
+    <sys:String x:Key="Str.Plc.D.OUT">Assignment</sys:String>
+    <sys:String x:Key="Str.Plc.D.COILNEG">Negate assignment</sys:String>
+    <sys:String x:Key="Str.Plc.D.RESET">Reset output</sys:String>
+    <sys:String x:Key="Str.Plc.D.SET">Set output</sys:String>
+    <sys:String x:Key="Str.Plc.D.SET_BF">Set bit field (N bits)</sys:String>
+    <sys:String x:Key="Str.Plc.D.RESET_BF">Reset bit field (N bits)</sys:String>
+    <sys:String x:Key="Str.Plc.D.SR">Set/reset flip-flop (Set priority)</sys:String>
+    <sys:String x:Key="Str.Plc.D.RS">Reset/set flip-flop (Reset priority)</sys:String>
+    <sys:String x:Key="Str.Plc.D.P">Scan operand for positive edge</sys:String>
+    <sys:String x:Key="Str.Plc.D.N">Scan operand for negative edge</sys:String>
+    <sys:String x:Key="Str.Plc.D.COILP">Set operand on positive edge</sys:String>
+    <sys:String x:Key="Str.Plc.D.COILN">Set operand on negative edge</sys:String>
+    <sys:String x:Key="Str.Plc.D.P_TRIG">Scan RLO for positive signal edge</sys:String>
+    <sys:String x:Key="Str.Plc.D.N_TRIG">Scan RLO for negative signal edge</sys:String>
+    <sys:String x:Key="Str.Plc.D.R_TRIG">Detect positive edge (IEC)</sys:String>
+    <sys:String x:Key="Str.Plc.D.F_TRIG">Detect negative edge (IEC)</sys:String>
+
+    <!-- Group 2 Descriptions -->
+    <sys:String x:Key="Str.Plc.D.TP">Generate pulse</sys:String>
+    <sys:String x:Key="Str.Plc.D.TON">Generate on-delay</sys:String>
+    <sys:String x:Key="Str.Plc.D.TOF">Generate off-delay</sys:String>
+    <sys:String x:Key="Str.Plc.D.TONR">Time accumulator</sys:String>
+    <sys:String x:Key="Str.Plc.D.COIL_TP">Start pulse timer coil</sys:String>
+    <sys:String x:Key="Str.Plc.D.COIL_TON">Start on-delay timer coil</sys:String>
+    <sys:String x:Key="Str.Plc.D.COIL_TOF">Start off-delay timer coil</sys:String>
+    <sys:String x:Key="Str.Plc.D.COIL_TONR">Time accumulator coil</sys:String>
+    <sys:String x:Key="Str.Plc.D.COIL_RT">Reset timer</sys:String>
+    <sys:String x:Key="Str.Plc.D.COIL_PT">Load time duration</sys:String>
+
+    <!-- Group 3 Descriptions -->
+    <sys:String x:Key="Str.Plc.D.CTU">Count up</sys:String>
+    <sys:String x:Key="Str.Plc.D.CTD">Count down</sys:String>
+    <sys:String x:Key="Str.Plc.D.CTUD">Count up and down</sys:String>
+
+    <!-- Group 4 Descriptions -->
+    <sys:String x:Key="Str.Plc.D.EQ">Equal</sys:String>
+    <sys:String x:Key="Str.Plc.D.NE">Not equal</sys:String>
+    <sys:String x:Key="Str.Plc.D.GE">Greater or equal</sys:String>
+    <sys:String x:Key="Str.Plc.D.LE">Less or equal</sys:String>
+    <sys:String x:Key="Str.Plc.D.GT">Greater than</sys:String>
+    <sys:String x:Key="Str.Plc.D.LT">Less than</sys:String>
+    <sys:String x:Key="Str.Plc.D.IN_RANGE">Value within range MIN..MAX</sys:String>
+    <sys:String x:Key="Str.Plc.D.OUT_RANGE">Value outside range MIN..MAX</sys:String>
+    <sys:String x:Key="Str.Plc.D.OK">Check validity</sys:String>
+    <sys:String x:Key="Str.Plc.D.NOT_OK">Check invalidity</sys:String>
+    <sys:String x:Key="Str.Plc.D.EQ_TYPE">Compare data type for equal</sys:String>
+    <sys:String x:Key="Str.Plc.D.NE_TYPE">Compare data type for unequal</sys:String>
+    <sys:String x:Key="Str.Plc.D.EQ_ELEM">Compare array element type (EQ)</sys:String>
+    <sys:String x:Key="Str.Plc.D.NE_ELEM">Compare array element type (NE)</sys:String>
+    <sys:String x:Key="Str.Plc.D.IS_NULL">Check for NULL pointer</sys:String>
+    <sys:String x:Key="Str.Plc.D.NOT_NULL">Check for NOT NULL pointer</sys:String>
+    <sys:String x:Key="Str.Plc.D.IS_ARRAY">Check for ARRAY type</sys:String>
+    <sys:String x:Key="Str.Plc.D.EQ_DB">Check DB data type for equal</sys:String>
+    <sys:String x:Key="Str.Plc.D.NE_DB">Check DB data type for unequal</sys:String>
+
+    <!-- Group 5 Descriptions -->
+    <sys:String x:Key="Str.Plc.D.CALC">Calculate custom expression</sys:String>
+    <sys:String x:Key="Str.Plc.D.ADD">Add two values</sys:String>
+    <sys:String x:Key="Str.Plc.D.SUB">Subtract two values</sys:String>
+    <sys:String x:Key="Str.Plc.D.MUL">Multiply two values</sys:String>
+    <sys:String x:Key="Str.Plc.D.DIV">Divide two values</sys:String>
+    <sys:String x:Key="Str.Plc.D.MOD">Return remainder of division</sys:String>
+    <sys:String x:Key="Str.Plc.D.NEG">Create twos complement</sys:String>
+    <sys:String x:Key="Str.Plc.D.INC">Increment value by 1</sys:String>
+    <sys:String x:Key="Str.Plc.D.DEC">Decrement value by 1</sys:String>
+    <sys:String x:Key="Str.Plc.D.ABS">Form absolute value</sys:String>
+    <sys:String x:Key="Str.Plc.D.MIN">Get minimum value</sys:String>
+    <sys:String x:Key="Str.Plc.D.MAX">Get maximum value</sys:String>
+    <sys:String x:Key="Str.Plc.D.LIMIT">Set limit value (MN..MX)</sys:String>
+    <sys:String x:Key="Str.Plc.D.SQR">Form square</sys:String>
+    <sys:String x:Key="Str.Plc.D.SQRT">Form square root</sys:String>
+    <sys:String x:Key="Str.Plc.D.LN">Form natural logarithm</sys:String>
+    <sys:String x:Key="Str.Plc.D.EXP">Form exponential value</sys:String>
+    <sys:String x:Key="Str.Plc.D.EXPT">Exponentiate IN1^IN2</sys:String>
+    <sys:String x:Key="Str.Plc.D.FRAC">Return fraction part</sys:String>
+    <sys:String x:Key="Str.Plc.D.SIN">Form sine value (radians)</sys:String>
+    <sys:String x:Key="Str.Plc.D.COS">Form cosine value (radians)</sys:String>
+    <sys:String x:Key="Str.Plc.D.TAN">Form tangent value (radians)</sys:String>
+    <sys:String x:Key="Str.Plc.D.ASIN">Form arcsine value</sys:String>
+    <sys:String x:Key="Str.Plc.D.ACOS">Form arccosine value</sys:String>
+    <sys:String x:Key="Str.Plc.D.ATAN">Form arctangent value</sys:String>
+
+    <!-- Group 6 Descriptions -->
+    <sys:String x:Key="Str.Plc.D.MOVE">Move value</sys:String>
+    <sys:String x:Key="Str.Plc.D.MOVE_BLK">Move block of elements</sys:String>
+    <sys:String x:Key="Str.Plc.D.MOVE_BLK_VAR">Move Variant block</sys:String>
+    <sys:String x:Key="Str.Plc.D.UMOVE_BLK">Move block uninterruptible</sys:String>
+    <sys:String x:Key="Str.Plc.D.FILL_BLK">Fill block with value</sys:String>
+    <sys:String x:Key="Str.Plc.D.UFILL_BLK">Fill block uninterruptible</sys:String>
+    <sys:String x:Key="Str.Plc.D.SCATTER">Parse Word into individual bits</sys:String>
+    <sys:String x:Key="Str.Plc.D.SCATTER_BLK">Parse Word block into bits</sys:String>
+    <sys:String x:Key="Str.Plc.D.GATHER">Merge individual bits into Word</sys:String>
+    <sys:String x:Key="Str.Plc.D.GATHER_BLK">Merge bit block into Words</sys:String>
+    <sys:String x:Key="Str.Plc.D.SWAP">Swap high / low bytes</sys:String>
+    <sys:String x:Key="Str.Plc.D.SERIALIZE">Serialize data to byte array</sys:String>
+    <sys:String x:Key="Str.Plc.D.DESERIALIZE">Deserialize from byte array</sys:String>
+    <sys:String x:Key="Str.Plc.D.VAR_GET">Read value from Variant</sys:String>
+    <sys:String x:Key="Str.Plc.D.VAR_PUT">Write value to Variant</sys:String>
+    <sys:String x:Key="Str.Plc.D.COUNT_ELEM">Get number of array elements</sys:String>
+    <sys:String x:Key="Str.Plc.D.LOW_BND">Read ARRAY low limit</sys:String>
+    <sys:String x:Key="Str.Plc.D.UP_BND">Read ARRAY high limit</sys:String>
+    <sys:String x:Key="Str.Plc.D.FIELD_RD">Read indexed field</sys:String>
+    <sys:String x:Key="Str.Plc.D.FIELD_WR">Write indexed field</sys:String>
+
+    <!-- Group 7 Descriptions -->
+    <sys:String x:Key="Str.Plc.D.CONVERT">Convert value data type</sys:String>
+    <sys:String x:Key="Str.Plc.D.ROUND">Round real to nearest integer</sys:String>
+    <sys:String x:Key="Str.Plc.D.CEIL">Generate next higher integer</sys:String>
+    <sys:String x:Key="Str.Plc.D.FLOOR">Generate next lower integer</sys:String>
+    <sys:String x:Key="Str.Plc.D.TRUNC">Truncate fractional part</sys:String>
+    <sys:String x:Key="Str.Plc.D.NORM_X">Normalize Analog to 0.0..1.0</sys:String>
+    <sys:String x:Key="Str.Plc.D.SCALE_X">Scale linearly to engineering range</sys:String>
+
+    <!-- Group 8 Descriptions -->
+    <sys:String x:Key="Str.Plc.D.JMP">Jump to LABEL if RLO = 1</sys:String>
+    <sys:String x:Key="Str.Plc.D.JMPN">Jump to LABEL if RLO = 0</sys:String>
+    <sys:String x:Key="Str.Plc.D.LABEL">Jump destination label</sys:String>
+    <sys:String x:Key="Str.Plc.D.JMP_LIST">Define jump list by K</sys:String>
+    <sys:String x:Key="Str.Plc.D.SWITCH">Jump distributor</sys:String>
+    <sys:String x:Key="Str.Plc.D.RET">Return from block</sys:String>
+    <sys:String x:Key="Str.Plc.D.ENDIS_PW">Enable / disable CPU password</sys:String>
+    <sys:String x:Key="Str.Plc.D.RE_TRIGR">Restart cycle watchdog timer</sys:String>
+    <sys:String x:Key="Str.Plc.D.STP">Exit program, switch CPU to STOP</sys:String>
+    <sys:String x:Key="Str.Plc.D.GET_ERR">Get local error info</sys:String>
+    <sys:String x:Key="Str.Plc.D.GET_ERR_ID">Get local error ID</sys:String>
+    <sys:String x:Key="Str.Plc.D.RUNTIME">Measure program runtime</sys:String>
+
+    <!-- Group 9 Descriptions -->
+    <sys:String x:Key="Str.Plc.D.W_AND">Bitwise AND logic operation</sys:String>
+    <sys:String x:Key="Str.Plc.D.W_OR">Bitwise OR logic operation</sys:String>
+    <sys:String x:Key="Str.Plc.D.W_XOR">Bitwise XOR logic operation</sys:String>
+    <sys:String x:Key="Str.Plc.D.W_INV">Create ones complement</sys:String>
+    <sys:String x:Key="Str.Plc.D.DECO">Decode N to set bit N = 1</sys:String>
+    <sys:String x:Key="Str.Plc.D.ENCO">Encode lowest set bit position</sys:String>
+    <sys:String x:Key="Str.Plc.D.SEL">Select IN0 or IN1 via G</sys:String>
+    <sys:String x:Key="Str.Plc.D.MUX">Multiplex input by index K</sys:String>
+    <sys:String x:Key="Str.Plc.D.DEMUX">Demultiplex output by index K</sys:String>
+
+    <!-- Group 10 Descriptions -->
+    <sys:String x:Key="Str.Plc.D.SHR">Shift right by N bits</sys:String>
+    <sys:String x:Key="Str.Plc.D.SHL">Shift left by N bits</sys:String>
+    <sys:String x:Key="Str.Plc.D.ROR">Rotate right by N bits</sys:String>
+    <sys:String x:Key="Str.Plc.D.ROL">Rotate left by N bits</sys:String>
+
 </ResourceDictionary>

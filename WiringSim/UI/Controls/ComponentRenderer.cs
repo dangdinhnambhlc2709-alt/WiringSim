@@ -148,6 +148,9 @@ public static class ComponentRenderer
             case VfdComponent vfd:
                 DrawVfd(dc, vfd, bodyRect, theme, dpiScale, targetHitZones);
                 break;
+            case PlcS71200Component plc:
+                DrawPlcS71200(dc, plc, bodyRect, theme, dpiScale, targetHitZones);
+                break;
             case ContactorComponent km:
                 DrawContactor(dc, km, bodyRect, theme, dpiScale);
                 break;
@@ -1472,6 +1475,147 @@ public static class ComponentRenderer
         dc.DrawText(btnFt, new Point(keypadBtn.X + (keypadBtn.Width - btnFt.Width) / 2.0, keypadBtn.Y + (keypadBtn.Height - btnFt.Height) / 2.0));
 
         hitZones.Add(new ComponentHitZone(vfd, keypadBtn, "VFD_KEYPAD", AllowedInDesignMode: true));
+    }
+
+    private static void DrawPlcS71200(DrawingContext dc, PlcS71200Component plc, Rect body, CanvasThemeColors theme, double dpiScale, List<ComponentHitZone> hitZones)
+    {
+        // Thân vỏ công nghiệp xám đặc trưng Siemens SIMATIC S7-1200 (CPU 1214C DC/DC/DC)
+        Rect outerCase = new(body.X + 2, body.Y + 2, body.Width - 4, body.Height - 4);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#64748B", "#475569"), CreatePen("#94A3B8", 1.3), outerCase, 6, 6);
+
+        // Nắp che đầu nối trên & dưới màu xám đậm
+        Rect topCover = new(body.X + 6, body.Y + 4, body.Width - 12, 26);
+        Rect botCover = new(body.X + 6, body.Bottom - 30, body.Width - 12, 26);
+        dc.DrawRoundedRectangle(CreateSolid("#1E293B"), CreatePen("#334155", 1.0), topCover, 3, 3);
+        dc.DrawRoundedRectangle(CreateSolid("#1E293B"), CreatePen("#334155", 1.0), botCover, 3, 3);
+
+        // Nhãn chân hàng trên (L+, M, PE, 1M, I0.0..I1.5, AI0, AI1)
+        foreach (var t in plc.Terminals.Where(x => x.Side == TerminalSide.Top))
+        {
+            string lbl = t.Name switch
+            {
+                "I0.0" => "0.0", "I0.1" => "0.1", "I0.2" => "0.2", "I0.3" => "0.3",
+                "I0.4" => "0.4", "I0.5" => "0.5", "I0.6" => "0.6", "I0.7" => "0.7",
+                "I1.0" => "1.0", "I1.1" => "1.1", "I1.2" => "1.2", "I1.3" => "1.3",
+                "I1.4" => "1.4", "I1.5" => "1.5",
+                _ => t.Name
+            };
+            string col = t.Name switch
+            {
+                "L+" => "#F87171",
+                "M" => "#94A3B8",
+                "PE" => "#4ADE80",
+                "1M" => "#F59E0B",
+                "AI0" or "AI1" => "#C084FC",
+                _ => "#E2E8F0"
+            };
+            var ft = FormatText(lbl, 6.4, BoldTypeface, CreateSolid(col), dpiScale);
+            dc.DrawText(ft, new Point(plc.X + t.RelX - ft.Width / 2.0, topCover.Top + 2));
+        }
+
+        // Hàng đèn LED xanh lá báo trạng thái 14 kênh DI (I0.0..I1.5)
+        for (int i = 0; i < plc.DiTerminals.Length; i++)
+        {
+            var term = plc.DiTerminals[i];
+            Point lp = new(plc.X + term.RelX, topCover.Bottom - 7);
+            bool on = plc.IsPowered && plc.Runtime.Di[i];
+            if (on)
+                dc.DrawEllipse(CreateRadialGlow("#AA22C55E", "#0022C55E"), null, lp, 7, 7);
+            dc.DrawEllipse(CreateSolid(on ? "#22C55E" : "#334155"), CreatePen(on ? "#DCFCE7" : "#475569", 0.7), lp, 3.0, 3.0);
+        }
+
+        // Nhãn chân hàng dưới (L+, M, Q0.0..Q1.1) & Hàng đèn LED xanh lá 10 kênh DQ
+        foreach (var t in plc.Terminals.Where(x => x.Side == TerminalSide.Bottom))
+        {
+            string lbl = t.Name switch
+            {
+                "Q0.0" => "0.0", "Q0.1" => "0.1", "Q0.2" => "0.2", "Q0.3" => "0.3",
+                "Q0.4" => "0.4", "Q0.5" => "0.5", "Q0.6" => "0.6", "Q0.7" => "0.7",
+                "Q1.0" => "1.0", "Q1.1" => "1.1",
+                _ => t.Name
+            };
+            string col = t.Name == "L+" ? "#F87171" : (t.Name == "M" ? "#94A3B8" : "#7DD3FC");
+            var ft = FormatText(lbl, 6.5, BoldTypeface, CreateSolid(col), dpiScale);
+            dc.DrawText(ft, new Point(plc.X + t.RelX - ft.Width / 2.0, botCover.Bottom - 11));
+        }
+
+        for (int i = 0; i < plc.DqTerminals.Length; i++)
+        {
+            var term = plc.DqTerminals[i];
+            Point lp = new(plc.X + term.RelX, botCover.Top + 7);
+            bool on = plc.IsPowered && plc.CpuState == PlcCpuState.Run && plc.Runtime.Dq[i];
+            if (on)
+                dc.DrawEllipse(CreateRadialGlow("#AA22C55E", "#0022C55E"), null, lp, 7, 7);
+            dc.DrawEllipse(CreateSolid(on ? "#22C55E" : "#334155"), CreatePen(on ? "#DCFCE7" : "#475569", 0.7), lp, 3.0, 3.0);
+        }
+
+        // Mặt giữa đặc trưng Siemens S7-1200
+        Rect midFace = new(body.X + 8, topCover.Bottom + 5, body.Width - 16, botCover.Top - topCover.Bottom - 10);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#0F172A", "#1E293B"), CreatePen("#334155", 1.1), midFace, 5, 5);
+
+        // Thanh thương hiệu xanh ngọc đặc trưng Siemens
+        dc.DrawRoundedRectangle(CreateSolid("#009999"), null, new Rect(midFace.X + 8, midFace.Y + 7, midFace.Width - 16, 4), 2, 2);
+
+        // Khu vực 3 đèn LED hệ thống: RUN/STOP, ERROR, MAINT (bên trái mặt giữa)
+        Rect statusBox = new(midFace.X + 10, midFace.Y + 18, 96, midFace.Height - 26);
+        dc.DrawRoundedRectangle(CreateSolid("#0B1120"), CreatePen("#334155", 1.0), statusBox, 4, 4);
+
+        bool blinkHigh = ((int)Math.Floor(plc.LedBlinkPhase)) % 2 == 0;
+
+        // 1. RUN/STOP LED: Xanh lá (RUN) | Vàng cam (STOP) | Nhấp nháy luân phiên xanh/vàng (Downloading)
+        string runHex;
+        bool runLit = plc.IsPowered || plc.IsDownloading;
+        if (!runLit) runHex = "#334155";
+        else if (plc.IsDownloading) runHex = blinkHigh ? "#22C55E" : "#F59E0B";
+        else if (plc.CpuState == PlcCpuState.Run && !plc.HasOutputShortFault) runHex = "#22C55E";
+        else runHex = "#F59E0B";
+
+        // 2. ERROR LED: Nhấp nháy đỏ khi lỗi cú pháp hoặc ngắn mạch ngõ ra
+        bool errActive = plc.HasOutputShortFault || plc.HasCompileError || plc.CpuState == PlcCpuState.Error;
+        bool errLit = errActive && blinkHigh;
+        string errHex = errLit ? "#EF4444" : "#334155";
+
+        // 3. MAINT LED: Vàng cam khi đang nạp hoặc bảo trì
+        bool maintLit = plc.IsDownloading && !blinkHigh;
+        string maintHex = maintLit ? "#F59E0B" : "#334155";
+
+        DrawPlcStatusLedRow(dc, new Point(statusBox.X + 14, statusBox.Y + 16), runHex, runLit, "RUN/STOP", dpiScale);
+        DrawPlcStatusLedRow(dc, new Point(statusBox.X + 14, statusBox.Y + 38), errHex, errLit, "ERROR", dpiScale);
+        DrawPlcStatusLedRow(dc, new Point(statusBox.X + 14, statusBox.Y + 60), maintHex, maintLit, "MAINT", dpiScale);
+
+        // Nhãn SIEMENS SIMATIC S7-1200 CPU 1214C DC/DC/DC ở trung tâm
+        double centerX = statusBox.Right + 14;
+        dc.DrawText(FormatText("SIEMENS", 10.5, BoldTypeface, CreateSolid("#2DD4BF"), dpiScale), new Point(centerX, midFace.Y + 17));
+        dc.DrawText(FormatText("SIMATIC S7-1200  •  CPU 1214C DC/DC/DC", 8.8, BoldTypeface, CreateSolid("#E2E8F0"), dpiScale), new Point(centerX, midFace.Y + 33));
+        string pwrInfo = plc.IsPowered
+            ? $"24VDC OK  •  DI: {plc.Runtime.Di.Count(x => x)}/14  •  DQ: {plc.Runtime.Dq.Count(x => x)}/10"
+            : "24VDC OFF  •  14 DI / 10 DQ / 2 AI";
+        dc.DrawText(FormatText(pwrInfo, 8.0, MonoTypeface, CreateSolid(plc.IsPowered ? "#4ADE80" : "#94A3B8"), dpiScale), new Point(centerX, midFace.Y + 49));
+
+        // Nút "Mở trình lập trình Ladder" trực tiếp trên thân PLC
+        Rect ladderBtn = new(centerX, midFace.Bottom - 32, 198, 24);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#009999", "#0F766E"), CreatePen("#5EEAD4", 1.2), ladderBtn, 4, 4);
+        var btnFt = FormatText($"💻 {LocalizationManager.Get("Str.Vis.PlcOpenLadder")}", 8.8, BoldTypeface, Brushes.White, dpiScale);
+        dc.DrawText(btnFt, new Point(ladderBtn.X + (ladderBtn.Width - btnFt.Width) / 2.0, ladderBtn.Y + (ladderBtn.Height - btnFt.Height) / 2.0));
+
+        // Khe cắm PROFINET RJ45 trang trí ở góc phải
+        Rect rjBox = new(midFace.Right - 46, midFace.Y + 20, 36, midFace.Height - 30);
+        dc.DrawRoundedRectangle(CreateSolid("#0B1120"), CreatePen("#475569", 1.0), rjBox, 4, 4);
+        dc.DrawText(FormatText("LAN", 7.0, BoldTypeface, CreateSolid("#94A3B8"), dpiScale), new Point(rjBox.X + 9, rjBox.Y + 4));
+        dc.DrawRoundedRectangle(CreateSolid("#334155"), CreatePen("#64748B", 0.9), new Rect(rjBox.X + 8, rjBox.Y + 18, 20, 18), 2, 2);
+        dc.DrawEllipse(CreateSolid(plc.IsPowered ? "#22C55E" : "#475569"), null, new Point(rjBox.X + 13, rjBox.Bottom - 10), 2.5, 2.5);
+        dc.DrawEllipse(CreateSolid(plc.IsDownloading ? "#F59E0B" : "#475569"), null, new Point(rjBox.Right - 13, rjBox.Bottom - 10), 2.5, 2.5);
+
+        hitZones.Add(new ComponentHitZone(plc, ladderBtn, "PLC_OPEN_LADDER", AllowedInDesignMode: true));
+    }
+
+    private static void DrawPlcStatusLedRow(DrawingContext dc, Point ledCenter, string hex, bool lit, string label, double dpiScale)
+    {
+        if (lit && hex != "#334155")
+            dc.DrawEllipse(CreateRadialGlow("#AA" + hex[1..], "#00" + hex[1..]), null, ledCenter, 9, 9);
+        dc.DrawEllipse(CreateSolid(hex), CreatePen(lit ? "#F8FAFC" : "#475569", 0.9), ledCenter, 4.2, 4.2);
+        var ft = FormatText(label, 7.6, BoldTypeface, CreateSolid("#CBD5E1"), dpiScale);
+        dc.DrawText(ft, new Point(ledCenter.X + 9, ledCenter.Y - ft.Height / 2.0));
     }
 
     // =========================================================================

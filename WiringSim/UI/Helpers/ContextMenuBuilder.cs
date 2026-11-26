@@ -24,7 +24,8 @@ public static class ContextMenuBuilder
         Window? ownerWindow,
         Action<string> onChangedMessage,
         Action onDeleteRequested,
-        Action<VfdComponent>? onOpenVfdKeypad = null)
+        Action<VfdComponent>? onOpenVfdKeypad = null,
+        Action<PlcS71200Component, bool>? onOpenPlcLadder = null)
     {
         bool isDesign = currentMode == AppMode.Design;
         var menu = new ContextMenu();
@@ -91,6 +92,9 @@ public static class ContextMenuBuilder
                 {
                     onOpenVfdKeypad?.Invoke(vfd);
                 }, "#38BDF8"));
+                break;
+            case PlcS71200Component plc:
+                BuildPlcItems(menu, plc, onChangedMessage, onOpenPlcLadder);
                 break;
             case ContactorComponent km:
                 BuildContactorItems(menu, km, isDesign, onChangedMessage);
@@ -1062,6 +1066,33 @@ public static class ContextMenuBuilder
             notify(LocalizationManager.Format("Str.Status.UpdatedProp", fs.DisplayName, "Drainage"));
         }));
         menu.Items.Add(mSub);
+    }
+
+    private static void BuildPlcItems(
+        ContextMenu menu,
+        PlcS71200Component plc,
+        Action<string> notify,
+        Action<PlcS71200Component, bool>? onOpenPlcLadder)
+    {
+        menu.Items.Add(CreateActionItem(LocalizationManager.Get("Str.Menu.PlcOpenLadder"), () =>
+        {
+            onOpenPlcLadder?.Invoke(plc, false);
+        }, "#38BDF8"));
+        menu.Items.Add(CreateActionItem(LocalizationManager.Get("Str.Menu.PlcTagTable"), () =>
+        {
+            onOpenPlcLadder?.Invoke(plc, true);
+        }, "#2DD4BF"));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.PlcRun"), plc.CpuState == PlcCpuState.Run, () =>
+        {
+            plc.SetRunMode();
+            notify(LocalizationManager.Format("Str.Status.UpdatedProp", plc.DisplayName, "CPU RUN"));
+        }));
+        menu.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.PlcStop"), plc.CpuState == PlcCpuState.Stop, () =>
+        {
+            plc.SetStopMode();
+            notify(LocalizationManager.Format("Str.Status.UpdatedProp", plc.DisplayName, "CPU STOP"));
+        }));
     }
 
     private static void BuildVoltmeterItems(ContextMenu menu, VoltmeterComponent vm, Action<string> notify)

@@ -2,6 +2,7 @@ using WiringSim.Models.Components.Control;
 using WiringSim.Models.Components.Loads;
 using WiringSim.Models.Components.Sources;
 using WiringSim.Models.Enums;
+using WiringSim.Models.Plc;
 using WiringSim.UI.Services;
 
 namespace WiringSim.Models.Presets;
@@ -45,7 +46,13 @@ public static class PresetCircuitFactory
             "PRESET_2WIRE_AC_RELAY",
             "Str.Preset4.Name",
             "Str.Preset4.Guide",
-            BuildTwoWireAcSensorRelayCircuit)
+            BuildTwoWireAcSensorRelayCircuit),
+
+        new PresetCircuitDefinition(
+            "PRESET_PLC_S71200_SEQ",
+            "Str.Preset5.Name",
+            "Str.Preset5.Guide",
+            BuildPlcS71200SequentialLightsCircuit)
     ];
 
     private static (List<ElectricalComponent>, List<WireModel>) BuildResidentialLampCircuit()
@@ -242,6 +249,183 @@ public static class PresetCircuitFactory
         Connect(wires, lamp.X2, qf1.Out4, WireColorPreset.Black_N_DCMinus);
 
         return (comps, wires);
+    }
+
+    private static (List<ElectricalComponent>, List<WireModel>) BuildPlcS71200SequentialLightsCircuit()
+    {
+        var comps = new List<ElectricalComponent>();
+        var wires = new List<WireModel>();
+
+        var dc24 = new DcSourceComponent { DisplayName = "DC 24V", X = 60, Y = 40 };
+        dc24.SetVoltage(24.0);
+
+        var btnStart = new PushButtonComponent(isNormallyClosed: false) { DisplayName = "START", X = 280, Y = 40, ButtonColor = PilotLightColor.Green };
+        var btnStop = new PushButtonComponent(isNormallyClosed: true) { DisplayName = "STOP", X = 420, Y = 40, ButtonColor = PilotLightColor.Red };
+
+        var plc = new PlcS71200Component { DisplayName = "PLC1", X = 180, Y = 220 };
+        var prog = BuildSequentialLightsProgram();
+        plc.CommitDownloadedProgram(prog);
+
+        var h1 = new PilotLightComponent(PilotLightColor.Green) { DisplayName = "H1 (Q0.0)", X = 220, Y = 500, VoltageRating = CoilVoltageRating.DC_24V };
+        var h2 = new PilotLightComponent(PilotLightColor.Yellow) { DisplayName = "H2 (Q0.1)", X = 360, Y = 500, VoltageRating = CoilVoltageRating.DC_24V };
+        var h3 = new PilotLightComponent(PilotLightColor.Red) { DisplayName = "H3 (Q0.2)", X = 500, Y = 500, VoltageRating = CoilVoltageRating.DC_24V };
+
+        comps.AddRange([dc24, btnStart, btnStop, plc, h1, h2, h3]);
+
+        // Cấp nguồn 24VDC cho PLC (L+, M) & nối chân chung 1M về 0V (chế độ nhận tín hiệu PNP)
+        Connect(wires, dc24.PlusTerminal, plc.SupplyLPlus, WireColorPreset.Red_L1_DCPlus);
+        Connect(wires, dc24.MinusTerminal, plc.SupplyM, WireColorPreset.Black_N_DCMinus);
+        Connect(wires, dc24.MinusTerminal, plc.InputCommon1M, WireColorPreset.Black_N_DCMinus);
+
+        // Nút START (NO 23-24 -> I0.0) & Nút STOP (NC 11-12 -> I0.1)
+        Connect(wires, dc24.PlusTerminal, btnStart.NoIn3!, WireColorPreset.Red_L1_DCPlus);
+        Connect(wires, btnStart.NoOut4!, plc.DiTerminals[0], WireColorPreset.Yellow_L2);
+
+        Connect(wires, dc24.PlusTerminal, btnStop.NcIn1!, WireColorPreset.Red_L1_DCPlus);
+        Connect(wires, btnStop.NcOut2!, plc.DiTerminals[1], WireColorPreset.Blue_L3);
+
+        // Ngõ ra Q0.0, Q0.1, Q0.2 cấp nguồn 24VDC cho 3 đèn tuần tự H1, H2, H3
+        Connect(wires, plc.DqTerminals[0], h1.X1, WireColorPreset.Green_PE);
+        Connect(wires, plc.DqTerminals[1], h2.X1, WireColorPreset.Yellow_L2);
+        Connect(wires, plc.DqTerminals[2], h3.X1, WireColorPreset.Red_L1_DCPlus);
+
+        Connect(wires, h1.X2, plc.AuxM, WireColorPreset.Black_N_DCMinus);
+        Connect(wires, h2.X2, plc.AuxM, WireColorPreset.Black_N_DCMinus);
+        Connect(wires, h3.X2, plc.AuxM, WireColorPreset.Black_N_DCMinus);
+
+        return (comps, wires);
+    }
+
+    public static PlcProgramModel BuildSequentialLightsProgram()
+    {
+        var prog = new PlcProgramModel();
+        prog.Tags.AddRange([
+            new PlcTagEntry { Name = "START", Address = "%I0.0", DataType = "Bool" },
+            new PlcTagEntry { Name = "STOP", Address = "%I0.1", DataType = "Bool" },
+            new PlcTagEntry { Name = "RUN_SYS", Address = "%M0.0", DataType = "Bool" },
+            new PlcTagEntry { Name = "START_EDGE", Address = "%M0.1", DataType = "Bool" },
+            new PlcTagEntry { Name = "STEP_PULSE", Address = "%M0.2", DataType = "Bool" },
+            new PlcTagEntry { Name = "SEQUENCE", Address = "%MW2", DataType = "Int" },
+            new PlcTagEntry { Name = "TIMER1", Address = "%DB1", DataType = "IEC_Timer" },
+            new PlcTagEntry { Name = "LAMP1", Address = "%Q0.0", DataType = "Bool" },
+            new PlcTagEntry { Name = "LAMP2", Address = "%Q0.1", DataType = "Bool" },
+            new PlcTagEntry { Name = "LAMP3", Address = "%Q0.2", DataType = "Bool" }
+        ]);
+
+        // Network 1: Khởi động & Dừng hệ thống (Tự giữ với nhánh song song %I0.0 // %M0.0)
+        var nw1 = new LadderNetwork { Title = "Start / Stop System (Self-Holding)" };
+        nw1.MainBranch.Nodes.Add(new LadderNode
+        {
+            Kind = LadderElementKind.ParallelBlock,
+            Branches =
+            [
+                new LadderBranch { Nodes = [new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%I0.0" }] },
+                new LadderBranch { Nodes = [new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%M0.0" }] }
+            ]
+        });
+        nw1.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%I0.1" });
+        nw1.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.CoilOut, Address = "%M0.0" });
+        prog.Networks.Add(nw1);
+
+        // Network 2: Khởi tạo bước 1 khi bật (P-Trig) & Xóa bước về 0 khi dừng
+        var nw2 = new LadderNetwork { Title = "Init Step = 1 on Start / Reset = 0 on Stop" };
+        nw2.MainBranch.Nodes.Add(new LadderNode
+        {
+            Kind = LadderElementKind.ParallelBlock,
+            Branches =
+            [
+                new LadderBranch
+                {
+                    Nodes =
+                    [
+                        new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%M0.0" },
+                        new LadderNode { Kind = LadderElementKind.EdgePositive, Address = "%M0.1" },
+                        new LadderNode { Kind = LadderElementKind.Move, Param1 = "1", OutputAddress = "%MW2" }
+                    ]
+                },
+                new LadderBranch
+                {
+                    Nodes =
+                    [
+                        new LadderNode { Kind = LadderElementKind.ContactNC, Address = "%M0.0" },
+                        new LadderNode { Kind = LadderElementKind.Move, Param1 = "0", OutputAddress = "%MW2" }
+                    ]
+                }
+            ]
+        });
+        prog.Networks.Add(nw2);
+
+        // Network 3: Bộ định thời TON 3 giây tạo xung chuyển bước
+        var nw3 = new LadderNetwork { Title = "3s Step Timer (TON %DB1)" };
+        nw3.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%M0.0" });
+        nw3.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.ContactNC, Address = "%M0.2" });
+        nw3.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.TimerTON, Address = "%DB1", Param1 = "T#3s" });
+        nw3.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.CoilOut, Address = "%M0.2" });
+        prog.Networks.Add(nw3);
+
+        // Network 4: Tăng biến bước %MW2 (ADD +1) và quay vòng về 1 khi > 3
+        var nw4 = new LadderNetwork { Title = "Increment %MW2 (1 → 2 → 3 → 1)" };
+        nw4.MainBranch.Nodes.Add(new LadderNode
+        {
+            Kind = LadderElementKind.ParallelBlock,
+            Branches =
+            [
+                new LadderBranch
+                {
+                    Nodes =
+                    [
+                        new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%M0.2" },
+                        new LadderNode { Kind = LadderElementKind.MathAdd, Param1 = "%MW2", Param2 = "1", OutputAddress = "%MW2" }
+                    ]
+                },
+                new LadderBranch
+                {
+                    Nodes =
+                    [
+                        new LadderNode { Kind = LadderElementKind.CmpGreater, Param1 = "%MW2", Param2 = "3" },
+                        new LadderNode { Kind = LadderElementKind.Move, Param1 = "1", OutputAddress = "%MW2" }
+                    ]
+                }
+            ]
+        });
+        prog.Networks.Add(nw4);
+
+        // Network 5: So sánh %MW2 xuất 3 đèn tuần tự Q0.0, Q0.1, Q0.2
+        var nw5 = new LadderNetwork { Title = "Sequential Outputs (%MW2 == 1, 2, 3)" };
+        nw5.MainBranch.Nodes.Add(new LadderNode
+        {
+            Kind = LadderElementKind.ParallelBlock,
+            Branches =
+            [
+                new LadderBranch
+                {
+                    Nodes =
+                    [
+                        new LadderNode { Kind = LadderElementKind.CmpEqual, Param1 = "%MW2", Param2 = "1" },
+                        new LadderNode { Kind = LadderElementKind.CoilOut, Address = "%Q0.0" }
+                    ]
+                },
+                new LadderBranch
+                {
+                    Nodes =
+                    [
+                        new LadderNode { Kind = LadderElementKind.CmpEqual, Param1 = "%MW2", Param2 = "2" },
+                        new LadderNode { Kind = LadderElementKind.CoilOut, Address = "%Q0.1" }
+                    ]
+                },
+                new LadderBranch
+                {
+                    Nodes =
+                    [
+                        new LadderNode { Kind = LadderElementKind.CmpEqual, Param1 = "%MW2", Param2 = "3" },
+                        new LadderNode { Kind = LadderElementKind.CoilOut, Address = "%Q0.2" }
+                    ]
+                }
+            ]
+        });
+        prog.Networks.Add(nw5);
+
+        return prog;
     }
 
     private static void Connect(List<WireModel> wires, Terminal a, Terminal b, WireColorPreset color)

@@ -518,4 +518,252 @@
     <sys:String x:Key="Str.Preset4.Name">4. Mạch điều khiển Rơ-le trung gian bằng cảm biến tiệm cận 2 dây AC 220V</sys:String>
     <sys:String x:Key="Str.Preset4.Guide">Chuyển sang [▶ Chạy Mô Phỏng] → Bấm vào đầu cảm biến 2 dây AC (B1): dòng điện đi nối tiếp L → BN → BU → cuộn hút K1 (sụt áp ~3.5V, đo Volt ~216.5V) để hút rơ-le và bật đèn báo H1!</sys:String>
 
+    <!-- v1.3: PLC Siemens S7-1200 (CPU 1214C) & Trình lập trình Ladder chuẩn TIA Portal -->
+    <sys:String x:Key="Str.Cat.Programmable">7. ĐIỀU KHIỂN LẬP TRÌNH (PLC)</sys:String>
+    <sys:String x:Key="Str.Comp.PlcS71200.Title">PLC S7-1200 (CPU 1214C)</sys:String>
+    <sys:String x:Key="Str.Comp.PlcS71200.Sub">14 DI • 10 DQ • 2 AI • Ladder OB1</sys:String>
+    <sys:String x:Key="Str.Vis.PlcOpenLadder">Mở trình lập trình Ladder</sys:String>
+    <sys:String x:Key="Str.Toolbar.PlcLadder">Trình lập trình Ladder</sys:String>
+    <sys:String x:Key="Str.Toolbar.PlcLadderTip">Ẩn / Hiện khung lập trình PLC Ladder (TIA Portal Style)</sys:String>
+
+    <sys:String x:Key="Str.Menu.PlcOpenLadder">💻 Mở trình lập trình Ladder (OB1)</sys:String>
+    <sys:String x:Key="Str.Menu.PlcTagTable">🏷 Mở bảng ký hiệu biến (PLC Tag Table)</sys:String>
+    <sys:String x:Key="Str.Menu.PlcRun">▶ Chuyển CPU sang RUN</sys:String>
+    <sys:String x:Key="Str.Menu.PlcStop">⏹ Chuyển CPU sang STOP</sys:String>
+
+    <sys:String x:Key="Str.Plc.EditorTitle">Trình lập trình PLC S7-1200 — Ladder (OB1)</sys:String>
+    <sys:String x:Key="Str.Plc.TabLadder">Ladder (OB1)</sys:String>
+    <sys:String x:Key="Str.Plc.TabTags">Bảng Tag (PLC Tags)</sys:String>
+    <sys:String x:Key="Str.Plc.ToggleInstructions">Thư viện lệnh</sys:String>
+    <sys:String x:Key="Str.Plc.HideEditorTip">Ẩn khung lập trình Ladder</sys:String>
+    <sys:String x:Key="Str.Plc.Compile">Compile</sys:String>
+    <sys:String x:Key="Str.Plc.CompileTip">Biên dịch &amp; kiểm tra lỗi cú pháp chương trình Ladder</sys:String>
+    <sys:String x:Key="Str.Plc.Download">Download</sys:String>
+    <sys:String x:Key="Str.Plc.DownloadTip">Biên dịch và nạp chương trình vào bộ nhớ PLC S7-1200</sys:String>
+    <sys:String x:Key="Str.Plc.AddNetwork">+ Network</sys:String>
+    <sys:String x:Key="Str.Plc.DelNode">Xóa phần tử</sys:String>
+    <sys:String x:Key="Str.Plc.OpenBranch">Mở nhánh //</sys:String>
+    <sys:String x:Key="Str.Plc.CloseBranch">Đóng nhánh</sys:String>
+    <sys:String x:Key="Str.Plc.OnlineMonitor">ONLINE</sys:String>
+    <sys:String x:Key="Str.Plc.NoPlcSelected">Chưa chọn khối PLC S7-1200 trên sơ đồ. Hãy kéo khối PLC S7-1200 từ Thư viện vào Canvas.</sys:String>
+
+    <sys:String x:Key="Str.Plc.InstrHeader">THƯ VIỆN LỆNH PLC</sys:String>
+    <sys:String x:Key="Str.Plc.GrpBit">1. Logic Bit</sys:String>
+    <sys:String x:Key="Str.Plc.GrpTimer">2. Bộ định thời (Timers DB)</sys:String>
+    <sys:String x:Key="Str.Plc.GrpCounter">3. Bộ đếm (Counters DB)</sys:String>
+    <sys:String x:Key="Str.Plc.GrpCompare">4. So sánh (Comparators)</sys:String>
+    <sys:String x:Key="Str.Plc.GrpMath">5. Toán học &amp; Move</sys:String>
+
+    <sys:String x:Key="Str.Plc.PropBarHint">Chọn một phần tử trên Network để sửa địa chỉ / tham số trực tiếp:</sys:String>
+    <sys:String x:Key="Str.Plc.PropAddr">Địa chỉ:</sys:String>
+    <sys:String x:Key="Str.Plc.PropTag">Tên Tag:</sys:String>
+    <sys:String x:Key="Str.Plc.PropParam1">Tham số 1:</sys:String>
+    <sys:String x:Key="Str.Plc.PropParam2">Tham số 2:</sys:String>
+    <sys:String x:Key="Str.Plc.PropOut">Ngõ ra OUT:</sys:String>
+    <sys:String x:Key="Str.Plc.PropApply">Áp dụng</sys:String>
+
+    <sys:String x:Key="Str.Plc.TagName">Tên ký hiệu (Tag)</sys:String>
+    <sys:String x:Key="Str.Plc.TagAddr">Địa chỉ tuyệt đối</sys:String>
+    <sys:String x:Key="Str.Plc.TagType">Kiểu dữ liệu</sys:String>
+    <sys:String x:Key="Str.Plc.TagLive">Giá trị hiện tại</sys:String>
+    <sys:String x:Key="Str.Plc.TagAdd">+ Thêm Tag</sys:String>
+    <sys:String x:Key="Str.Plc.TagDelete">Xóa Tag</sys:String>
+
+    <sys:String x:Key="Str.Plc.CompileOk">✅ Biên dịch thành công: 0 lỗi, {0} cảnh báo.</sys:String>
+    <sys:String x:Key="Str.Plc.CompileFail">❌ Biên dịch thất bại: {0} lỗi, {1} cảnh báo. Bấm vào dòng lỗi để nhảy tới vị trí sửa.</sys:String>
+    <sys:String x:Key="Str.Plc.Downloading">⏳ Đang nạp chương trình vào {0} (CPU 1214C)...</sys:String>
+    <sys:String x:Key="Str.Plc.DownloadDone">✅ Đã nạp thành công vào {0}! CPU đang ở chế độ RUN.</sys:String>
+    <sys:String x:Key="Str.Plc.DownloadBlocked">❌ Không thể nạp vào PLC vì chương trình còn lỗi biên dịch!</sys:String>
+    <sys:String x:Key="Str.Plc.OutputShortFault">NGẮN MẠCH NGÕ RA PLC [{0}]: Đã ngắt ngõ ra bảo vệ CPU và bật đèn báo ERROR!</sys:String>
+
+    <sys:String x:Key="Str.Plc.WarnNoNetworks">Chương trình chưa có Network nào.</sys:String>
+    <sys:String x:Key="Str.Plc.WarnEmptyNetwork">Network {0} đang trống.</sys:String>
+    <sys:String x:Key="Str.Plc.ErrOpenBranchNoOutput">Network {0}: Nhánh hở — thiếu cuộn hút đầu ra hoặc khối hàm thực thi ở cuối nhánh!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrEmptyParallel">Network {0}: Nhánh rẽ song song đang bị để trống!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrEmptyAddr">Chưa nhập địa chỉ biến!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrInvalidAddr">Sai cú pháp địa chỉ bit '{0}' (VD đúng: %I0.0, %Q0.0, %M0.0, %DB1.Q).</sys:String>
+    <sys:String x:Key="Str.Plc.ErrNotWritableBit">Không thể ghi ra địa chỉ '{0}' (chỉ cho phép %Q hoặc %M).</sys:String>
+    <sys:String x:Key="Str.Plc.ErrCannotWriteInput">Không thể dùng ngõ vào '{0}' làm cuộn hút / bit ghi!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrAddrOutOfRange">Địa chỉ '{0}' vượt quá dải phần cứng cho phép ({1}).</sys:String>
+    <sys:String x:Key="Str.Plc.ErrMissingOperand">Thiếu toán hạng / giá trị tham số!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrTargetMustBeWord">Ngõ ra OUT '{0}' phải là vùng nhớ Word (%MW hoặc %QW), không thể là hằng số!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrInvalidWordAddr">Sai cú pháp địa chỉ Word / hằng số '{0}' (VD đúng: %MW2, %IW64, %DB1.CV, 10).</sys:String>
+    <sys:String x:Key="Str.Plc.ErrMissingDb">Thiếu địa chỉ khối dữ liệu %DB cho Timer / Counter!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrInvalidDb">Sai tên khối dữ liệu '{0}' (phải có dạng %DB1, %DB2...).</sys:String>
+    <sys:String x:Key="Str.Plc.ErrDuplicateDb">Network {0}: Trùng tên khối dữ liệu '{1}' đã được sử dụng ở Network {2}!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrInvalidPt">Network {0}: Sai định dạng thời gian PT '{1}' (VD đúng: T#3s, T#500ms, T#1m).</sys:String>
+    <sys:String x:Key="Str.Plc.ErrInvalidPv">Network {0}: Thiếu hoặc sai giá trị đặt PV '{1}' cho Bộ đếm.</sys:String>
+
+    <sys:String x:Key="Str.Preset5.Name">5. Điều khiển đèn tuần tự bằng PLC S7-1200 (Timer TON &amp; So sánh %MW)</sys:String>
+    <sys:String x:Key="Str.Preset5.Guide">Chuyển sang [▶ Chạy Mô Phỏng] → Bấm nút START (%I0.0): PLC tự động chạy tuần tự 3 đèn H1 → H2 → H3 cách nhau 3 giây bằng Timer TON (%DB1) &amp; So sánh %MW2 ("SEQUENCE"). Quan sát đường thông mạch xanh lá trong cửa sổ Ladder!</sys:String>
+
+    <!-- v1.3 Full 10-Category TIA Portal Instruction Tree -->
+    <sys:String x:Key="Str.Plc.SearchHint">Tìm lệnh PLC (VD: TON, NORM_X, SHR)...</sys:String>
+    <sys:String x:Key="Str.Plc.EmptyBoxBtn">Empty box [F8]</sys:String>
+    <sys:String x:Key="Str.Plc.InsertInputBtn">--| Đầu vào</sys:String>
+    <sys:String x:Key="Str.Plc.PropExtra">Tham số 3:</sys:String>
+    <sys:String x:Key="Str.Plc.ErrMissingLabel">Network {0}: Lệnh nhảy tới nhãn '{1}' không tồn tại trong chương trình!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrInfiniteJumpLoop">Network {0}: Phát hiện vòng lặp nhảy vô hạn tới nhãn '{1}' (Network {2})!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrEmptyBoxUnresolved">Network {0}: Khối Empty box '{1}' chưa được gán tên lệnh hợp lệ!</sys:String>
+    <sys:String x:Key="Str.Plc.ErrEmptyLabel">Network {0}: Tên nhãn LABEL hoặc đích nhảy không được để trống!</sys:String>
+
+    <sys:String x:Key="Str.Plc.Cat1">1. Bit logic operations (Logic Bit)</sys:String>
+    <sys:String x:Key="Str.Plc.Cat2">2. Timer operations (Bộ định thời DB)</sys:String>
+    <sys:String x:Key="Str.Plc.Cat3">3. Counter operations (Bộ đếm DB)</sys:String>
+    <sys:String x:Key="Str.Plc.Cat4">4. Comparator operations (So sánh)</sys:String>
+    <sys:String x:Key="Str.Plc.Cat5">5. Math functions (Toán học)</sys:String>
+    <sys:String x:Key="Str.Plc.Cat6">6. Move operations (Di chuyển &amp; Khối)</sys:String>
+    <sys:String x:Key="Str.Plc.Cat7">7. Conversion operations (Chuyển đổi &amp; Analog)</sys:String>
+    <sys:String x:Key="Str.Plc.Cat8">8. Program control operations (Điều khiển luồng)</sys:String>
+    <sys:String x:Key="Str.Plc.Cat9">9. Word logic operations (Logic từ)</sys:String>
+    <sys:String x:Key="Str.Plc.Cat10">10. Shift and rotate (Dịch &amp; Xoay bit)</sys:String>
+
+    <!-- Mô tả Nhóm 1 -->
+    <sys:String x:Key="Str.Plc.D.NO">Tiếp điểm thường mở</sys:String>
+    <sys:String x:Key="Str.Plc.D.NC">Tiếp điểm thường đóng</sys:String>
+    <sys:String x:Key="Str.Plc.D.NOT">Đảo trạng thái logic RLO</sys:String>
+    <sys:String x:Key="Str.Plc.D.OUT">Cuộn gán giá trị đầu ra</sys:String>
+    <sys:String x:Key="Str.Plc.D.COILNEG">Cuộn gán đảo giá trị đầu ra</sys:String>
+    <sys:String x:Key="Str.Plc.D.RESET">Cuộn xóa bit về 0</sys:String>
+    <sys:String x:Key="Str.Plc.D.SET">Cuộn chốt bit lên 1</sys:String>
+    <sys:String x:Key="Str.Plc.D.SET_BF">Chốt dải N bit liên tiếp lên 1</sys:String>
+    <sys:String x:Key="Str.Plc.D.RESET_BF">Xóa dải N bit liên tiếp về 0</sys:String>
+    <sys:String x:Key="Str.Plc.D.SR">Khối chốt ưu tiên Set</sys:String>
+    <sys:String x:Key="Str.Plc.D.RS">Khối chốt ưu tiên Reset</sys:String>
+    <sys:String x:Key="Str.Plc.D.P">Tiếp điểm bắt sườn lên biến</sys:String>
+    <sys:String x:Key="Str.Plc.D.N">Tiếp điểm bắt sườn xuống biến</sys:String>
+    <sys:String x:Key="Str.Plc.D.COILP">Cuộn xuất xung sườn lên</sys:String>
+    <sys:String x:Key="Str.Plc.D.COILN">Cuộn xuất xung sườn xuống</sys:String>
+    <sys:String x:Key="Str.Plc.D.P_TRIG">Bắt sườn lên dòng logic RLO</sys:String>
+    <sys:String x:Key="Str.Plc.D.N_TRIG">Bắt sườn xuống dòng logic RLO</sys:String>
+    <sys:String x:Key="Str.Plc.D.R_TRIG">Phát hiện sườn lên chuẩn IEC</sys:String>
+    <sys:String x:Key="Str.Plc.D.F_TRIG">Phát hiện sườn xuống chuẩn IEC</sys:String>
+
+    <!-- Mô tả Nhóm 2 -->
+    <sys:String x:Key="Str.Plc.D.TP">Tạo xung thời gian cố định</sys:String>
+    <sys:String x:Key="Str.Plc.D.TON">Định thời trễ đóng</sys:String>
+    <sys:String x:Key="Str.Plc.D.TOF">Định thời trễ ngắt</sys:String>
+    <sys:String x:Key="Str.Plc.D.TONR">Định thời trễ đóng cộng dồn</sys:String>
+    <sys:String x:Key="Str.Plc.D.COIL_TP">Cuộn khởi động bộ định thời xung</sys:String>
+    <sys:String x:Key="Str.Plc.D.COIL_TON">Cuộn khởi động trễ đóng</sys:String>
+    <sys:String x:Key="Str.Plc.D.COIL_TOF">Cuộn khởi động trễ ngắt</sys:String>
+    <sys:String x:Key="Str.Plc.D.COIL_TONR">Cuộn định thời cộng dồn</sys:String>
+    <sys:String x:Key="Str.Plc.D.COIL_RT">Cuộn xóa thời gian về 0</sys:String>
+    <sys:String x:Key="Str.Plc.D.COIL_PT">Cuộn nạp giá trị thời gian đặt</sys:String>
+
+    <!-- Mô tả Nhóm 3 -->
+    <sys:String x:Key="Str.Plc.D.CTU">Bộ đếm lên</sys:String>
+    <sys:String x:Key="Str.Plc.D.CTD">Bộ đếm xuống</sys:String>
+    <sys:String x:Key="Str.Plc.D.CTUD">Bộ đếm lên và xuống</sys:String>
+
+    <!-- Mô tả Nhóm 4 -->
+    <sys:String x:Key="Str.Plc.D.EQ">So sánh bằng</sys:String>
+    <sys:String x:Key="Str.Plc.D.NE">So sánh khác</sys:String>
+    <sys:String x:Key="Str.Plc.D.GE">Lớn hơn hoặc bằng</sys:String>
+    <sys:String x:Key="Str.Plc.D.LE">Nhỏ hơn hoặc bằng</sys:String>
+    <sys:String x:Key="Str.Plc.D.GT">Lớn hơn</sys:String>
+    <sys:String x:Key="Str.Plc.D.LT">Nhỏ hơn</sys:String>
+    <sys:String x:Key="Str.Plc.D.IN_RANGE">Kiểm tra trong khoảng MIN..MAX</sys:String>
+    <sys:String x:Key="Str.Plc.D.OUT_RANGE">Kiểm tra ngoài khoảng MIN..MAX</sys:String>
+    <sys:String x:Key="Str.Plc.D.OK">Kiểm tra giá trị thực hợp lệ</sys:String>
+    <sys:String x:Key="Str.Plc.D.NOT_OK">Kiểm tra giá trị không hợp lệ</sys:String>
+    <sys:String x:Key="Str.Plc.D.EQ_TYPE">So sánh cùng kiểu dữ liệu</sys:String>
+    <sys:String x:Key="Str.Plc.D.NE_TYPE">So sánh khác kiểu dữ liệu</sys:String>
+    <sys:String x:Key="Str.Plc.D.EQ_ELEM">So sánh cùng kiểu phần tử mảng</sys:String>
+    <sys:String x:Key="Str.Plc.D.NE_ELEM">So sánh khác kiểu phần tử mảng</sys:String>
+    <sys:String x:Key="Str.Plc.D.IS_NULL">Kiểm tra con trỏ Variant rỗng</sys:String>
+    <sys:String x:Key="Str.Plc.D.NOT_NULL">Kiểm tra Variant khác rỗng</sys:String>
+    <sys:String x:Key="Str.Plc.D.IS_ARRAY">Kiểm tra biến có phải mảng</sys:String>
+    <sys:String x:Key="Str.Plc.D.EQ_DB">So sánh trùng kiểu khối DB</sys:String>
+    <sys:String x:Key="Str.Plc.D.NE_DB">So sánh khác kiểu khối DB</sys:String>
+
+    <!-- Mô tả Nhóm 5 -->
+    <sys:String x:Key="Str.Plc.D.CALC">Tính biểu thức toán học tùy chỉnh</sys:String>
+    <sys:String x:Key="Str.Plc.D.ADD">Cộng hai giá trị</sys:String>
+    <sys:String x:Key="Str.Plc.D.SUB">Trừ hai giá trị</sys:String>
+    <sys:String x:Key="Str.Plc.D.MUL">Nhân hai giá trị</sys:String>
+    <sys:String x:Key="Str.Plc.D.DIV">Chia hai giá trị</sys:String>
+    <sys:String x:Key="Str.Plc.D.MOD">Chia lấy phần dư</sys:String>
+    <sys:String x:Key="Str.Plc.D.NEG">Đảo dấu số bù 2</sys:String>
+    <sys:String x:Key="Str.Plc.D.INC">Tăng giá trị lên 1</sys:String>
+    <sys:String x:Key="Str.Plc.D.DEC">Giảm giá trị đi 1</sys:String>
+    <sys:String x:Key="Str.Plc.D.ABS">Giá trị tuyệt đối</sys:String>
+    <sys:String x:Key="Str.Plc.D.MIN">Lấy giá trị nhỏ nhất</sys:String>
+    <sys:String x:Key="Str.Plc.D.MAX">Lấy giá trị lớn nhất</sys:String>
+    <sys:String x:Key="Str.Plc.D.LIMIT">Giới hạn trong ngưỡng MN..MX</sys:String>
+    <sys:String x:Key="Str.Plc.D.SQR">Tính bình phương</sys:String>
+    <sys:String x:Key="Str.Plc.D.SQRT">Tính căn bậc hai</sys:String>
+    <sys:String x:Key="Str.Plc.D.LN">Logarit tự nhiên</sys:String>
+    <sys:String x:Key="Str.Plc.D.EXP">Hàm mũ cơ số e</sys:String>
+    <sys:String x:Key="Str.Plc.D.EXPT">Lũy thừa IN1^IN2</sys:String>
+    <sys:String x:Key="Str.Plc.D.FRAC">Lấy phần thập phân</sys:String>
+    <sys:String x:Key="Str.Plc.D.SIN">Tính sin (radian)</sys:String>
+    <sys:String x:Key="Str.Plc.D.COS">Tính cos (radian)</sys:String>
+    <sys:String x:Key="Str.Plc.D.TAN">Tính tan (radian)</sys:String>
+    <sys:String x:Key="Str.Plc.D.ASIN">Tính arcsin</sys:String>
+    <sys:String x:Key="Str.Plc.D.ACOS">Tính arccos</sys:String>
+    <sys:String x:Key="Str.Plc.D.ATAN">Tính arctan</sys:String>
+
+    <!-- Mô tả Nhóm 6 -->
+    <sys:String x:Key="Str.Plc.D.MOVE">Di chuyển / gán giá trị</sys:String>
+    <sys:String x:Key="Str.Plc.D.MOVE_BLK">Sao chép khối phần tử liên tiếp</sys:String>
+    <sys:String x:Key="Str.Plc.D.MOVE_BLK_VAR">Di chuyển khối kiểu Variant</sys:String>
+    <sys:String x:Key="Str.Plc.D.UMOVE_BLK">Di chuyển khối không ngắt</sys:String>
+    <sys:String x:Key="Str.Plc.D.FILL_BLK">Điền lặp giá trị vào khối nhớ</sys:String>
+    <sys:String x:Key="Str.Plc.D.UFILL_BLK">Điền lặp khối không ngắt</sys:String>
+    <sys:String x:Key="Str.Plc.D.SCATTER">Tách chuỗi bit từ Word sang bit lẻ</sys:String>
+    <sys:String x:Key="Str.Plc.D.SCATTER_BLK">Tách khối Word sang dải bit</sys:String>
+    <sys:String x:Key="Str.Plc.D.GATHER">Gộp các bit lẻ thành Word</sys:String>
+    <sys:String x:Key="Str.Plc.D.GATHER_BLK">Gộp dải bit thành khối Word</sys:String>
+    <sys:String x:Key="Str.Plc.D.SWAP">Hoán đổi thứ tự byte cao / thấp</sys:String>
+    <sys:String x:Key="Str.Plc.D.SERIALIZE">Tuần tự hóa dữ liệu sang byte</sys:String>
+    <sys:String x:Key="Str.Plc.D.DESERIALIZE">Giải tuần tự hóa từ mảng byte</sys:String>
+    <sys:String x:Key="Str.Plc.D.VAR_GET">Đọc giá trị từ Variant</sys:String>
+    <sys:String x:Key="Str.Plc.D.VAR_PUT">Ghi giá trị vào Variant</sys:String>
+    <sys:String x:Key="Str.Plc.D.COUNT_ELEM">Đếm số phần tử của mảng</sys:String>
+    <sys:String x:Key="Str.Plc.D.LOW_BND">Lấy cận dưới của mảng</sys:String>
+    <sys:String x:Key="Str.Plc.D.UP_BND">Lấy cận trên của mảng</sys:String>
+    <sys:String x:Key="Str.Plc.D.FIELD_RD">Đọc phần tử theo chỉ số mảng</sys:String>
+    <sys:String x:Key="Str.Plc.D.FIELD_WR">Ghi phần tử theo chỉ số mảng</sys:String>
+
+    <!-- Mô tả Nhóm 7 -->
+    <sys:String x:Key="Str.Plc.D.CONVERT">Chuyển đổi kiểu dữ liệu</sys:String>
+    <sys:String x:Key="Str.Plc.D.ROUND">Làm tròn về số nguyên gần nhất</sys:String>
+    <sys:String x:Key="Str.Plc.D.CEIL">Làm tròn lên số nguyên</sys:String>
+    <sys:String x:Key="Str.Plc.D.FLOOR">Làm tròn xuống số nguyên</sys:String>
+    <sys:String x:Key="Str.Plc.D.TRUNC">Cắt bỏ phần thập phân</sys:String>
+    <sys:String x:Key="Str.Plc.D.NORM_X">Chuẩn hóa Analog về dải 0.0..1.0</sys:String>
+    <sys:String x:Key="Str.Plc.D.SCALE_X">Quy đổi tuyến tính ra đơn vị thực</sys:String>
+
+    <!-- Mô tả Nhóm 8 -->
+    <sys:String x:Key="Str.Plc.D.JMP">Nhảy tới LABEL nếu RLO = 1</sys:String>
+    <sys:String x:Key="Str.Plc.D.JMPN">Nhảy tới LABEL nếu RLO = 0</sys:String>
+    <sys:String x:Key="Str.Plc.D.LABEL">Đánh dấu nhãn đích nhảy tới</sys:String>
+    <sys:String x:Key="Str.Plc.D.JMP_LIST">Bảng chọn nhãn nhảy theo K</sys:String>
+    <sys:String x:Key="Str.Plc.D.SWITCH">Phân phối nhảy đa nhánh</sys:String>
+    <sys:String x:Key="Str.Plc.D.RET">Kết thúc khối và trả về</sys:String>
+    <sys:String x:Key="Str.Plc.D.ENDIS_PW">Khóa / mở khóa mật khẩu CPU</sys:String>
+    <sys:String x:Key="Str.Plc.D.RE_TRIGR">Khởi động lại giám sát vòng quét</sys:String>
+    <sys:String x:Key="Str.Plc.D.STP">Dừng chương trình, chuyển CPU STOP</sys:String>
+    <sys:String x:Key="Str.Plc.D.GET_ERR">Lấy thông tin lỗi cục bộ</sys:String>
+    <sys:String x:Key="Str.Plc.D.GET_ERR_ID">Lấy mã lỗi cục bộ</sys:String>
+    <sys:String x:Key="Str.Plc.D.RUNTIME">Đo thời gian thực thi vòng quét</sys:String>
+
+    <!-- Mô tả Nhóm 9 -->
+    <sys:String x:Key="Str.Plc.D.W_AND">Phép toán AND theo từng bit</sys:String>
+    <sys:String x:Key="Str.Plc.D.W_OR">Phép toán OR theo từng bit</sys:String>
+    <sys:String x:Key="Str.Plc.D.W_XOR">Phép toán XOR theo từng bit</sys:String>
+    <sys:String x:Key="Str.Plc.D.W_INV">Đảo bit bù 1 (Ones complement)</sys:String>
+    <sys:String x:Key="Str.Plc.D.DECO">Giải mã N thành bit thứ N = 1</sys:String>
+    <sys:String x:Key="Str.Plc.D.ENCO">Mã hóa vị trí bit 1 thấp nhất</sys:String>
+    <sys:String x:Key="Str.Plc.D.SEL">Chọn IN0 hoặc IN1 theo bit G</sys:String>
+    <sys:String x:Key="Str.Plc.D.MUX">Dồn kênh chọn đầu vào theo K</sys:String>
+    <sys:String x:Key="Str.Plc.D.DEMUX">Phân kênh xuất ngõ ra theo K</sys:String>
+
+    <!-- Mô tả Nhóm 10 -->
+    <sys:String x:Key="Str.Plc.D.SHR">Dịch phải N bit</sys:String>
+    <sys:String x:Key="Str.Plc.D.SHL">Dịch trái N bit</sys:String>
+    <sys:String x:Key="Str.Plc.D.ROR">Xoay vòng sang phải N bit</sys:String>
+    <sys:String x:Key="Str.Plc.D.ROL">Xoay vòng sang trái N bit</sys:String>
+
 </ResourceDictionary>

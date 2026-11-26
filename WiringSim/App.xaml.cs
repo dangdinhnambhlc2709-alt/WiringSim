@@ -7,6 +7,7 @@ using WiringSim.Models.Components.Control;
 using WiringSim.Models.Components.Loads;
 using WiringSim.Models.Components.Sources;
 using WiringSim.Models.Enums;
+using WiringSim.Models.Plc;
 using WiringSim.Models.Presets;
 using WiringSim.Models.Serialization;
 using WiringSim.Simulation;
@@ -59,22 +60,22 @@ public partial class App : Application
                 }
             }
 
-            // 2. Kiểm tra Metadata phiên bản v1.2_Release, UpdateService.NormalizeVersion, SkipVersion & Asset Selection
+            // 2. Kiểm tra Metadata phiên bản v1.3_Release, UpdateService.NormalizeVersion, SkipVersion & Asset Selection
             string infoVer = UpdateService.GetCurrentInformationalVersion();
-            Assert(string.Equals(infoVer, "v1.2_Release", StringComparison.Ordinal),
-                $"Suite 2: InformationalVersion phải là 'v1.2_Release' (thực tế: '{infoVer}').");
-            Assert(UpdateService.NormalizeVersion("v1.2_Release") == new Version(1, 2, 0),
-                "Suite 2: NormalizeVersion('v1.2_Release') phải trả về 1.2.0.");
-            Assert(UpdateService.IsVersionSkipped("v1.3.0_Release", "v1.3.0"),
+            Assert(string.Equals(infoVer, "v1.3_Release", StringComparison.Ordinal),
+                $"Suite 2: InformationalVersion phải là 'v1.3_Release' (thực tế: '{infoVer}').");
+            Assert(UpdateService.NormalizeVersion("v1.3_Release") == new Version(1, 3, 0),
+                "Suite 2: NormalizeVersion('v1.3_Release') phải trả về 1.3.0.");
+            Assert(UpdateService.IsVersionSkipped("v1.4.0_Release", "v1.4.0"),
                 "Suite 2: IsVersionSkipped phải nhận diện trùng phiên bản đã bỏ qua.");
             var mockRelease = new UpdateCheckResult(
                 UpdateCheckStatus.UpdateAvailable,
                 infoVer,
-                LatestTagName: "v1.3.0_Release",
-                SetupAssetUrl: "https://example.com/WiringSim_Setup_v1.3.0.exe",
-                SetupAssetFileName: "WiringSim_Setup_v1.3.0.exe",
-                PortableZipUrl: "https://example.com/WiringSim_v1.3.0_win-x64.zip",
-                PortableZipFileName: "WiringSim_v1.3.0_win-x64.zip");
+                LatestTagName: "v1.4.0_Release",
+                SetupAssetUrl: "https://example.com/WiringSim_Setup_v1.4.0.exe",
+                SetupAssetFileName: "WiringSim_Setup_v1.4.0.exe",
+                PortableZipUrl: "https://example.com/WiringSim_v1.4.0_win-x64.zip",
+                PortableZipFileName: "WiringSim_v1.4.0_win-x64.zip");
             var preferred = UpdateService.SelectPreferredAsset(mockRelease);
             Assert(!string.IsNullOrWhiteSpace(preferred.Url) && !string.IsNullOrWhiteSpace(preferred.FileName),
                 "Suite 2: SelectPreferredAsset phải chọn được gói cập nhật phù hợp (Setup/Portable).");
@@ -366,18 +367,191 @@ public partial class App : Application
             Assert(!badSens.IsDamaged, "Suite 8D: Thay cảm biến mới phải xóa trạng thái DAMAGED.");
             engine.Stop();
 
-            // 9. Kết xuất ảnh trực quan v1.2_Release (Dark VI & Light EN) trình diễn Preset 4 + 3 Cảm biến/Công tắc 2 dây mới!
+            // 9. Kiểm tra toàn diện v1.3: PLC S7-1200 (CPU 1214C), Trình biên dịch Ladder, PNP/NPN 1M, Preset 5 (TON + %MW), Counter, Math & JSON Round-Trip!
+            // 9A. Kiểm tra phần cứng 32 chân chuẩn S7-1200 CPU 1214C
+            var plcCheck = new PlcS71200Component();
+            Assert(plcCheck.Terminals.Count == 32 && plcCheck.DiTerminals.Length == 14 && plcCheck.DqTerminals.Length == 10,
+                $"Suite 9A: PLC S7-1200 CPU 1214C phải có đủ 32 chân (14 DI, 10 DQ, 2 AI, nguồn L+/M/PE/1M, phụ L+/M). Thực tế: {plcCheck.Terminals.Count}");
+
+            // 9B. Kiểm tra Compiler (bắt lỗi nhánh hở, sai địa chỉ, trùng %DB, sai PT; và biên dịch sạch 0 lỗi cho Preset 5)
+            var badProg = new PlcProgramModel();
+            var badNw1 = new LadderNetwork { Title = "Open Branch" };
+            badNw1.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%I2.0" }); // Ngoài dải + không có cuộn hút!
+            badProg.Networks.Add(badNw1);
+            var badNw2 = new LadderNetwork { Title = "Duplicate DB & Bad PT" };
+            badNw2.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.TimerTON, Address = "%DB1", Param1 = "T#2s" });
+            badProg.Networks.Add(badNw2);
+            var badNw3 = new LadderNetwork { Title = "Dup DB" };
+            badNw3.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.TimerTON, Address = "%DB1", Param1 = "BAD_TIME" });
+            badProg.Networks.Add(badNw3);
+            var badRes = PlcProgramCompiler.Compile(badProg);
+            Assert(!badRes.Success && badRes.ErrorCount >= 4,
+                $"Suite 9B: Compiler phải bắt đầy đủ lỗi nhánh hở, địa chỉ ngoài dải, trùng %DB1 và sai định dạng PT (Errors={badRes.ErrorCount}).");
+
+            var p5Prog = PresetCircuitFactory.BuildSequentialLightsProgram();
+            var p5Res = PlcProgramCompiler.Compile(p5Prog);
+            Assert(p5Res.Success && p5Res.ErrorCount == 0 && p5Res.WarningCount == 0,
+                $"Suite 9B: Chương trình Preset 5 phải biên dịch sạch 0 lỗi, 0 cảnh báo (E={p5Res.ErrorCount}, W={p5Res.WarningCount}).");
+
+            // 9C. Kiểm tra NPN (1M nối +24V, I0.0 nối 0V -> DI[0] = true!)
+            var npnPsu = new DcSourceComponent();
+            npnPsu.SetVoltage(24.0);
+            var npnPlc = new PlcS71200Component();
+            var npnWires = new List<WireModel>
+            {
+                new(npnPsu.PlusTerminal, npnPlc.SupplyLPlus, WireColorPreset.Red_L1_DCPlus),
+                new(npnPsu.MinusTerminal, npnPlc.SupplyM, WireColorPreset.Black_N_DCMinus),
+                new(npnPsu.PlusTerminal, npnPlc.InputCommon1M, WireColorPreset.Red_L1_DCPlus), // 1M = +24V (NPN mode)
+                new(npnPsu.MinusTerminal, npnPlc.DiTerminals[0], WireColorPreset.Black_N_DCMinus) // I0.0 = 0V -> ACTIVE!
+            };
+            engine.BindCircuit([npnPsu, npnPlc], npnWires);
+            engine.Start();
+            engine.StepSimulation(0.05);
+            Assert(npnPlc.IsPowered && npnPlc.Runtime.Di[0], "Suite 9C: Chế độ 1M=+24V (NPN) phải nhận tín hiệu 0V tại I0.0!");
+            engine.Stop();
+
+            // 9D. Kiểm tra Preset 5 chạy thực tế: Nhấn START -> Đèn H1 sáng (MW2=1) -> sau 3s sang H2 (MW2=2) -> sau 3s sang H3 (MW2=3) -> quay lại H1 -> Nhấn STOP tắt toàn bộ!
+            var p5Def = PresetCircuitFactory.Presets.Single(p => p.Key == "PRESET_PLC_S71200_SEQ");
+            var (p5Comps, p5Wires) = p5Def.Builder();
+            var p5Plc = p5Comps.OfType<PlcS71200Component>().Single();
+            var p5Start = p5Comps.OfType<PushButtonComponent>().Single(b => b.DisplayName == "START");
+            var p5Stop = p5Comps.OfType<PushButtonComponent>().Single(b => b.DisplayName == "STOP");
+            var p5H1 = p5Comps.OfType<PilotLightComponent>().Single(h => h.DisplayName.StartsWith("H1"));
+            var p5H2 = p5Comps.OfType<PilotLightComponent>().Single(h => h.DisplayName.StartsWith("H2"));
+            var p5H3 = p5Comps.OfType<PilotLightComponent>().Single(h => h.DisplayName.StartsWith("H3"));
+
+            engine.BindCircuit(p5Comps, p5Wires);
+            engine.Start();
+            engine.StepSimulation(0.05);
+            Assert(p5Plc.IsPowered && !p5H1.IsLit && !p5H2.IsLit && !p5H3.IsLit,
+                "Suite 9D: Trước khi nhấn START, cả 3 đèn tuần tự phải tắt.");
+
+            // Nhấn rồi nhả nút START -> tự giữ %M0.0 và bật bước 1 (H1)
+            p5Start.IsPressed = true;
+            engine.StepSimulation(0.05);
+            p5Start.IsPressed = false;
+            engine.StepSimulation(0.05);
+            engine.StepSimulation(0.05);
+            Assert(p5Plc.Runtime.ReadBit("%M0.0") && p5Plc.Runtime.ReadWordOrConstant("%MW2") == 1 && p5H1.IsLit && !p5H2.IsLit && !p5H3.IsLit,
+                $"Suite 9D: Sau nhấn START phải tự giữ và sáng H1 (MW2={p5Plc.Runtime.ReadWordOrConstant("%MW2")}, H1={p5H1.IsLit}).");
+
+            // Chờ 3.15s (63 tick x 50ms) -> chuyển sang đèn H2 (%MW2 = 2)
+            for (int t = 0; t < 63; t++) engine.StepSimulation(0.05);
+            Assert(p5Plc.Runtime.ReadWordOrConstant("%MW2") == 2 && !p5H1.IsLit && p5H2.IsLit && !p5H3.IsLit,
+                $"Suite 9D: Sau 3 giây phải chuyển sang đèn H2 (MW2={p5Plc.Runtime.ReadWordOrConstant("%MW2")}, H2={p5H2.IsLit}).");
+
+            // Chờ thêm 3.15s -> chuyển sang đèn H3 (%MW2 = 3)
+            for (int t = 0; t < 63; t++) engine.StepSimulation(0.05);
+            Assert(p5Plc.Runtime.ReadWordOrConstant("%MW2") == 3 && !p5H1.IsLit && !p5H2.IsLit && p5H3.IsLit,
+                $"Suite 9D: Sau 6 giây phải chuyển sang đèn H3 (MW2={p5Plc.Runtime.ReadWordOrConstant("%MW2")}, H3={p5H3.IsLit}).");
+
+            // Chờ thêm 3.15s -> quay vòng về H1 (%MW2 = 1)
+            for (int t = 0; t < 63; t++) engine.StepSimulation(0.05);
+            Assert(p5Plc.Runtime.ReadWordOrConstant("%MW2") == 1 && p5H1.IsLit && !p5H2.IsLit && !p5H3.IsLit,
+                $"Suite 9D: Sau 9 giây phải quay vòng về đèn H1 (MW2={p5Plc.Runtime.ReadWordOrConstant("%MW2")}, H1={p5H1.IsLit}).");
+
+            // Nhấn STOP -> dừng và tắt toàn bộ đèn
+            p5Stop.IsPressed = true;
+            engine.StepSimulation(0.05);
+            engine.StepSimulation(0.05);
+            p5Stop.IsPressed = false;
+            engine.StepSimulation(0.05);
+            Assert(!p5Plc.Runtime.ReadBit("%M0.0") && p5Plc.Runtime.ReadWordOrConstant("%MW2") == 0 && !p5H1.IsLit && !p5H2.IsLit && !p5H3.IsLit,
+                "Suite 9D: Nhấn STOP phải xóa %M0.0, đặt %MW2=0 và tắt toàn bộ 3 đèn!");
+            engine.Stop();
+
+            // 9E. Kiểm tra JSON round-trip lưu & mở lại nguyên vẹn chương trình Ladder + Tag Table của PLC
+            string plcJson = CircuitSerializer.SerializeToJsonString(p5Comps, p5Wires, "PlcPreset5Test");
+            var (rtComps, rtWires, _) = CircuitSerializer.DeserializeFromJsonString(plcJson);
+            var rtPlc = rtComps.OfType<PlcS71200Component>().Single();
+            Assert(rtPlc.DraftProgram.Networks.Count == 5 && rtPlc.DraftProgram.Tags.Count == 10 && rtWires.Count == p5Wires.Count,
+                $"Suite 9E: Lưu/Mở JSON phải giữ nguyên vẹn 5 Network, 10 Tag và {p5Wires.Count} dây đấu của PLC!");
+
+            // 9F. Kiểm tra đầy đủ 10 nhóm hàm/lệnh chuẩn TIA Portal: Danh mục + Bản địa hóa + Thực thi + Compiler bắt lỗi JMP/LABEL & vòng lặp vô hạn!
+            Assert(PlcInstructionCatalog.Groups.Count == 10 && PlcInstructionCatalog.All.Count >= 95,
+                $"Suite 9F: Danh mục lệnh PLC phải có đủ 10 nhóm và >= 95 lệnh (thực tế: {PlcInstructionCatalog.Groups.Count} nhóm, {PlcInstructionCatalog.All.Count} lệnh).");
+            foreach (string lang in new[] { "vi", "en" })
+            {
+                LocalizationManager.SetLanguage(lang);
+                foreach (var meta in PlcInstructionCatalog.All)
+                {
+                    string d = PlcInstructionCatalog.GetDescription(meta);
+                    Assert(!string.IsNullOrWhiteSpace(d) && !d.StartsWith('['),
+                        $"Suite 9F ({lang}): Thiếu mô tả cho lệnh {meta.Symbol} ({meta.DescKey}).");
+                }
+            }
+            LocalizationManager.SetLanguage("vi");
+            Assert(PlcInstructionCatalog.TryResolveByName("NORM_X", out var resKind) && resKind == LadderElementKind.NormX &&
+                   PlcInstructionCatalog.TryResolveByName("ROL", out var rolKind) && rolKind == LadderElementKind.RotateLeft,
+                "Suite 9F: Empty box [F8] phải phân giải đúng tên lệnh NORM_X và ROL!");
+
+            // Kiểm tra Compiler bắt lỗi JMP tới LABEL không tồn tại & vòng lặp nhảy vô hạn
+            var jmpErrProg = new PlcProgramModel();
+            var jNw1 = new LadderNetwork { Title = "Missing label" };
+            jNw1.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.Jump, Address = "NO_SUCH_LBL" });
+            var jNw2 = new LadderNetwork { Title = "Infinite loop" };
+            jNw2.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.Label, Address = "LOOP1" });
+            jNw2.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.Jump, Address = "LOOP1" });
+            jmpErrProg.Networks.AddRange([jNw1, jNw2]);
+            var jmpErrRes = PlcProgramCompiler.Compile(jmpErrProg);
+            Assert(!jmpErrRes.Success && jmpErrRes.ErrorCount >= 2,
+                $"Suite 9F: Compiler phải bắt lỗi nhảy tới LABEL không tồn tại & vòng lặp vô hạn (Errors={jmpErrRes.ErrorCount}).");
+
+            // Kiểm tra thực thi xuyên suốt cả 10 nhóm lệnh (SET_BF, IN_Range, CALCULATE, NORM_X + SCALE_X, SCATTER/GATHER, SWAP, AND, DECO, ENCO, SEL, SHR, ROL, JMP/LABEL)
+            var fullProg = new PlcProgramModel();
+            var nwAll = new LadderNetwork { Title = "All 10 Groups Runtime Test" };
+            nwAll.MainBranch.Nodes.AddRange([
+                new LadderNode { Kind = LadderElementKind.SetBitField, Address = "%M30.0", Param1 = "4" },             // Nhóm 1: M30.0..M30.3 = 1
+                new LadderNode { Kind = LadderElementKind.Calculate, Param1 = "10", Param2 = "5", ExtraParam = "IN1 * 2 + IN2", OutputAddress = "%MW10" }, // Nhóm 5: MW10 = 25
+                new LadderNode { Kind = LadderElementKind.InRange, Param1 = "%MW10", Param2 = "0", ExtraParam = "50" }, // Nhóm 4: 25 in [0..50] -> true
+                new LadderNode { Kind = LadderElementKind.NormX, Param1 = "13824", Param2 = "0", ExtraParam = "27648", OutputAddress = "%MD10" }, // Nhóm 7: 0.5
+                new LadderNode { Kind = LadderElementKind.ScaleX, Param1 = "%MD10", Param2 = "0.0", ExtraParam = "100.0", OutputAddress = "%MD14" }, // Nhóm 7: 50.0
+                new LadderNode { Kind = LadderElementKind.Gather, Param1 = "%M30.0", Param2 = "4", OutputAddress = "%MW12" }, // Nhóm 6: 0b1111 = 15
+                new LadderNode { Kind = LadderElementKind.Swap, Param1 = "258", OutputAddress = "%MW14" },             // Nhóm 6: 0x0102 -> 0x0201 = 513
+                new LadderNode { Kind = LadderElementKind.WordDeco, Param1 = "3", OutputAddress = "%MW16" },           // Nhóm 9: 1 << 3 = 8
+                new LadderNode { Kind = LadderElementKind.WordEnco, Param1 = "%MW16", OutputAddress = "%MW18" },       // Nhóm 9: bit 3 -> 3
+                new LadderNode { Kind = LadderElementKind.ShiftLeft, Param1 = "1", Param2 = "4", OutputAddress = "%MW20" }, // Nhóm 10: 16
+                new LadderNode { Kind = LadderElementKind.RotateRight, Param1 = "1", Param2 = "1", OutputAddress = "%MW22" }, // Nhóm 10: 0x8000 = 32768
+                new LadderNode { Kind = LadderElementKind.Jump, Address = "END_SKIP" }                                 // Nhóm 8: nhảy qua Network 2!
+            ]);
+            var nwSkipped = new LadderNetwork { Title = "Must Be Skipped By JMP" };
+            nwSkipped.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.Move, Param1 = "999", OutputAddress = "%MW24" });
+            var nwEnd = new LadderNetwork { Title = "Target Label" };
+            nwEnd.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.Label, Address = "END_SKIP" });
+            nwEnd.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.Move, Param1 = "77", OutputAddress = "%MW26" });
+            fullProg.Networks.AddRange([nwAll, nwSkipped, nwEnd]);
+
+            var fullComp = PlcProgramCompiler.Compile(fullProg);
+            Assert(fullComp.Success && fullComp.ErrorCount == 0,
+                $"Suite 9F: Chương trình kiểm thử 10 nhóm lệnh phải biên dịch 0 lỗi (Errors={fullComp.ErrorCount}: {string.Join("; ", fullComp.Diagnostics.Select(d => d.Message))}).");
+
+            var rtEngine = new PlcRuntimeEngine();
+            rtEngine.ExecuteScanCycle(fullProg, 0.05);
+            Assert(rtEngine.ReadWordOrConstant("%MW10") == 25 &&
+                   Math.Abs(rtEngine.ReadNumber("%MD10") - 0.5) < 1e-3 &&
+                   Math.Abs(rtEngine.ReadNumber("%MD14") - 50.0) < 1e-3 &&
+                   rtEngine.ReadWordOrConstant("%MW12") == 15 &&
+                   rtEngine.ReadWordOrConstant("%MW14") == 513 &&
+                   rtEngine.ReadWordOrConstant("%MW16") == 8 &&
+                   rtEngine.ReadWordOrConstant("%MW18") == 3 &&
+                   rtEngine.ReadWordOrConstant("%MW20") == 16 &&
+                   rtEngine.ReadWordOrConstant("%MW22") == 32768 &&
+                   rtEngine.ReadWordOrConstant("%MW24") == 0 &&
+                   rtEngine.ReadWordOrConstant("%MW26") == 77,
+                $"Suite 9F: Kết quả thực thi 10 nhóm lệnh sai (MW10={rtEngine.ReadWordOrConstant("%MW10")}, MD14={rtEngine.ReadNumber("%MD14")}, MW12={rtEngine.ReadWordOrConstant("%MW12")}, MW24={rtEngine.ReadWordOrConstant("%MW24")}, MW26={rtEngine.ReadWordOrConstant("%MW26")}).");
+
+            // 10. Kết xuất ảnh trực quan v1.3_Release (Dark VI & Light EN) trình diễn PLC S7-1200 Preset 5 + Cửa sổ Ladder Online Monitoring!
             int previewIdx = Array.FindIndex(Environment.GetCommandLineArgs(), a => a == "--save-preview-dir");
             if (previewIdx >= 0 && previewIdx + 1 < Environment.GetCommandLineArgs().Length)
             {
                 string outDir = Environment.GetCommandLineArgs()[previewIdx + 1];
                 Directory.CreateDirectory(outDir);
 
-                RenderV12Showcase(Path.Combine(outDir, "preview_v12_dark_vi.png"), useLight: false, lang: "vi");
-                RenderV12Showcase(Path.Combine(outDir, "preview_v12_light_en.png"), useLight: true, lang: "en");
+                RenderV13Showcase(Path.Combine(outDir, "preview_v13_dark_vi.png"), useLight: false, lang: "vi");
+                RenderV13Showcase(Path.Combine(outDir, "preview_v13_light_en.png"), useLight: true, lang: "en");
             }
 
-            Console.WriteLine("SELF_VERIFY_PASSED: All v1.2_Release suites (Localization Parity, Version v1.2_Release, AH3-3, LA38+E-Stop, Fuse+KDE, Linear Track, Wire T-Junction, 2-Wire AC/DC Sensors + Voltage Drop + Polarity + D-A93 + KSD301 + Float Switch + No-Load Fault Detection) passed!");
+            Console.WriteLine("SELF_VERIFY_PASSED: All v1.3_Release suites (Localization Parity, Version v1.3_Release, AH3-3, LA38+E-Stop, Fuse+KDE, Linear Track, Wire T-Junction, 2-Wire AC/DC Sensors, PLC S7-1200 CPU 1214C + Ladder Compiler + PNP/NPN + Preset 5 TON/%MW Sequential Lights + JSON Persistence) passed!");
             return 0;
         }
         catch (Exception ex)
@@ -387,11 +561,31 @@ public partial class App : Application
         }
     }
 
-    private static void RenderV12Showcase(string pngPath, bool useLight, string lang)
+    private static void RenderV13Showcase(string pngPath, bool useLight, string lang)
     {
         var win = new MainWindow();
         LocalizationManager.SetLanguage(lang);
         ThemeManager.ApplyTheme(useLight ? AppThemePreference.Light : AppThemePreference.Dark);
+
+        var (p5Comps, p5Wires) = PresetCircuitFactory.Presets.Single(p => p.Key == "PRESET_PLC_S71200_SEQ").Builder();
+        var plc = p5Comps.OfType<PlcS71200Component>().Single();
+        var btnStart = p5Comps.OfType<PushButtonComponent>().Single(b => b.DisplayName == "START");
+
+        var sim = new CircuitSimulationEngine();
+        sim.BindCircuit(p5Comps, p5Wires);
+        sim.Start();
+        btnStart.IsPressed = true;
+        sim.StepSimulation(0.05);
+        btnStart.IsPressed = false;
+        // Chạy tới 1.4s ở Bước 1 (Đèn H1 sáng, Timer TON %DB1 đang đếm ~1.4s/3s -> Online Monitoring xanh lá sống động!)
+        for (int i = 0; i < 28; i++) sim.StepSimulation(0.05);
+
+        win.WiringCanvas.LoadCircuit(p5Comps, p5Wires, autoFit: false, raiseModified: false);
+        win.WiringCanvas.SetMode(AppMode.Simulation);
+        win.OpenPlcLadderPanel(plc, openTagTable: false);
+        win.PlcLadderEditor.SetSimulationMode(true);
+        win.PlcLadderEditor.CompileCurrentProgram();
+        win.PlcLadderEditor.RefreshOnlineMonitoring();
 
         var root = (FrameworkElement)win.Content;
         win.Content = null;
@@ -401,42 +595,9 @@ public partial class App : Application
         root.Arrange(new Rect(0, 0, 1520, 900));
         root.UpdateLayout();
 
-        // Preset 4 đang chạy thực tế (Cảm biến 2 dây AC 220V -> K1 + Voltmeter 216.5V + H1) + 3 thiết bị 2 dây mới!
-        var (p4Comps, p4Wires) = PresetCircuitFactory.Presets.Single(p => p.Key == "PRESET_2WIRE_AC_RELAY").Builder();
-        var comps = new List<ElectricalComponent>(p4Comps);
-        var wires = new List<WireModel>(p4Wires);
-        var p4Ac = comps.OfType<Ac1PhaseSourceComponent>().Single();
-        var p4Sens = comps.OfType<IndustrialSensorComponent>().Single();
-        p4Sens.IsTargetDetected = true;
-
-        var reed = new CylinderReedSwitchComponent { DisplayName = "RS1", X = 120, Y = 500, IsMagnetDetected = true };
-        var ksd = new ThermalSwitchComponent { DisplayName = "TS1", X = 320, Y = 490, IsNormallyClosed = true, IsOverheated = true };
-        var flt = new FloatSwitchComponent { DisplayName = "FS1", X = 500, Y = 480, OperatingMode = FloatSwitchMode.WaterSupply, IsWaterFull = false };
-        var sens2Dc = new IndustrialSensorComponent(SensorKind.Photoelectric) { DisplayName = "B2", X = 680, Y = 480, IsTargetDetected = true };
-        sens2Dc.SetWiringMode(SensorWiringMode.TwoWire_DC);
-
-        var hReed = new PilotLightComponent(PilotLightColor.Green) { DisplayName = "H2", X = 135, Y = 640 };
-        var hFlt = new PilotLightComponent(PilotLightColor.Yellow) { DisplayName = "H3", X = 515, Y = 640 };
-
-        comps.AddRange([reed, ksd, flt, sens2Dc, hReed, hFlt]);
-        wires.AddRange([
-            new(p4Ac.LineTerminal, reed.PinBn, WireColorPreset.Red_L1_DCPlus),
-            new(reed.PinBu, hReed.X1, WireColorPreset.Yellow_L2),
-            new(p4Ac.NeutralTerminal, hReed.X2, WireColorPreset.Black_N_DCMinus),
-            new(p4Ac.LineTerminal, flt.PinCom, WireColorPreset.Red_L1_DCPlus),
-            new(flt.PinOut, hFlt.X1, WireColorPreset.Yellow_L2),
-            new(p4Ac.NeutralTerminal, hFlt.X2, WireColorPreset.Black_N_DCMinus)
-        ]);
-
-        var sim = new CircuitSimulationEngine();
-        sim.BindCircuit(comps, wires);
-        sim.Start();
-        for (int i = 0; i < 6; i++) sim.StepSimulation(0.05);
-
-        win.WiringCanvas.LoadCircuit(comps, wires, autoFit: true, raiseModified: false);
-        win.WiringCanvas.SetMode(AppMode.Simulation);
-
+        win.WiringCanvas.ResetOrFitView();
         root.UpdateLayout();
+
         var rtb = new RenderTargetBitmap(1520, 900, 96, 96, PixelFormats.Pbgra32);
         rtb.Render(root);
 

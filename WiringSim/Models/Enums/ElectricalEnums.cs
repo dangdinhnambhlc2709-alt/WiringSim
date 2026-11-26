@@ -43,7 +43,8 @@ public enum ComponentCategory
     Relay,
     Sensor,
     Meter,
-    Load
+    Load,
+    ProgrammableControl
 }
 
 public enum AppMode
@@ -250,4 +251,167 @@ public enum FloatSwitchMode
 {
     WaterSupply,
     Drainage
+}
+
+public enum PlcCpuState
+{
+    Stop = 0,
+    Run = 1,
+    Downloading = 2,
+    Error = 3
+}
+
+public enum LadderElementKind
+{
+    // Cấu trúc nhánh song song & khối trống
+    ParallelBlock = 0,
+    EmptyBox = 1,
+
+    // Nhóm 1: Bit logic operations
+    ContactNO = 10,
+    ContactNC = 11,
+    InvertRLO = 12,
+    CoilOut = 13,
+    CoilNegate = 14,
+    CoilReset = 15,
+    CoilSet = 16,
+    SetBitField = 17,
+    ResetBitField = 18,
+    FlipFlopSR = 19,
+    FlipFlopRS = 20,
+    EdgePositive = 21,
+    EdgeNegative = 22,
+    CoilEdgePositive = 23,
+    CoilEdgeNegative = 24,
+    PTrig = 25,
+    NTrig = 26,
+    RTrig = 27,
+    FTrig = 28,
+
+    // Nhóm 2: Timer operations
+    TimerTP = 30,
+    TimerTON = 31,
+    TimerTOF = 32,
+    TimerTONR = 33,
+    CoilTP = 34,
+    CoilTON = 35,
+    CoilTOF = 36,
+    CoilTONR = 37,
+    CoilRT = 38,
+    CoilPT = 39,
+
+    // Nhóm 3: Counter operations
+    CounterCTU = 40,
+    CounterCTD = 41,
+    CounterCTUD = 42,
+
+    // Nhóm 4: Comparator operations
+    CmpEqual = 50,
+    CmpNotEqual = 51,
+    CmpGreaterOrEqual = 52,
+    CmpLessOrEqual = 53,
+    CmpGreater = 54,
+    CmpLess = 55,
+    InRange = 56,
+    OutRange = 57,
+    CheckOk = 58,
+    CheckNotOk = 59,
+    VarEqType = 60,
+    VarNeType = 61,
+    VarEqElemType = 62,
+    VarNeElemType = 63,
+    VarIsNull = 64,
+    VarNotNull = 65,
+    VarIsArray = 66,
+    VarEqTypeOfDb = 67,
+    VarNeTypeOfDb = 68,
+
+    // Nhóm 5: Math functions
+    Calculate = 70,
+    MathAdd = 71,
+    MathSub = 72,
+    MathMul = 73,
+    MathDiv = 74,
+    MathMod = 75,
+    MathNeg = 76,
+    MathInc = 77,
+    MathDec = 78,
+    MathAbs = 79,
+    MathMin = 80,
+    MathMax = 81,
+    MathLimit = 82,
+    MathSqr = 83,
+    MathSqrt = 84,
+    MathLn = 85,
+    MathExp = 86,
+    MathExpt = 87,
+    MathFrac = 88,
+    MathSin = 89,
+    MathCos = 90,
+    MathTan = 91,
+    MathAsin = 92,
+    MathAcos = 93,
+    MathAtan = 94,
+
+    // Nhóm 6: Move operations
+    Move = 100,
+    MoveBlk = 101,
+    MoveBlkVariant = 102,
+    UMoveBlk = 103,
+    FillBlk = 104,
+    UFillBlk = 105,
+    Scatter = 106,
+    ScatterBlk = 107,
+    Gather = 108,
+    GatherBlk = 109,
+    Swap = 110,
+    Serialize = 111,
+    Deserialize = 112,
+    VariantGet = 113,
+    VariantPut = 114,
+    CountOfElements = 115,
+    LowerBound = 116,
+    UpperBound = 117,
+    FieldRead = 118,
+    FieldWrite = 119,
+
+    // Nhóm 7: Conversion operations
+    Convert = 130,
+    Round = 131,
+    Ceil = 132,
+    Floor = 133,
+    Trunc = 134,
+    NormX = 135,
+    ScaleX = 136,
+
+    // Nhóm 8: Program control operations
+    Jump = 140,
+    JumpNot = 141,
+    Label = 142,
+    JumpList = 143,
+    Switch = 144,
+    Return = 145,
+    EndisPw = 146,
+    ReTrigr = 147,
+    StopCpu = 148,
+    GetError = 149,
+    GetErrId = 150,
+    RuntimeMeasure = 151,
+
+    // Nhóm 9: Word logic operations
+    WordAnd = 160,
+    WordOr = 161,
+    WordXor = 162,
+    WordInvert = 163,
+    WordDeco = 164,
+    WordEnco = 165,
+    WordSel = 166,
+    WordMux = 167,
+    WordDemux = 168,
+
+    // Nhóm 10: Shift and rotate
+    ShiftRight = 170,
+    ShiftLeft = 171,
+    RotateRight = 172,
+    RotateLeft = 173
 }

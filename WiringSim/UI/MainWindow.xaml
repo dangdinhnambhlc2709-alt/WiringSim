@@ -72,7 +72,7 @@
                                 Margin="8,0,0,0"
                                 VerticalAlignment="Center">
                             <TextBlock x:Name="TxtAppVersionBadge"
-                                       Text="v1.2_Release"
+                                       Text="v1.3_Release"
                                        FontSize="10"
                                        FontWeight="SemiBold"
                                        Foreground="{DynamicResource AccentCyanBrush}" />
@@ -271,16 +271,32 @@
                                          Content="{DynamicResource Str.Mode.Simulate}" />
                         </StackPanel>
                     </Border>
+
+                    <Rectangle Width="1" Height="22" Fill="{DynamicResource DividerBrush}" Margin="10,0" />
+
+                    <!-- NÚT ẨN / HIỆN TRÌNH LẬP TRÌNH PLC LADDER -->
+                    <Button x:Name="BtnTogglePlcLadder"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            BorderBrush="#009999"
+                            Click="OnTogglePlcLadderClick"
+                            ToolTip="{DynamicResource Str.Toolbar.PlcLadderTip}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="💻 " />
+                            <TextBlock Text="{DynamicResource Str.Toolbar.PlcLadder}" />
+                        </StackPanel>
+                    </Button>
                 </WrapPanel>
             </Border>
 
             <!-- =================================================================== -->
-            <!-- 2. MAIN BODY: THƯ VIỆN CÓ NÚT THU GỌN (◀/▶) + VÙNG VẼ CANVAS       -->
+            <!-- 2. MAIN BODY: THƯ VIỆN + VÙNG VẼ CANVAS + KHUNG LADDER CO GIÃN     -->
             <!-- =================================================================== -->
             <Grid Grid.Row="2">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition x:Name="PaletteColumn" Width="290" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" MinWidth="360" />
+                    <ColumnDefinition x:Name="PlcSplitterColumn" Width="0" />
+                    <ColumnDefinition x:Name="PlcLadderColumn" Width="0" />
                 </Grid.ColumnDefinitions>
 
                 <!-- 2A. THANH THƯ VIỆN BÊN TRÁI (CÓ NÚT ẨN / HIỆN ◀ ▶) -->
@@ -471,6 +487,27 @@
                         </StackPanel>
                     </Border>
                 </Grid>
+
+                <!-- 2C. THANH CHIA CO GIÃN (GRIDSPLITTER) & CỬA SỔ LẬP TRÌNH LADDER -->
+                <GridSplitter x:Name="PlcGridSplitter"
+                              Grid.Column="2"
+                              Width="5"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"
+                              Background="{DynamicResource BorderSubtleBrush}"
+                              ResizeDirection="Columns"
+                              ResizeBehavior="PreviousAndNext"
+                              ShowsPreview="False"
+                              Visibility="Collapsed"
+                              Cursor="SizeWE" />
+
+                <Border x:Name="PlcLadderHostBorder"
+                        Grid.Column="3"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}"
+                        BorderThickness="1,0,0,0"
+                        Visibility="Collapsed">
+                    <controls:PlcLadderEditorControl x:Name="PlcLadderEditor" />
+                </Border>
             </Grid>
 
             <!-- =================================================================== -->

@@ -938,6 +938,17 @@ public sealed class CircuitSimulationEngine
             shortedTwoWire.DamageByNoLoadShort(LocalizationManager.Get("Str.Fault.TwoWireNoLoadShort"));
         }
 
+        PlcS71200Component? faultedPlc = null;
+        if (srcA.Terminal.Owner is PlcS71200Component plcA && srcA.Terminal.Id.StartsWith('Q'))
+            faultedPlc = plcA;
+        else if (srcB.Terminal.Owner is PlcS71200Component plcB && srcB.Terminal.Id.StartsWith('Q'))
+            faultedPlc = plcB;
+
+        if (faultedPlc is not null)
+        {
+            faultedPlc.TriggerOutputShortFault(LocalizationManager.Format("Str.Plc.OutputShortFault", faultedPlc.DisplayName));
+        }
+
         var trippedNames = new List<string>();
         var blownFuseNames = new List<string>();
         foreach (var fuse in fusesToBlow)
@@ -1002,7 +1013,7 @@ public sealed class CircuitSimulationEngine
                 faultPoint.Y);
         }
 
-        _unprotectedFaultLockout = trippedNames.Count == 0 && blownFuseNames.Count == 0 && shortedTwoWire is null;
+        _unprotectedFaultLockout = trippedNames.Count == 0 && blownFuseNames.Count == 0 && shortedTwoWire is null && faultedPlc is null;
 
         // Cảnh báo chuyên biệt nếu ngắn mạch qua cảm biến 2 dây không có tải hoặc đấu nhầm đồng hồ Ampe song song!
         string headerTitle = shortedTwoWire is not null

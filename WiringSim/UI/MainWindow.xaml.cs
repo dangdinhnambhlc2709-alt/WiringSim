@@ -38,6 +38,9 @@ public partial class MainWindow : Window
     private bool _isApplyingHistory;
     private bool _isDirty;
     private bool _startupUpdateCheckScheduled;
+    private bool _isPlcLadderVisible;
+    private double _lastPlcLadderWidth = 640;
+    private int _plcMonitorTickDivider;
     private string? _openedFileName;
 
     // --- Win32 WM_GETMINMAXINFO để Maximize không bị Windows Taskbar che mất thanh Status Bar ---
@@ -159,6 +162,20 @@ public partial class MainWindow : Window
         };
 
         WiringCanvas.OpenVfdKeypadRequested += OpenVfdKeypadDialog;
+        WiringCanvas.OpenPlcLadderRequested += OpenPlcLadderPanel;
+
+        PlcLadderEditor.HideRequested += () => SetPlcLadderVisible(false);
+        PlcLadderEditor.PlcHardwareVisualChanged += () => WiringCanvas.InvalidateVisual();
+        PlcLadderEditor.StatusMessageChanged += msg => TxtStatusMessage.Text = msg;
+        PlcLadderEditor.ProgramEdited += () =>
+        {
+            if (!_isApplyingHistory)
+            {
+                _isDirty = true;
+                UpdateProjectTitleDisplay();
+                _history.RecordSnapshot(WiringCanvas.Components, WiringCanvas.Wires);
+            }
+        };
 
         _history.StateChanged += () =>
         {
@@ -167,12 +184,20 @@ public partial class MainWindow : Window
             BtnRedo.IsEnabled = canEdit && _history.CanRedo;
         };
 
-        WiringCanvas.UserInteractedInSimulation += () => _simEngine.StepSimulation(0.0);
+        WiringCanvas.UserInteractedInSimulation += () =>
+        {
+            _simEngine.StepSimulation(0.0);
+            if (_isPlcLadderVisible) PlcLadderEditor.RefreshOnlineMonitoring();
+        };
 
         _simEngine.SimulationTickCompleted += () =>
         {
             WiringCanvas.SetFaultOverlay(_simEngine.ActiveFault);
             WiringCanvas.InvalidateVisual();
+            if (_isPlcLadderVisible && (++_plcMonitorTickDivider % 2 == 0))
+            {
+                PlcLadderEditor.RefreshOnlineMonitoring();
+            }
         };
 
         _simEngine.ShortCircuitDetected += ShowShortCircuitBanner;
@@ -334,6 +359,52 @@ public partial class MainWindow : Window
         dlg.Show();
     }
 
+    public void OpenPlcLadderPanel(PlcS71200Component plc, bool openTagTable = false)
+    {
+        PlcLadderEditor.BindPlc(plc, openTagTable);
+        PlcLadderEditor.SetSimulationMode(WiringCanvas.CurrentMode == AppMode.Simulation);
+        SetPlcLadderVisible(true);
+    }
+
+    private void OnTogglePlcLadderClick(object sender, RoutedEventArgs e)
+    {
+        if (_isPlcLadderVisible)
+        {
+            SetPlcLadderVisible(false);
+        }
+        else
+        {
+            var plc = WiringCanvas.Components.OfType<PlcS71200Component>().FirstOrDefault();
+            PlcLadderEditor.BindPlc(plc, openTagTable: false);
+            PlcLadderEditor.SetSimulationMode(WiringCanvas.CurrentMode == AppMode.Simulation);
+            SetPlcLadderVisible(true);
+        }
+    }
+
+    public void SetPlcLadderVisible(bool visible)
+    {
+        if (!visible && _isPlcLadderVisible && PlcLadderColumn.ActualWidth > 260)
+            _lastPlcLadderWidth = PlcLadderColumn.ActualWidth;
+
+        _isPlcLadderVisible = visible;
+        if (visible)
+        {
+            PlcSplitterColumn.Width = new GridLength(5);
+            PlcLadderColumn.Width = new GridLength(Math.Clamp(_lastPlcLadderWidth, 440, 860));
+            PlcLadderColumn.MinWidth = 380;
+            PlcGridSplitter.Visibility = Visibility.Visible;
+            PlcLadderHostBorder.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            PlcLadderColumn.MinWidth = 0;
+            PlcSplitterColumn.Width = new GridLength(0);
+            PlcLadderColumn.Width = new GridLength(0);
+            PlcGridSplitter.Visibility = Visibility.Collapsed;
+            PlcLadderHostBorder.Visibility = Visibility.Collapsed;
+        }
+    }
+
     private void OnMinimizeWindowClick(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void OnMaximizeRestoreClick(object sender, RoutedEventArgs e) =>
         WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
@@ -449,7 +520,8 @@ public partial class MainWindow : Window
             (ComponentCategory.Relay, "Str.Cat.Relay"),
             (ComponentCategory.Sensor, "Str.Cat.Sensor"),
             (ComponentCategory.Meter, "Str.Cat.Meter"),
-            (ComponentCategory.Load, "Str.Cat.Load")
+            (ComponentCategory.Load, "Str.Cat.Load"),
+            (ComponentCategory.ProgrammableControl, "Str.Cat.Programmable")
         ];
 
         foreach (var (cat, headerKey) in groups)
@@ -636,6 +708,12 @@ public partial class MainWindow : Window
         TxtGuideBanner.Text = $"📘 {preset.Name}: {preset.GuideSummary}";
         GuideBanner.Visibility = Visibility.Visible;
         TxtStatusMessage.Text = LocalizationManager.Format("Str.Status.PresetLoaded", preset.Name);
+
+        var presetPlc = WiringCanvas.Components.OfType<PlcS71200Component>().FirstOrDefault();
+        if (presetPlc is not null)
+            OpenPlcLadderPanel(presetPlc, openTagTable: false);
+        else
+            SetPlcLadderVisible(false);
     }
 
     private void OnNewCircuitClick(object sender, RoutedEventArgs e)
@@ -664,6 +742,8 @@ public partial class MainWindow : Window
         UpdateProjectTitleDisplay();
         UpdateCircuitStats();
         _history.Reset(WiringCanvas.Components, WiringCanvas.Wires);
+        SetPlcLadderVisible(false);
+        PlcLadderEditor.BindPlc(null);
         TxtStatusMessage.Text = LocalizationManager.Get("Str.Status.NewCanvas");
     }
 
@@ -730,6 +810,12 @@ public partial class MainWindow : Window
                 _history.Reset(WiringCanvas.Components, WiringCanvas.Wires);
                 _simEngine.BindCircuit(WiringCanvas.Components, WiringCanvas.Wires);
 
+                var loadedPlc = WiringCanvas.Components.OfType<PlcS71200Component>().FirstOrDefault();
+                if (loadedPlc is not null)
+                    OpenPlcLadderPanel(loadedPlc, openTagTable: false);
+                else
+                    PlcLadderEditor.BindPlc(null);
+
                 TxtStatusMessage.Text = LocalizationManager.Format("Str.Status.LoadedFile", title, comps.Count, wires.Count);
             }
             catch (Exception ex)
@@ -795,6 +881,7 @@ public partial class MainWindow : Window
             BtnUndo.IsEnabled = false;
             BtnRedo.IsEnabled = false;
             BtnDeleteSelected.IsEnabled = false;
+            PlcLadderEditor.SetSimulationMode(true);
             TxtStatusMessage.Text = LocalizationManager.Get("Str.Status.ModeSim");
         }
         else
@@ -810,6 +897,7 @@ public partial class MainWindow : Window
             BtnUndo.IsEnabled = _history.CanUndo;
             BtnRedo.IsEnabled = _history.CanRedo;
             BtnDeleteSelected.IsEnabled = WiringCanvas.HasSelection;
+            PlcLadderEditor.SetSimulationMode(false);
             TxtStatusMessage.Text = LocalizationManager.Get("Str.Status.ModeDesign");
         }
     }

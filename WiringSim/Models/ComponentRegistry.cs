@@ -79,6 +79,9 @@ public static class ComponentRegistry
         Register(new(Motor3Phase3PinComponent.TypeId, "Str.Comp.Motor3P3.Title", "Str.Comp.Motor3P3.Sub", "M 3P", "M", "#06B6D4", ComponentCategory.Load, () => new Motor3Phase3PinComponent { DisplayName = "M1" }));
         Register(new(Motor3Phase6PinComponent.TypeId, "Str.Comp.Motor3P6.Title", "Str.Comp.Motor3P6.Sub", "M 6P", "M", "#0891B2", ComponentCategory.Load, () => new Motor3Phase6PinComponent { DisplayName = "M1" }));
         Register(new(MotorLinearTrackComponent.TypeId, "Str.Comp.MotorTrack.Title", "Str.Comp.MotorTrack.Sub", "TRACK", "MT", "#14B8A6", ComponentCategory.Load, () => new MotorLinearTrackComponent { DisplayName = "MT1" }));
+
+        // 7. ĐIỀU KHIỂN LẬP TRÌNH (PLC SIEMENS S7-1200)
+        Register(new(PlcS71200Component.TypeId, "Str.Comp.PlcS71200.Title", "Str.Comp.PlcS71200.Sub", "S7-1200", "PLC", "#009999", ComponentCategory.ProgrammableControl, () => new PlcS71200Component { DisplayName = "PLC1" }));
     }
 
     public static IReadOnlyList<PaletteItemDescriptor> Items => _items;
