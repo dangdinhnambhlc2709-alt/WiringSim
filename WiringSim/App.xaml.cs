@@ -60,12 +60,12 @@ public partial class App : Application
                 }
             }
 
-            // 2. Kiểm tra Metadata phiên bản v1.3.2_Release, UpdateService.NormalizeVersion, SkipVersion & Asset Selection
+            // 2. Kiểm tra Metadata phiên bản v1.3.3_Release, UpdateService.NormalizeVersion, SkipVersion & Asset Selection
             string infoVer = UpdateService.GetCurrentInformationalVersion();
-            Assert(string.Equals(infoVer, "v1.3.2_Release", StringComparison.Ordinal),
-                $"Suite 2: InformationalVersion phải là 'v1.3.2_Release' (thực tế: '{infoVer}').");
-            Assert(UpdateService.NormalizeVersion("v1.3.2_Release") == new Version(1, 3, 2),
-                "Suite 2: NormalizeVersion('v1.3.2_Release') phải trả về 1.3.2.");
+            Assert(string.Equals(infoVer, "v1.3.3_Release", StringComparison.Ordinal),
+                $"Suite 2: InformationalVersion phải là 'v1.3.3_Release' (thực tế: '{infoVer}').");
+            Assert(UpdateService.NormalizeVersion("v1.3.3_Release") == new Version(1, 3, 3),
+                "Suite 2: NormalizeVersion('v1.3.3_Release') phải trả về 1.3.3.");
             Assert(UpdateService.IsVersionSkipped("v1.4.0_Release", "v1.4.0"),
                 "Suite 2: IsVersionSkipped phải nhận diện trùng phiên bản đã bỏ qua.");
             var mockRelease = new UpdateCheckResult(
@@ -426,29 +426,29 @@ public partial class App : Application
             Assert(p5Plc.IsPowered && !p5H1.IsLit && !p5H2.IsLit && !p5H3.IsLit,
                 "Suite 9D: Trước khi nhấn START, cả 3 đèn tuần tự phải tắt.");
 
-            // Nhấn rồi nhả nút START -> tự giữ %M0.0 và bật bước 1 (H1)
+            // Nhấn rồi nhả nút START -> tự giữ %M10.0 và bật bước 1 (H1)
             p5Start.IsPressed = true;
             engine.StepSimulation(0.05);
             p5Start.IsPressed = false;
             engine.StepSimulation(0.05);
             engine.StepSimulation(0.05);
-            Assert(p5Plc.Runtime.ReadBit("%M0.0") && p5Plc.Runtime.ReadWordOrConstant("%MW2") == 1 && p5H1.IsLit && !p5H2.IsLit && !p5H3.IsLit,
-                $"Suite 9D: Sau nhấn START phải tự giữ và sáng H1 (MW2={p5Plc.Runtime.ReadWordOrConstant("%MW2")}, H1={p5H1.IsLit}).");
+            Assert(p5Plc.Runtime.ReadBit("%M10.0") && p5Plc.Runtime.ReadWordOrConstant("%MW20") == 1 && p5H1.IsLit && !p5H2.IsLit && !p5H3.IsLit,
+                $"Suite 9D: Sau nhấn START phải tự giữ và sáng H1 (MW20={p5Plc.Runtime.ReadWordOrConstant("%MW20")}, H1={p5H1.IsLit}).");
 
-            // Chờ 3.15s (63 tick x 50ms) -> chuyển sang đèn H2 (%MW2 = 2)
+            // Chờ 3.15s (63 tick x 50ms) -> chuyển sang đèn H2 (%MW20 = 2)
             for (int t = 0; t < 63; t++) engine.StepSimulation(0.05);
-            Assert(p5Plc.Runtime.ReadWordOrConstant("%MW2") == 2 && !p5H1.IsLit && p5H2.IsLit && !p5H3.IsLit,
-                $"Suite 9D: Sau 3 giây phải chuyển sang đèn H2 (MW2={p5Plc.Runtime.ReadWordOrConstant("%MW2")}, H2={p5H2.IsLit}).");
+            Assert(p5Plc.Runtime.ReadWordOrConstant("%MW20") == 2 && !p5H1.IsLit && p5H2.IsLit && !p5H3.IsLit,
+                $"Suite 9D: Sau 3 giây phải chuyển sang đèn H2 (MW20={p5Plc.Runtime.ReadWordOrConstant("%MW20")}, H2={p5H2.IsLit}).");
 
-            // Chờ thêm 3.15s -> chuyển sang đèn H3 (%MW2 = 3)
+            // Chờ thêm 3.15s -> chuyển sang đèn H3 (%MW20 = 3)
             for (int t = 0; t < 63; t++) engine.StepSimulation(0.05);
-            Assert(p5Plc.Runtime.ReadWordOrConstant("%MW2") == 3 && !p5H1.IsLit && !p5H2.IsLit && p5H3.IsLit,
-                $"Suite 9D: Sau 6 giây phải chuyển sang đèn H3 (MW2={p5Plc.Runtime.ReadWordOrConstant("%MW2")}, H3={p5H3.IsLit}).");
+            Assert(p5Plc.Runtime.ReadWordOrConstant("%MW20") == 3 && !p5H1.IsLit && !p5H2.IsLit && p5H3.IsLit,
+                $"Suite 9D: Sau 6 giây phải chuyển sang đèn H3 (MW20={p5Plc.Runtime.ReadWordOrConstant("%MW20")}, H3={p5H3.IsLit}).");
 
-            // Chờ thêm 3.15s -> quay vòng về H1 (%MW2 = 1)
+            // Chờ thêm 3.15s -> quay vòng về H1 (%MW20 = 1)
             for (int t = 0; t < 63; t++) engine.StepSimulation(0.05);
-            Assert(p5Plc.Runtime.ReadWordOrConstant("%MW2") == 1 && p5H1.IsLit && !p5H2.IsLit && !p5H3.IsLit,
-                $"Suite 9D: Sau 9 giây phải quay vòng về đèn H1 (MW2={p5Plc.Runtime.ReadWordOrConstant("%MW2")}, H1={p5H1.IsLit}).");
+            Assert(p5Plc.Runtime.ReadWordOrConstant("%MW20") == 1 && p5H1.IsLit && !p5H2.IsLit && !p5H3.IsLit,
+                $"Suite 9D: Sau 9 giây phải quay vòng về đèn H1 (MW20={p5Plc.Runtime.ReadWordOrConstant("%MW20")}, H1={p5H1.IsLit}).");
 
             // Nhấn STOP -> dừng và tắt toàn bộ đèn
             p5Stop.IsPressed = true;
@@ -456,20 +456,22 @@ public partial class App : Application
             engine.StepSimulation(0.05);
             p5Stop.IsPressed = false;
             engine.StepSimulation(0.05);
-            Assert(!p5Plc.Runtime.ReadBit("%M0.0") && p5Plc.Runtime.ReadWordOrConstant("%MW2") == 0 && !p5H1.IsLit && !p5H2.IsLit && !p5H3.IsLit,
-                "Suite 9D: Nhấn STOP phải xóa %M0.0, đặt %MW2=0 và tắt toàn bộ 3 đèn!");
+            Assert(!p5Plc.Runtime.ReadBit("%M10.0") && p5Plc.Runtime.ReadWordOrConstant("%MW20") == 0 && !p5H1.IsLit && !p5H2.IsLit && !p5H3.IsLit,
+                "Suite 9D: Nhấn STOP phải xóa %M10.0, đặt %MW20=0 và tắt toàn bộ 3 đèn!");
             engine.Stop();
 
             // 9E. Kiểm tra JSON round-trip lưu & mở lại nguyên vẹn chương trình Ladder + Tag Table của PLC
             string plcJson = CircuitSerializer.SerializeToJsonString(p5Comps, p5Wires, "PlcPreset5Test");
             var (rtComps, rtWires, _) = CircuitSerializer.DeserializeFromJsonString(plcJson);
             var rtPlc = rtComps.OfType<PlcControllerComponent>().Single();
-            Assert(rtPlc.DraftProgram.Networks.Count == 5 && rtPlc.DraftProgram.Tags.Count == 10 && rtWires.Count == p5Wires.Count,
-                $"Suite 9E: Lưu/Mở JSON phải giữ nguyên vẹn 5 Network, 10 Tag và {p5Wires.Count} dây đấu của PLC!");
+            Assert(rtPlc.DraftProgram.Networks.Count == p5Plc.DraftProgram.Networks.Count &&
+                   rtPlc.DraftProgram.Tags.Count == p5Plc.DraftProgram.Tags.Count &&
+                   rtWires.Count == p5Wires.Count,
+                $"Suite 9E: Lưu/Mở JSON phải giữ nguyên vẹn {p5Plc.DraftProgram.Networks.Count} Network, {p5Plc.DraftProgram.Tags.Count} Tag và {p5Wires.Count} dây đấu của PLC!");
 
-            // 9F. Kiểm tra đầy đủ 10 nhóm hàm/lệnh chuẩn TIA Portal: Danh mục + Bản địa hóa + Thực thi + Compiler bắt lỗi JMP/LABEL & vòng lặp vô hạn!
-            Assert(PlcInstructionCatalog.Groups.Count == 10 && PlcInstructionCatalog.All.Count >= 95,
-                $"Suite 9F: Danh mục lệnh PLC phải có đủ 10 nhóm và >= 95 lệnh (thực tế: {PlcInstructionCatalog.Groups.Count} nhóm, {PlcInstructionCatalog.All.Count} lệnh).");
+            // 9F. Kiểm tra đầy đủ 13 nhóm hàm/lệnh chuẩn IEC (10 nhóm cơ bản + Extended + Technology + Communication)
+            Assert(PlcInstructionCatalog.Groups.Count == 13 && PlcInstructionCatalog.All.Count >= 115,
+                $"Suite 9F: Danh mục lệnh PLC phải có đủ 13 nhóm và >= 115 lệnh (thực tế: {PlcInstructionCatalog.Groups.Count} nhóm, {PlcInstructionCatalog.All.Count} lệnh).");
             foreach (string lang in new[] { "vi", "en" })
             {
                 LocalizationManager.SetLanguage(lang);
@@ -497,48 +499,49 @@ public partial class App : Application
             Assert(!jmpErrRes.Success && jmpErrRes.ErrorCount >= 2,
                 $"Suite 9F: Compiler phải bắt lỗi nhảy tới LABEL không tồn tại & vòng lặp vô hạn (Errors={jmpErrRes.ErrorCount}).");
 
-            // Kiểm tra thực thi xuyên suốt cả 10 nhóm lệnh (SET_BF, IN_Range, CALCULATE, NORM_X + SCALE_X, SCATTER/GATHER, SWAP, AND, DECO, ENCO, SEL, SHR, ROL, JMP/LABEL)
+            // Kiểm tra thực thi xuyên suốt các nhóm lệnh (SET_BF, IN_Range, CALCULATE, NORM_X + SCALE_X, GATHER, SWAP, DECO, ENCO, SHL, ROR, JMP/LABEL)
             var fullProg = new PlcProgramModel();
-            var nwAll = new LadderNetwork { Title = "All 10 Groups Runtime Test" };
+            var nwSetBf = new LadderNetwork { Title = "SET_BF Bit Field" };
+            nwSetBf.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.SetBitField, Address = "%M30.0", Param1 = "4" }); // Nhóm 1: M30.0..M30.3 = 1
+            var nwAll = new LadderNetwork { Title = "All Groups Runtime Test" };
             nwAll.MainBranch.Nodes.AddRange([
-                new LadderNode { Kind = LadderElementKind.SetBitField, Address = "%M30.0", Param1 = "4" },             // Nhóm 1: M30.0..M30.3 = 1
-                new LadderNode { Kind = LadderElementKind.Calculate, Param1 = "10", Param2 = "5", ExtraParam = "IN1 * 2 + IN2", OutputAddress = "%MW10" }, // Nhóm 5: MW10 = 25
-                new LadderNode { Kind = LadderElementKind.InRange, Param1 = "%MW10", Param2 = "0", ExtraParam = "50" }, // Nhóm 4: 25 in [0..50] -> true
-                new LadderNode { Kind = LadderElementKind.NormX, Param1 = "13824", Param2 = "0", ExtraParam = "27648", OutputAddress = "%MD10" }, // Nhóm 7: 0.5
-                new LadderNode { Kind = LadderElementKind.ScaleX, Param1 = "%MD10", Param2 = "0.0", ExtraParam = "100.0", OutputAddress = "%MD14" }, // Nhóm 7: 50.0
+                new LadderNode { Kind = LadderElementKind.Calculate, DataType = "Int", Param1 = "10", Param2 = "5", ExtraParam = "IN1 * 2 + IN2", OutputAddress = "%MW10" }, // Nhóm 5: MW10 = 25
+                new LadderNode { Kind = LadderElementKind.InRange, DataType = "Int", Param1 = "%MW10", Param2 = "0", ExtraParam = "50" }, // Nhóm 4: 25 in [0..50] -> true
+                new LadderNode { Kind = LadderElementKind.NormX, DataType = "Int", Param1 = "13824", Param2 = "0", ExtraParam = "27648", OutputAddress = "%MD40" }, // Nhóm 7: 0.5
+                new LadderNode { Kind = LadderElementKind.ScaleX, DataType = "Real", Param1 = "%MD40", Param2 = "0.0", ExtraParam = "100.0", OutputAddress = "%MD44" }, // Nhóm 7: 50.0
                 new LadderNode { Kind = LadderElementKind.Gather, Param1 = "%M30.0", Param2 = "4", OutputAddress = "%MW12" }, // Nhóm 6: 0b1111 = 15
-                new LadderNode { Kind = LadderElementKind.Swap, Param1 = "258", OutputAddress = "%MW14" },             // Nhóm 6: 0x0102 -> 0x0201 = 513
-                new LadderNode { Kind = LadderElementKind.WordDeco, Param1 = "3", OutputAddress = "%MW16" },           // Nhóm 9: 1 << 3 = 8
-                new LadderNode { Kind = LadderElementKind.WordEnco, Param1 = "%MW16", OutputAddress = "%MW18" },       // Nhóm 9: bit 3 -> 3
-                new LadderNode { Kind = LadderElementKind.ShiftLeft, Param1 = "1", Param2 = "4", OutputAddress = "%MW20" }, // Nhóm 10: 16
-                new LadderNode { Kind = LadderElementKind.RotateRight, Param1 = "1", Param2 = "1", OutputAddress = "%MW22" }, // Nhóm 10: 0x8000 = 32768
-                new LadderNode { Kind = LadderElementKind.Jump, Address = "END_SKIP" }                                 // Nhóm 8: nhảy qua Network 2!
+                new LadderNode { Kind = LadderElementKind.Swap, DataType = "Word", Param1 = "258", OutputAddress = "%MW14" },             // Nhóm 6: 0x0102 -> 0x0201 = 513
+                new LadderNode { Kind = LadderElementKind.WordDeco, DataType = "Word", Param1 = "3", OutputAddress = "%MW16" },           // Nhóm 9: 1 << 3 = 8
+                new LadderNode { Kind = LadderElementKind.WordEnco, DataType = "Word", Param1 = "%MW16", OutputAddress = "%MW18" },       // Nhóm 9: bit 3 -> 3
+                new LadderNode { Kind = LadderElementKind.ShiftLeft, DataType = "Word", Param1 = "1", Param2 = "4", OutputAddress = "%MW20" }, // Nhóm 10: 16
+                new LadderNode { Kind = LadderElementKind.RotateRight, DataType = "Word", Param1 = "1", Param2 = "1", OutputAddress = "%MW22" }, // Nhóm 10: 0x8000 = 32768
+                new LadderNode { Kind = LadderElementKind.Jump, Address = "END_SKIP" }                                 // Nhóm 8: nhảy qua Network 3!
             ]);
             var nwSkipped = new LadderNetwork { Title = "Must Be Skipped By JMP" };
             nwSkipped.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.Move, Param1 = "999", OutputAddress = "%MW24" });
             var nwEnd = new LadderNetwork { Title = "Target Label" };
             nwEnd.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.Label, Address = "END_SKIP" });
             nwEnd.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.Move, Param1 = "77", OutputAddress = "%MW26" });
-            fullProg.Networks.AddRange([nwAll, nwSkipped, nwEnd]);
+            fullProg.Networks.AddRange([nwSetBf, nwAll, nwSkipped, nwEnd]);
 
             var fullComp = PlcProgramCompiler.Compile(fullProg);
             Assert(fullComp.Success && fullComp.ErrorCount == 0,
-                $"Suite 9F: Chương trình kiểm thử 10 nhóm lệnh phải biên dịch 0 lỗi (Errors={fullComp.ErrorCount}: {string.Join("; ", fullComp.Diagnostics.Select(d => d.Message))}).");
+                $"Suite 9F: Chương trình kiểm thử các nhóm lệnh phải biên dịch 0 lỗi (Errors={fullComp.ErrorCount}: {string.Join("; ", fullComp.Diagnostics.Select(d => d.Message))}).");
 
             var rtEngine = new PlcRuntimeEngine();
             rtEngine.ExecuteScanCycle(fullProg, 0.05);
             Assert(rtEngine.ReadWordOrConstant("%MW10") == 25 &&
-                   Math.Abs(rtEngine.ReadNumber("%MD10") - 0.5) < 1e-3 &&
-                   Math.Abs(rtEngine.ReadNumber("%MD14") - 50.0) < 1e-3 &&
+                   Math.Abs(rtEngine.ReadNumber("%MD40", PlcDataType.Real) - 0.5) < 1e-3 &&
+                   Math.Abs(rtEngine.ReadNumber("%MD44", PlcDataType.Real) - 50.0) < 1e-3 &&
                    rtEngine.ReadWordOrConstant("%MW12") == 15 &&
                    rtEngine.ReadWordOrConstant("%MW14") == 513 &&
                    rtEngine.ReadWordOrConstant("%MW16") == 8 &&
                    rtEngine.ReadWordOrConstant("%MW18") == 3 &&
                    rtEngine.ReadWordOrConstant("%MW20") == 16 &&
-                   rtEngine.ReadWordOrConstant("%MW22") == 32768 &&
+                   rtEngine.ReadTypedValue("%MW22", PlcDataType.Word).AsRawUInt32 == 32768 &&
                    rtEngine.ReadWordOrConstant("%MW24") == 0 &&
                    rtEngine.ReadWordOrConstant("%MW26") == 77,
-                $"Suite 9F: Kết quả thực thi 10 nhóm lệnh sai (MW10={rtEngine.ReadWordOrConstant("%MW10")}, MD14={rtEngine.ReadNumber("%MD14")}, MW12={rtEngine.ReadWordOrConstant("%MW12")}, MW24={rtEngine.ReadWordOrConstant("%MW24")}, MW26={rtEngine.ReadWordOrConstant("%MW26")}).");
+                $"Suite 9F: Kết quả thực thi các nhóm lệnh sai (MW10={rtEngine.ReadWordOrConstant("%MW10")}, MD44={rtEngine.ReadNumber("%MD44", PlcDataType.Real)}, MW12={rtEngine.ReadWordOrConstant("%MW12")}, MW24={rtEngine.ReadWordOrConstant("%MW24")}, MW26={rtEngine.ReadWordOrConstant("%MW26")}).");
 
             // 10. Kiểm tra cửa sổ nổi PlcLadderWindow (MinWidth 680, MinHeight 460, ShowInTaskbar)
             var ladderWinCheck = new WiringSim.UI.Dialogs.PlcLadderWindow();
@@ -642,7 +645,7 @@ public partial class App : Application
                 RenderCallOptionsShowcase(Path.Combine(outDir, "preview_v131_call_options_dark_vi.png"), useLight: false, lang: "vi");
             }
 
-            Console.WriteLine("SELF_VERIFY_PASSED: All v1.3.2_Release suites (Brand-Neutral PLC, TIA Portal V21 PLC Tags + Address Picker, Call options, DB Member \"TD11\".Q, Floating PlcLadderWindow, Full 10-Group Ladder + Preset 5 + JSON Persistence) passed!");
+            Console.WriteLine("SELF_VERIFY_PASSED: All v1.3.3_Release suites passed!");
             return 0;
         }
         catch (Exception ex)

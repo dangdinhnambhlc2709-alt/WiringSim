@@ -24,6 +24,11 @@ public readonly record struct ComponentHitZone(
 /// </summary>
 public static class ComponentRenderer
 {
+    private static readonly Dictionary<string, SolidColorBrush> SolidBrushCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<(string Hex, double Thickness), Pen> PenCache = new();
+    private static readonly Dictionary<(string TopHex, string BottomHex), LinearGradientBrush> VerticalGradCache = new();
+    private static readonly Dictionary<(string CenterHex, string EdgeHex), RadialGradientBrush> RadialGlowCache = new();
+
     private static readonly Typeface UiTypeface = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
     private static readonly Typeface BoldTypeface = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
     private static readonly Typeface MonoTypeface = new(new FontFamily("Consolas"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
@@ -2078,11 +2083,6 @@ public static class ComponentRenderer
 
     public static FormattedText FormatText(string text, double fontSize, Typeface typeface, Brush brush, double dpiScale) =>
         new(text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, typeface, fontSize, brush, dpiScale);
-
-    private static readonly Dictionary<string, SolidColorBrush> SolidBrushCache = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly Dictionary<(string Hex, double Thickness), Pen> PenCache = new();
-    private static readonly Dictionary<(string TopHex, string BottomHex), LinearGradientBrush> VerticalGradCache = new();
-    private static readonly Dictionary<(string CenterHex, string EdgeHex), RadialGradientBrush> RadialGlowCache = new();
 
     public static SolidColorBrush CreateSolid(string hex)
     {
