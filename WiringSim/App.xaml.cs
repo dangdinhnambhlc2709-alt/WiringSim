@@ -60,12 +60,12 @@ public partial class App : Application
                 }
             }
 
-            // 2. Kiểm tra Metadata phiên bản v1.3.1_Release, UpdateService.NormalizeVersion, SkipVersion & Asset Selection
+            // 2. Kiểm tra Metadata phiên bản v1.3.2_Release, UpdateService.NormalizeVersion, SkipVersion & Asset Selection
             string infoVer = UpdateService.GetCurrentInformationalVersion();
-            Assert(string.Equals(infoVer, "v1.3.1_Release", StringComparison.Ordinal),
-                $"Suite 2: InformationalVersion phải là 'v1.3.1_Release' (thực tế: '{infoVer}').");
-            Assert(UpdateService.NormalizeVersion("v1.3.1_Release") == new Version(1, 3, 1),
-                "Suite 2: NormalizeVersion('v1.3.1_Release') phải trả về 1.3.1.");
+            Assert(string.Equals(infoVer, "v1.3.2_Release", StringComparison.Ordinal),
+                $"Suite 2: InformationalVersion phải là 'v1.3.2_Release' (thực tế: '{infoVer}').");
+            Assert(UpdateService.NormalizeVersion("v1.3.2_Release") == new Version(1, 3, 2),
+                "Suite 2: NormalizeVersion('v1.3.2_Release') phải trả về 1.3.2.");
             Assert(UpdateService.IsVersionSkipped("v1.4.0_Release", "v1.4.0"),
                 "Suite 2: IsVersionSkipped phải nhận diện trùng phiên bản đã bỏ qua.");
             var mockRelease = new UpdateCheckResult(
@@ -642,7 +642,7 @@ public partial class App : Application
                 RenderCallOptionsShowcase(Path.Combine(outDir, "preview_v131_call_options_dark_vi.png"), useLight: false, lang: "vi");
             }
 
-            Console.WriteLine("SELF_VERIFY_PASSED: All v1.3.1_Release suites (Brand-Neutral PLC, TIA Portal V21 PLC Tags + Address Picker, Call options, DB Member \"TD11\".Q, Floating PlcLadderWindow, Full 10-Group Ladder + Preset 5 + JSON Persistence) passed!");
+            Console.WriteLine("SELF_VERIFY_PASSED: All v1.3.2_Release suites (Brand-Neutral PLC, TIA Portal V21 PLC Tags + Address Picker, Call options, DB Member \"TD11\".Q, Floating PlcLadderWindow, Full 10-Group Ladder + Preset 5 + JSON Persistence) passed!");
             return 0;
         }
         catch (Exception ex)
