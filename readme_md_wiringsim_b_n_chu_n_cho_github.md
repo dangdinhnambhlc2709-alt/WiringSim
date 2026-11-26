@@ -82,9 +82,3 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 | **Lăn chuột / Kéo nền trống** | Phóng to, thu nhỏ (Zoom) và di chuyển vùng nhìn (Pan) |
 
 ---
-
-## 🗺️ Lộ trình phát triển (Roadmap)
-
-* [x] **v1.0_Release:** Hệ thống khí cụ điện dân dụng & công nghiệp cơ bản, cảm biến, thiết bị đo lường, biến tần (VFD), giao diện Sáng/Tối Windows 11 và đa ngôn ngữ Việt/Anh.
-* [ ] **v2.0 (Đang phát triển):** Bổ sung khối điều khiển lập trình **PLC S7-1200**, trình soạn thảo Ladder tích hợp và hỗ trợ kết nối mô phỏng trực tiếp với **Siemens TIA Portal (S7-PLCSIM)**.
-* [ ] **v2.1:** Bổ sung đồng hồ vạn năng VOM / Ampe kìm cầm tay và tính năng xuất bảng thống kê vật tư (BOM).
