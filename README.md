@@ -2,7 +2,6 @@
 
 ![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20(x64)-0078D6?style=flat-square&logo=windows)
 ![Framework](https://img.shields.io/badge/.NET-8.0%20WPF-512BD4?style=flat-square&logo=dotnet)
-![Release](https://img.shields.io/badge/Version-v1.0__Release-2EA043?style=flat-square)
 ![Language](https://img.shields.io/badge/Language-Tiếng%20Việt%20%7C%20English-orange?style=flat-square)
 
 **WiringSim** là ứng dụng desktop mã nguồn mở trên Windows hỗ trợ học tập, giảng dạy và mô phỏng trực quan quá trình đấu nối mạch điện từ dân dụng đến công nghiệp. Phần mềm cho phép kéo thả khí cụ điện, đi dây theo màu tiêu chuẩn, cấu hình thông số thiết bị và chạy thử nghiệm trạng thái đóng cắt theo thời gian thực.
