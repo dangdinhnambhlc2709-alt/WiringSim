@@ -297,7 +297,7 @@ public partial class MainWindow : Window
         return _plcLadderWindow;
     }
 
-    public void OpenPlcLadderWindow(PlcS71200Component? plc, bool openTagTable = false)
+    public void OpenPlcLadderWindow(PlcControllerComponent? plc, bool openTagTable = false)
     {
         var win = EnsurePlcLadderWindow();
         win.BindAndPresent(plc, openTagTable, WiringCanvas.CurrentMode == AppMode.Simulation);
@@ -305,7 +305,7 @@ public partial class MainWindow : Window
 
     private void OnTogglePlcLadderClick(object sender, RoutedEventArgs e)
     {
-        var plc = WiringCanvas.Components.OfType<PlcS71200Component>().FirstOrDefault();
+        var plc = WiringCanvas.Components.OfType<PlcControllerComponent>().FirstOrDefault();
         OpenPlcLadderWindow(plc, openTagTable: false);
     }
 
@@ -613,7 +613,7 @@ public partial class MainWindow : Window
         GuideBanner.Visibility = Visibility.Visible;
         TxtStatusMessage.Text = LocalizationManager.Format("Str.Status.PresetLoaded", preset.Name);
 
-        var presetPlc = WiringCanvas.Components.OfType<PlcS71200Component>().FirstOrDefault();
+        var presetPlc = WiringCanvas.Components.OfType<PlcControllerComponent>().FirstOrDefault();
         if (presetPlc is not null)
             OpenPlcLadderWindow(presetPlc, openTagTable: false);
         else
@@ -717,7 +717,7 @@ public partial class MainWindow : Window
                 _history.Reset(WiringCanvas.Components, WiringCanvas.Wires);
                 _simEngine.BindCircuit(WiringCanvas.Components, WiringCanvas.Wires);
 
-                var loadedPlc = WiringCanvas.Components.OfType<PlcS71200Component>().FirstOrDefault();
+                var loadedPlc = WiringCanvas.Components.OfType<PlcControllerComponent>().FirstOrDefault();
                 if (loadedPlc is not null)
                     OpenPlcLadderWindow(loadedPlc, openTagTable: false);
                 else

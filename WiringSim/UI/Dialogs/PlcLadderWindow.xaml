@@ -46,7 +46,7 @@
                 <DockPanel LastChildFill="True">
                     <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                         <Border Background="#009999" CornerRadius="4" Padding="6,2" Margin="0,0,8,0">
-                            <TextBlock Text="S7-1200" FontSize="10" FontWeight="Bold" Foreground="White" />
+                            <TextBlock Text="PLC" FontSize="10" FontWeight="Bold" Foreground="White" />
                         </Border>
                         <TextBlock x:Name="TxtWindowHeader"
                                    Text="{DynamicResource Str.Plc.WindowTitle}"

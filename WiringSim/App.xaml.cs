@@ -367,11 +367,11 @@ public partial class App : Application
             Assert(!badSens.IsDamaged, "Suite 8D: Thay cảm biến mới phải xóa trạng thái DAMAGED.");
             engine.Stop();
 
-            // 9. Kiểm tra toàn diện v1.3: PLC S7-1200 (CPU 1214C), Trình biên dịch Ladder, PNP/NPN 1M, Preset 5 (TON + %MW), Counter, Math & JSON Round-Trip!
-            // 9A. Kiểm tra phần cứng 32 chân chuẩn S7-1200 CPU 1214C
-            var plcCheck = new PlcS71200Component();
+            // 9. Kiểm tra toàn diện v1.3: PLC (14 DI / 10 DQ / 2 AI), Trình biên dịch Ladder, PNP/NPN 1M, Preset 5 (TON + %MW), Counter, Math & JSON Round-Trip!
+            // 9A. Kiểm tra phần cứng 32 chân chuẩn PLC (14 DI / 10 DQ / 2 AI)
+            var plcCheck = new PlcControllerComponent();
             Assert(plcCheck.Terminals.Count == 32 && plcCheck.DiTerminals.Length == 14 && plcCheck.DqTerminals.Length == 10,
-                $"Suite 9A: PLC S7-1200 CPU 1214C phải có đủ 32 chân (14 DI, 10 DQ, 2 AI, nguồn L+/M/PE/1M, phụ L+/M). Thực tế: {plcCheck.Terminals.Count}");
+                $"Suite 9A: PLC phải có đủ 32 chân (14 DI, 10 DQ, 2 AI, nguồn L+/M/PE/1M, phụ L+/M). Thực tế: {plcCheck.Terminals.Count}");
 
             // 9B. Kiểm tra Compiler (bắt lỗi nhánh hở, sai địa chỉ, trùng %DB, sai PT; và biên dịch sạch 0 lỗi cho Preset 5)
             var badProg = new PlcProgramModel();
@@ -396,7 +396,7 @@ public partial class App : Application
             // 9C. Kiểm tra NPN (1M nối +24V, I0.0 nối 0V -> DI[0] = true!)
             var npnPsu = new DcSourceComponent();
             npnPsu.SetVoltage(24.0);
-            var npnPlc = new PlcS71200Component();
+            var npnPlc = new PlcControllerComponent();
             var npnWires = new List<WireModel>
             {
                 new(npnPsu.PlusTerminal, npnPlc.SupplyLPlus, WireColorPreset.Red_L1_DCPlus),
@@ -411,9 +411,9 @@ public partial class App : Application
             engine.Stop();
 
             // 9D. Kiểm tra Preset 5 chạy thực tế: Nhấn START -> Đèn H1 sáng (MW2=1) -> sau 3s sang H2 (MW2=2) -> sau 3s sang H3 (MW2=3) -> quay lại H1 -> Nhấn STOP tắt toàn bộ!
-            var p5Def = PresetCircuitFactory.Presets.Single(p => p.Key == "PRESET_PLC_S71200_SEQ");
+            var p5Def = PresetCircuitFactory.Presets.Single(p => p.Key == "PRESET_PLC_SEQ");
             var (p5Comps, p5Wires) = p5Def.Builder();
-            var p5Plc = p5Comps.OfType<PlcS71200Component>().Single();
+            var p5Plc = p5Comps.OfType<PlcControllerComponent>().Single();
             var p5Start = p5Comps.OfType<PushButtonComponent>().Single(b => b.DisplayName == "START");
             var p5Stop = p5Comps.OfType<PushButtonComponent>().Single(b => b.DisplayName == "STOP");
             var p5H1 = p5Comps.OfType<PilotLightComponent>().Single(h => h.DisplayName.StartsWith("H1"));
@@ -463,7 +463,7 @@ public partial class App : Application
             // 9E. Kiểm tra JSON round-trip lưu & mở lại nguyên vẹn chương trình Ladder + Tag Table của PLC
             string plcJson = CircuitSerializer.SerializeToJsonString(p5Comps, p5Wires, "PlcPreset5Test");
             var (rtComps, rtWires, _) = CircuitSerializer.DeserializeFromJsonString(plcJson);
-            var rtPlc = rtComps.OfType<PlcS71200Component>().Single();
+            var rtPlc = rtComps.OfType<PlcControllerComponent>().Single();
             Assert(rtPlc.DraftProgram.Networks.Count == 5 && rtPlc.DraftProgram.Tags.Count == 10 && rtWires.Count == p5Wires.Count,
                 $"Suite 9E: Lưu/Mở JSON phải giữ nguyên vẹn 5 Network, 10 Tag và {p5Wires.Count} dây đấu của PLC!");
 
@@ -540,11 +540,94 @@ public partial class App : Application
                    rtEngine.ReadWordOrConstant("%MW26") == 77,
                 $"Suite 9F: Kết quả thực thi 10 nhóm lệnh sai (MW10={rtEngine.ReadWordOrConstant("%MW10")}, MD14={rtEngine.ReadNumber("%MD14")}, MW12={rtEngine.ReadWordOrConstant("%MW12")}, MW24={rtEngine.ReadWordOrConstant("%MW24")}, MW26={rtEngine.ReadWordOrConstant("%MW26")}).");
 
-            // 10. Kiểm tra cửa sổ nổi PlcLadderWindow (MinWidth 680, MinHeight 460, ShowInTaskbar) & Kết xuất ảnh QA v1.3.1_Release!
+            // 10. Kiểm tra cửa sổ nổi PlcLadderWindow (MinWidth 680, MinHeight 460, ShowInTaskbar)
             var ladderWinCheck = new WiringSim.UI.Dialogs.PlcLadderWindow();
             Assert(ladderWinCheck.MinWidth == 680 && ladderWinCheck.MinHeight == 460 && ladderWinCheck.ShowInTaskbar && !ladderWinCheck.LadderEditor.ShowEmbeddedHeader,
                 "Suite 10: PlcLadderWindow phải là cửa sổ nổi MinWidth=680, MinHeight=460, ShowInTaskbar=true và ẩn header trùng lặp.");
             ladderWinCheck.ForceClose();
+
+            // 11. Kiểm tra nâng cấp TIA Portal V21: Xóa sạch thương hiệu hãng, PLC Tags auto-increment + Address Picker, Call options & Truy xuất thuộc tính DB ("TD11".Q)!
+            string[] forbiddenBrands = ["S7-1200", "CPU 1214C", "SIMATIC", "SIEMENS"];
+            foreach (var dict in new[] { viDict, enDict })
+            {
+                foreach (object k in dict.Keys)
+                {
+                    if (dict[k] is string val)
+                    {
+                        foreach (string brand in forbiddenBrands)
+                            Assert(!val.Contains(brand, StringComparison.OrdinalIgnoreCase),
+                                $"Suite 11A: Còn sót thương hiệu '{brand}' trong key '{k}': '{val}'!");
+                    }
+                }
+            }
+            foreach (var desc in ComponentRegistry.Items)
+            {
+                foreach (string brand in forbiddenBrands)
+                    Assert(!desc.Title.Contains(brand, StringComparison.OrdinalIgnoreCase) && !desc.Subtitle.Contains(brand, StringComparison.OrdinalIgnoreCase),
+                        $"Suite 11A: Còn sót thương hiệu '{brand}' trong ComponentRegistry '{desc.TypeKey}'!");
+            }
+
+            // 11B. Kiểm tra tự động thêm % và tăng địa chỉ tuần tự theo kiểu dữ liệu + Address Picker
+            Assert(PlcAddressHelper.NormalizeAddress("I0.0") == "%I0.0" &&
+                   PlcAddressHelper.NormalizeAddress("q0.1") == "%Q0.1" &&
+                   PlcAddressHelper.ComputeNextAddress("%I0.0", "Bool") == "%I0.1" &&
+                   PlcAddressHelper.ComputeNextAddress("%I0.7", "Bool") == "%I1.0" &&
+                   PlcAddressHelper.ComputeNextAddress("Q0.0", "Bool") == "%Q0.1" &&
+                   PlcAddressHelper.ComputeNextAddress("%MB0", "Byte") == "%MB1" &&
+                   PlcAddressHelper.ComputeNextAddress("%MW0", "Int") == "%MW2" &&
+                   PlcAddressHelper.ComputeNextAddress("%MW2", "Word") == "%MW4" &&
+                   PlcAddressHelper.ComputeNextAddress("%MD0", "Real") == "%MD4" &&
+                   PlcAddressHelper.ComputeNextAddress("%MD4", "Time") == "%MD8" &&
+                   PlcAddressHelper.BuildAddress("Q", "Bit", 0, 3) == "%Q0.3" &&
+                   PlcAddressHelper.BuildAddress("M", "Word", 6, 0) == "%MW6",
+                "Suite 11B: Logic chuẩn hóa & tự động tăng địa chỉ PLC Tags (Bool/Byte/Int/Word/DInt/Real/Time) không khớp chuẩn TIA Portal V21!");
+
+            // 11C. Kiểm tra hộp thoại Call options
+            var callOptCheck = new WiringSim.UI.Dialogs.PlcCallOptionsDialog("TON", "IEC_Timer_0_DB", 2);
+            Assert(callOptCheck.SelectedDbName == "IEC_Timer_0_DB" && callOptCheck.SelectedDbNumber == 2 && callOptCheck.IsAutomaticMode,
+                "Suite 11C: Hộp thoại Call options phải mặc định Automatic với tên IEC_Timer_0_DB và số DB kế tiếp!");
+            callOptCheck.Close();
+
+            // 11D. Kiểm tra truy xuất thuộc tính DB bằng ký hiệu ("TD11".Q) và bắt lỗi <???> chưa gán DB!
+            var dbSymProg = new PlcProgramModel
+            {
+                Tags =
+                [
+                    new PlcTagEntry { Name = "ON/OFF", Address = "%I0.0", DataType = "Bool" },
+                    new PlcTagEntry { Name = "LAMP_OUT", Address = "%Q0.0", DataType = "Bool" },
+                    new PlcTagEntry { Name = "TD11", Address = "%DB2", DataType = "IEC_Timer" }
+                ]
+            };
+            var dbNw1 = new LadderNetwork { Title = "Timer DB TD11" };
+            dbNw1.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%I0.0", SymbolName = "ON/OFF" });
+            dbNw1.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.TimerTON, Address = "%DB2", SymbolName = "TD11", Param1 = "T#1s" });
+            var dbNw2 = new LadderNetwork { Title = "Use \"TD11\".Q" };
+            dbNw2.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.ContactNO, Address = "\"TD11\".Q", SymbolName = "\"TD11\".Q" });
+            dbNw2.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.CoilOut, Address = "%Q0.0", SymbolName = "LAMP_OUT" });
+            dbSymProg.Networks.AddRange([dbNw1, dbNw2]);
+
+            var dbDisplayPair = dbSymProg.FormatDisplayPair("\"TD11\".Q", "\"TD11\".Q");
+            Assert(dbDisplayPair.AbsoluteAddr == "%DB2.Q" && dbDisplayPair.QuotedSymbol == "\"TD11\".Q",
+                $"Suite 11D: FormatDisplayPair cho \"TD11\".Q phải trả về ('%DB2.Q', '\"TD11\".Q') (thực tế: {dbDisplayPair}).");
+
+            var dbSymCompile = PlcProgramCompiler.Compile(dbSymProg);
+            Assert(dbSymCompile.Success && dbSymCompile.ErrorCount == 0,
+                $"Suite 11D: Chương trình dùng tiếp điểm \"TD11\".Q phải biên dịch 0 lỗi (Errors={dbSymCompile.ErrorCount}: {string.Join("; ", dbSymCompile.Diagnostics.Select(d => d.Message))}).");
+
+            var dbRt = new PlcRuntimeEngine();
+            dbRt.Di[0] = true;
+            for (int t = 0; t < 10; t++) dbRt.ExecuteScanCycle(dbSymProg, 0.05); // 0.5s < 1.0s
+            Assert(!dbRt.Dq[0], "Suite 11D: Trước 1s, tiếp điểm \"TD11\".Q phải chưa tác động (%Q0.0 = 0).");
+            for (int t = 0; t < 14; t++) dbRt.ExecuteScanCycle(dbSymProg, 0.05); // 1.2s >= 1.0s
+            Assert(dbRt.Dq[0], "Suite 11D: Sau 1s, tiếp điểm \"TD11\".Q phải tự đóng và bật %Q0.0 = 1!");
+
+            var unassignedProg = new PlcProgramModel();
+            var uNw = new LadderNetwork { Title = "Unassigned DB" };
+            uNw.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.TimerTON, Address = "<???>", Param1 = "T#2s" });
+            unassignedProg.Networks.Add(uNw);
+            var unassignedRes = PlcProgramCompiler.Compile(unassignedProg);
+            Assert(!unassignedRes.Success && unassignedRes.ErrorCount >= 1,
+                "Suite 11D: Khối Timer có <???> chưa gán DB phải bị Compiler báo lỗi rõ ràng!");
 
             int previewIdx = Array.FindIndex(Environment.GetCommandLineArgs(), a => a == "--save-preview-dir");
             if (previewIdx >= 0 && previewIdx + 1 < Environment.GetCommandLineArgs().Length)
@@ -554,11 +637,12 @@ public partial class App : Application
 
                 RenderV131MainShowcase(Path.Combine(outDir, "preview_v131_main_dark_vi.png"), 1280, 800, useLight: false, lang: "vi");
                 RenderV131MainShowcase(Path.Combine(outDir, "preview_v131_main_light_en.png"), 1160, 720, useLight: true, lang: "en");
-                RenderV131LadderShowcase(Path.Combine(outDir, "preview_v131_ladder_dark_vi.png"), 1020, 680, useLight: false, lang: "vi");
-                RenderV131LadderShowcase(Path.Combine(outDir, "preview_v131_ladder_narrow_en.png"), 680, 480, useLight: true, lang: "en");
+                RenderV131LadderShowcase(Path.Combine(outDir, "preview_v131_ladder_dark_vi.png"), 1020, 680, useLight: false, lang: "vi", openTags: false);
+                RenderV131LadderShowcase(Path.Combine(outDir, "preview_v131_tags_dark_vi.png"), 1060, 620, useLight: false, lang: "vi", openTags: true);
+                RenderCallOptionsShowcase(Path.Combine(outDir, "preview_v131_call_options_dark_vi.png"), useLight: false, lang: "vi");
             }
 
-            Console.WriteLine("SELF_VERIFY_PASSED: All v1.3.1_Release suites (Localization Parity, Version v1.3.1_Release, Floating PlcLadderWindow, Single-Row Responsive Toolbar, Full 10-Group PLC S7-1200 + Ladder Compiler + Preset 5 + JSON Persistence) passed!");
+            Console.WriteLine("SELF_VERIFY_PASSED: All v1.3.1_Release suites (Brand-Neutral PLC, TIA Portal V21 PLC Tags + Address Picker, Call options, DB Member \"TD11\".Q, Floating PlcLadderWindow, Full 10-Group Ladder + Preset 5 + JSON Persistence) passed!");
             return 0;
         }
         catch (Exception ex)
@@ -574,7 +658,7 @@ public partial class App : Application
         LocalizationManager.SetLanguage(lang);
         ThemeManager.ApplyTheme(useLight ? AppThemePreference.Light : AppThemePreference.Dark);
 
-        var (p5Comps, p5Wires) = PresetCircuitFactory.Presets.Single(p => p.Key == "PRESET_PLC_S71200_SEQ").Builder();
+        var (p5Comps, p5Wires) = PresetCircuitFactory.Presets.Single(p => p.Key == "PRESET_PLC_SEQ").Builder();
         var btnStart = p5Comps.OfType<PushButtonComponent>().Single(b => b.DisplayName == "START");
 
         var sim = new CircuitSimulationEngine();
@@ -609,13 +693,13 @@ public partial class App : Application
         win.Close();
     }
 
-    private static void RenderV131LadderShowcase(string pngPath, int width, int height, bool useLight, string lang)
+    private static void RenderV131LadderShowcase(string pngPath, int width, int height, bool useLight, string lang, bool openTags)
     {
         LocalizationManager.SetLanguage(lang);
         ThemeManager.ApplyTheme(useLight ? AppThemePreference.Light : AppThemePreference.Dark);
 
-        var (p5Comps, p5Wires) = PresetCircuitFactory.Presets.Single(p => p.Key == "PRESET_PLC_S71200_SEQ").Builder();
-        var plc = p5Comps.OfType<PlcS71200Component>().Single();
+        var (p5Comps, p5Wires) = PresetCircuitFactory.Presets.Single(p => p.Key == "PRESET_PLC_SEQ").Builder();
+        var plc = p5Comps.OfType<PlcControllerComponent>().Single();
         var btnStart = p5Comps.OfType<PushButtonComponent>().Single(b => b.DisplayName == "START");
 
         var sim = new CircuitSimulationEngine();
@@ -627,7 +711,7 @@ public partial class App : Application
         for (int i = 0; i < 28; i++) sim.StepSimulation(0.05);
 
         var ladderWin = new WiringSim.UI.Dialogs.PlcLadderWindow { Width = width, Height = height };
-        ladderWin.LadderEditor.BindPlc(plc, openTagTable: false);
+        ladderWin.LadderEditor.BindPlc(plc, openTagTable: openTags);
         ladderWin.LadderEditor.SetSimulationMode(true);
         ladderWin.LadderEditor.CompileCurrentProgram();
         ladderWin.LadderEditor.RefreshOnlineMonitoring();
@@ -649,6 +733,37 @@ public partial class App : Application
         using var fs = File.Create(pngPath);
         encoder.Save(fs);
         ladderWin.ForceClose();
+    }
+
+    private static void RenderCallOptionsShowcase(string pngPath, bool useLight, string lang)
+    {
+        LocalizationManager.SetLanguage(lang);
+        ThemeManager.ApplyTheme(useLight ? AppThemePreference.Light : AppThemePreference.Dark);
+
+        var dlg = new WiringSim.UI.Dialogs.PlcCallOptionsDialog("TON", "IEC_Timer_0_DB", 2);
+        int width = 520, height = 340;
+        var root = (FrameworkElement)dlg.Content;
+        dlg.Content = null;
+
+        var host = new System.Windows.Controls.Border
+        {
+            Width = width,
+            Height = height,
+            Child = root
+        };
+        host.SetResourceReference(System.Windows.Controls.Border.BackgroundProperty, "AppBgBrush");
+        host.Measure(new Size(width, height));
+        host.Arrange(new Rect(0, 0, width, height));
+        host.UpdateLayout();
+
+        var rtb = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(host);
+
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(rtb));
+        using var fs = File.Create(pngPath);
+        encoder.Save(fs);
+        dlg.Close();
     }
 
     private static void Assert(bool condition, string message)

@@ -49,10 +49,10 @@ public static class PresetCircuitFactory
             BuildTwoWireAcSensorRelayCircuit),
 
         new PresetCircuitDefinition(
-            "PRESET_PLC_S71200_SEQ",
+            "PRESET_PLC_SEQ",
             "Str.Preset5.Name",
             "Str.Preset5.Guide",
-            BuildPlcS71200SequentialLightsCircuit)
+            BuildPlcSequentialLightsCircuit)
     ];
 
     private static (List<ElectricalComponent>, List<WireModel>) BuildResidentialLampCircuit()
@@ -251,7 +251,7 @@ public static class PresetCircuitFactory
         return (comps, wires);
     }
 
-    private static (List<ElectricalComponent>, List<WireModel>) BuildPlcS71200SequentialLightsCircuit()
+    private static (List<ElectricalComponent>, List<WireModel>) BuildPlcSequentialLightsCircuit()
     {
         var comps = new List<ElectricalComponent>();
         var wires = new List<WireModel>();
@@ -262,7 +262,7 @@ public static class PresetCircuitFactory
         var btnStart = new PushButtonComponent(isNormallyClosed: false) { DisplayName = "START", X = 280, Y = 40, ButtonColor = PilotLightColor.Green };
         var btnStop = new PushButtonComponent(isNormallyClosed: true) { DisplayName = "STOP", X = 420, Y = 40, ButtonColor = PilotLightColor.Red };
 
-        var plc = new PlcS71200Component { DisplayName = "PLC1", X = 180, Y = 220 };
+        var plc = new PlcControllerComponent { DisplayName = "PLC1", X = 180, Y = 220 };
         var prog = BuildSequentialLightsProgram();
         plc.CommitDownloadedProgram(prog);
 

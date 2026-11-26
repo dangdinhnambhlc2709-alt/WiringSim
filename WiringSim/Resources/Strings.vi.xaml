@@ -518,10 +518,10 @@
     <sys:String x:Key="Str.Preset4.Name">4. Mạch điều khiển Rơ-le trung gian bằng cảm biến tiệm cận 2 dây AC 220V</sys:String>
     <sys:String x:Key="Str.Preset4.Guide">Chuyển sang [▶ Chạy Mô Phỏng] → Bấm vào đầu cảm biến 2 dây AC (B1): dòng điện đi nối tiếp L → BN → BU → cuộn hút K1 (sụt áp ~3.5V, đo Volt ~216.5V) để hút rơ-le và bật đèn báo H1!</sys:String>
 
-    <!-- v1.3: PLC Siemens S7-1200 (CPU 1214C) & Trình lập trình Ladder chuẩn TIA Portal -->
+    <!-- v1.3: PLC & Trình lập trình Ladder chuẩn TIA Portal -->
     <sys:String x:Key="Str.Cat.Programmable">7. ĐIỀU KHIỂN LẬP TRÌNH (PLC)</sys:String>
-    <sys:String x:Key="Str.Comp.PlcS71200.Title">PLC S7-1200 (CPU 1214C)</sys:String>
-    <sys:String x:Key="Str.Comp.PlcS71200.Sub">14 DI • 10 DQ • 2 AI • Ladder OB1</sys:String>
+    <sys:String x:Key="Str.Comp.Plc.Title">PLC (14 DI / 10 DQ / 2 AI)</sys:String>
+    <sys:String x:Key="Str.Comp.Plc.Sub">14 DI • 10 DQ • 2 AI • Ladder OB1</sys:String>
     <sys:String x:Key="Str.Vis.PlcOpenLadder">Mở trình lập trình Ladder</sys:String>
     <sys:String x:Key="Str.Toolbar.PlcLadder">Trình lập trình Ladder</sys:String>
     <sys:String x:Key="Str.Toolbar.PlcLadderTip">Ẩn / Hiện khung lập trình PLC Ladder (TIA Portal Style)</sys:String>
@@ -531,7 +531,7 @@
     <sys:String x:Key="Str.Menu.PlcRun">▶ Chuyển CPU sang RUN</sys:String>
     <sys:String x:Key="Str.Menu.PlcStop">⏹ Chuyển CPU sang STOP</sys:String>
 
-    <sys:String x:Key="Str.Plc.EditorTitle">Trình lập trình PLC S7-1200 — Ladder (OB1)</sys:String>
+    <sys:String x:Key="Str.Plc.EditorTitle">Trình lập trình PLC — Ladder (OB1)</sys:String>
     <sys:String x:Key="Str.Plc.TabLadder">Ladder (OB1)</sys:String>
     <sys:String x:Key="Str.Plc.TabTags">Bảng Tag (PLC Tags)</sys:String>
     <sys:String x:Key="Str.Plc.ToggleInstructions">Thư viện lệnh</sys:String>
@@ -539,13 +539,13 @@
     <sys:String x:Key="Str.Plc.Compile">Compile</sys:String>
     <sys:String x:Key="Str.Plc.CompileTip">Biên dịch &amp; kiểm tra lỗi cú pháp chương trình Ladder</sys:String>
     <sys:String x:Key="Str.Plc.Download">Download</sys:String>
-    <sys:String x:Key="Str.Plc.DownloadTip">Biên dịch và nạp chương trình vào bộ nhớ PLC S7-1200</sys:String>
+    <sys:String x:Key="Str.Plc.DownloadTip">Biên dịch và nạp chương trình vào bộ nhớ PLC</sys:String>
     <sys:String x:Key="Str.Plc.AddNetwork">+ Network</sys:String>
     <sys:String x:Key="Str.Plc.DelNode">Xóa phần tử</sys:String>
     <sys:String x:Key="Str.Plc.OpenBranch">Mở nhánh //</sys:String>
     <sys:String x:Key="Str.Plc.CloseBranch">Đóng nhánh</sys:String>
     <sys:String x:Key="Str.Plc.OnlineMonitor">ONLINE</sys:String>
-    <sys:String x:Key="Str.Plc.NoPlcSelected">Chưa chọn khối PLC S7-1200 trên sơ đồ. Hãy kéo khối PLC S7-1200 từ Thư viện vào Canvas.</sys:String>
+    <sys:String x:Key="Str.Plc.NoPlcSelected">Chưa chọn khối PLC trên sơ đồ. Hãy kéo khối PLC từ Thư viện vào Canvas.</sys:String>
 
     <sys:String x:Key="Str.Plc.InstrHeader">THƯ VIỆN LỆNH PLC</sys:String>
     <sys:String x:Key="Str.Plc.GrpBit">1. Logic Bit</sys:String>
@@ -571,7 +571,7 @@
 
     <sys:String x:Key="Str.Plc.CompileOk">✅ Biên dịch thành công: 0 lỗi, {0} cảnh báo.</sys:String>
     <sys:String x:Key="Str.Plc.CompileFail">❌ Biên dịch thất bại: {0} lỗi, {1} cảnh báo. Bấm vào dòng lỗi để nhảy tới vị trí sửa.</sys:String>
-    <sys:String x:Key="Str.Plc.Downloading">⏳ Đang nạp chương trình vào {0} (CPU 1214C)...</sys:String>
+    <sys:String x:Key="Str.Plc.Downloading">⏳ Đang nạp chương trình vào {0}...</sys:String>
     <sys:String x:Key="Str.Plc.DownloadDone">✅ Đã nạp thành công vào {0}! CPU đang ở chế độ RUN.</sys:String>
     <sys:String x:Key="Str.Plc.DownloadBlocked">❌ Không thể nạp vào PLC vì chương trình còn lỗi biên dịch!</sys:String>
     <sys:String x:Key="Str.Plc.OutputShortFault">NGẮN MẠCH NGÕ RA PLC [{0}]: Đã ngắt ngõ ra bảo vệ CPU và bật đèn báo ERROR!</sys:String>
@@ -594,7 +594,7 @@
     <sys:String x:Key="Str.Plc.ErrInvalidPt">Network {0}: Sai định dạng thời gian PT '{1}' (VD đúng: T#3s, T#500ms, T#1m).</sys:String>
     <sys:String x:Key="Str.Plc.ErrInvalidPv">Network {0}: Thiếu hoặc sai giá trị đặt PV '{1}' cho Bộ đếm.</sys:String>
 
-    <sys:String x:Key="Str.Preset5.Name">5. Điều khiển đèn tuần tự bằng PLC S7-1200 (Timer TON &amp; So sánh %MW)</sys:String>
+    <sys:String x:Key="Str.Preset5.Name">5. Điều khiển đèn tuần tự bằng PLC (Timer TON &amp; So sánh %MW)</sys:String>
     <sys:String x:Key="Str.Preset5.Guide">Chuyển sang [▶ Chạy Mô Phỏng] → Bấm nút START (%I0.0): PLC tự động chạy tuần tự 3 đèn H1 → H2 → H3 cách nhau 3 giây bằng Timer TON (%DB1) &amp; So sánh %MW2 ("SEQUENCE"). Quan sát đường thông mạch xanh lá trong cửa sổ Ladder!</sys:String>
 
     <!-- v1.3 Full 10-Category TIA Portal Instruction Tree -->
@@ -766,8 +766,50 @@
     <sys:String x:Key="Str.Plc.D.ROR">Xoay vòng sang phải N bit</sys:String>
     <sys:String x:Key="Str.Plc.D.ROL">Xoay vòng sang trái N bit</sys:String>
 
-    <!-- Hotfix v1.3.1: Cửa sổ nổi PLC Ladder & Thanh công cụ một hàng -->
-    <sys:String x:Key="Str.Plc.WindowTitle">WiringSim — Trình lập trình PLC S7-1200</sys:String>
+    <!-- Hotfix v1.3.1: Cửa sổ nổi PLC Ladder & Cơ chế TIA Portal V21 -->
+    <sys:String x:Key="Str.Plc.WindowTitle">WiringSim — Trình lập trình PLC</sys:String>
     <sys:String x:Key="Str.Plc.CompactBtn">PLC Ladder</sys:String>
+
+    <!-- TIA Portal V21: PLC Tags Table, Address Picker, Call options & DB Autocomplete -->
+    <sys:String x:Key="Str.Plc.TagColName">Name</sys:String>
+    <sys:String x:Key="Str.Plc.TagColType">Data type</sys:String>
+    <sys:String x:Key="Str.Plc.TagColAddr">Address</sys:String>
+    <sys:String x:Key="Str.Plc.TagColRetain">Retain</sys:String>
+    <sys:String x:Key="Str.Plc.TagColAccessible">Accessible</sys:String>
+    <sys:String x:Key="Str.Plc.TagColWritable">Writable</sys:String>
+    <sys:String x:Key="Str.Plc.TagColVisible">Visible</sys:String>
+    <sys:String x:Key="Str.Plc.TagColComment">Comment</sys:String>
+    <sys:String x:Key="Str.Plc.TagAddNew">&lt;Add new&gt;</sys:String>
+    <sys:String x:Key="Str.Plc.TagEnterTip">Nhấn Enter ở cuối dòng để tự động thêm biến mới với địa chỉ tăng tuần tự</sys:String>
+
+    <sys:String x:Key="Str.Plc.AddrPickerTitle">Chọn địa chỉ (Address Picker)</sys:String>
+    <sys:String x:Key="Str.Plc.AddrOpId">Operand identifier:</sys:String>
+    <sys:String x:Key="Str.Plc.AddrOpType">Operand type:</sys:String>
+    <sys:String x:Key="Str.Plc.AddrByte">Address:</sys:String>
+    <sys:String x:Key="Str.Plc.AddrBit">Bit number:</sys:String>
+
+    <sys:String x:Key="Str.Plc.CallOptTitle">Call options</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptSubtitle">Cấu hình khối dữ liệu thể hiện (Data Block) cho lệnh {0}</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptSingleInstance">Single instance</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptSingleInstanceDesc">Tạo khối dữ liệu DB độc lập</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptDbGroup">Data block</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptName">Name:</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptNumber">Number:</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptAuto">Automatic</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptAutoDesc">Tự động gán số khối dữ liệu tiếp theo khả dụng (%DB{0}).</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptManual">Manual</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptManualDesc">Người dùng tự nhập số hiệu khối dữ liệu DB (1–99).</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptOk">OK</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptCancel">Cancel</sys:String>
+    <sys:String x:Key="Str.Plc.ErrUnassignedDb">Network {0}: Khối Timer / Counter chưa được gán Data Block (&lt;???&gt;). Hãy bấm vào &lt;???&gt; để mở Call options!</sys:String>
+    <sys:String x:Key="Str.Plc.ClickAssignDbTip">Nhấp để mở hộp thoại Call options và gán Data Block</sys:String>
+
+    <sys:String x:Key="Str.Plc.AutoSearchHint">Tìm Tag, địa chỉ hoặc gõ 'TênDB.' để xem thuộc tính...</sys:String>
+    <sys:String x:Key="Str.Plc.AutoColName">Name</sys:String>
+    <sys:String x:Key="Str.Plc.AutoColType">Data type</sys:String>
+    <sys:String x:Key="Str.Plc.AutoColAddr">Address</sys:String>
+    <sys:String x:Key="Str.Plc.AutoBackToAll">← Tất cả Tag &amp; Data Block</sys:String>
+    <sys:String x:Key="Str.Plc.AutoEmpty">Không tìm thấy Tag hoặc Data Block phù hợp.</sys:String>
+    <sys:String x:Key="Str.Plc.DoubleClickHint">Nhấp đúp địa chỉ trên Ladder để chọn Tag / thuộc tính DB (VD: "TD11".Q)</sys:String>
 
 </ResourceDictionary>

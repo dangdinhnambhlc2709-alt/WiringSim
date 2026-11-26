@@ -92,7 +92,7 @@ public sealed class WiringCanvasControl : FrameworkElement
     public event Action? CircuitModified;
     public event Action? SelectionChanged;
     public event Action<VfdComponent>? OpenVfdKeypadRequested;
-    public event Action<PlcS71200Component, bool>? OpenPlcLadderRequested;
+    public event Action<PlcControllerComponent, bool>? OpenPlcLadderRequested;
 
     public IReadOnlyList<ElectricalComponent> Components => _components;
     public IReadOnlyList<WireModel> Wires => _wires;
@@ -150,7 +150,7 @@ public sealed class WiringCanvasControl : FrameworkElement
             }
 
             if (_wires.Any(w => w.HasCurrentFlow || w.IsShortCircuitPath) ||
-                _components.Any(c => c is Motor1PhaseComponent or Motor3PhaseBaseComponent or VfdComponent or PlcS71200Component or VoltmeterComponent or AmmeterComponent or RotaryTimerAh3Component) ||
+                _components.Any(c => c is Motor1PhaseComponent or Motor3PhaseBaseComponent or VfdComponent or PlcControllerComponent or VoltmeterComponent or AmmeterComponent or RotaryTimerAh3Component) ||
                 _activeFault is not null)
             {
                 InvalidateVisual();
@@ -313,8 +313,8 @@ public sealed class WiringCanvasControl : FrameworkElement
         StatusMessageChanged?.Invoke(LocalizationManager.Format("Str.Status.AddedComp", comp.DisplayName, comp.X, comp.Y));
         InvalidateVisual();
 
-        // Tự động mở trình lập trình Ladder ngay khi người dùng đặt khối PLC S7-1200 vào Canvas!
-        if (comp is PlcS71200Component plc)
+        // Tự động mở trình lập trình Ladder ngay khi người dùng đặt khối PLC vào Canvas!
+        if (comp is PlcControllerComponent plc)
         {
             OpenPlcLadderRequested?.Invoke(plc, false);
         }
@@ -1116,7 +1116,7 @@ public sealed class WiringCanvasControl : FrameworkElement
             case "VFD_KEYPAD" when zone.Component is VfdComponent vfd:
                 OpenVfdKeypadRequested?.Invoke(vfd);
                 return;
-            case "PLC_OPEN_LADDER" when zone.Component is PlcS71200Component plc:
+            case "PLC_OPEN_LADDER" when zone.Component is PlcControllerComponent plc:
                 OpenPlcLadderRequested?.Invoke(plc, false);
                 return;
             case "ILLUM_PB_LATCH" when zone.Component is IlluminatedPushButtonComponent ipb:

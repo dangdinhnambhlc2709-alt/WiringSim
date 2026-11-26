@@ -148,8 +148,8 @@ public static class ComponentRenderer
             case VfdComponent vfd:
                 DrawVfd(dc, vfd, bodyRect, theme, dpiScale, targetHitZones);
                 break;
-            case PlcS71200Component plc:
-                DrawPlcS71200(dc, plc, bodyRect, theme, dpiScale, targetHitZones);
+            case PlcControllerComponent plc:
+                DrawPlcController(dc, plc, bodyRect, theme, dpiScale, targetHitZones);
                 break;
             case ContactorComponent km:
                 DrawContactor(dc, km, bodyRect, theme, dpiScale);
@@ -1477,9 +1477,9 @@ public static class ComponentRenderer
         hitZones.Add(new ComponentHitZone(vfd, keypadBtn, "VFD_KEYPAD", AllowedInDesignMode: true));
     }
 
-    private static void DrawPlcS71200(DrawingContext dc, PlcS71200Component plc, Rect body, CanvasThemeColors theme, double dpiScale, List<ComponentHitZone> hitZones)
+    private static void DrawPlcController(DrawingContext dc, PlcControllerComponent plc, Rect body, CanvasThemeColors theme, double dpiScale, List<ComponentHitZone> hitZones)
     {
-        // Thân vỏ công nghiệp xám đặc trưng Siemens SIMATIC S7-1200 (CPU 1214C DC/DC/DC)
+        // Thân vỏ công nghiệp xám đặc trưng của bộ điều khiển PLC (14 DI / 10 DQ / 2 AI)
         Rect outerCase = new(body.X + 2, body.Y + 2, body.Width - 4, body.Height - 4);
         dc.DrawRoundedRectangle(CreateVerticalGradient("#64748B", "#475569"), CreatePen("#94A3B8", 1.3), outerCase, 6, 6);
 
@@ -1549,11 +1549,11 @@ public static class ComponentRenderer
             dc.DrawEllipse(CreateSolid(on ? "#22C55E" : "#334155"), CreatePen(on ? "#DCFCE7" : "#475569", 0.7), lp, 3.0, 3.0);
         }
 
-        // Mặt giữa đặc trưng Siemens S7-1200
+        // Mặt giữa bộ điều khiển PLC
         Rect midFace = new(body.X + 8, topCover.Bottom + 5, body.Width - 16, botCover.Top - topCover.Bottom - 10);
         dc.DrawRoundedRectangle(CreateVerticalGradient("#0F172A", "#1E293B"), CreatePen("#334155", 1.1), midFace, 5, 5);
 
-        // Thanh thương hiệu xanh ngọc đặc trưng Siemens
+        // Thanh màu xanh ngọc nhận diện PLC
         dc.DrawRoundedRectangle(CreateSolid("#009999"), null, new Rect(midFace.X + 8, midFace.Y + 7, midFace.Width - 16, 4), 2, 2);
 
         // Khu vực 3 đèn LED hệ thống: RUN/STOP, ERROR, MAINT (bên trái mặt giữa)
@@ -1583,10 +1583,10 @@ public static class ComponentRenderer
         DrawPlcStatusLedRow(dc, new Point(statusBox.X + 14, statusBox.Y + 38), errHex, errLit, "ERROR", dpiScale);
         DrawPlcStatusLedRow(dc, new Point(statusBox.X + 14, statusBox.Y + 60), maintHex, maintLit, "MAINT", dpiScale);
 
-        // Nhãn SIEMENS SIMATIC S7-1200 CPU 1214C DC/DC/DC ở trung tâm
+        // Nhãn PLC trung lập ở trung tâm
         double centerX = statusBox.Right + 14;
-        dc.DrawText(FormatText("SIEMENS", 10.5, BoldTypeface, CreateSolid("#2DD4BF"), dpiScale), new Point(centerX, midFace.Y + 17));
-        dc.DrawText(FormatText("SIMATIC S7-1200  •  CPU 1214C DC/DC/DC", 8.8, BoldTypeface, CreateSolid("#E2E8F0"), dpiScale), new Point(centerX, midFace.Y + 33));
+        dc.DrawText(FormatText("PLC", 11.5, BoldTypeface, CreateSolid("#2DD4BF"), dpiScale), new Point(centerX, midFace.Y + 16));
+        dc.DrawText(FormatText("PLC  •  14 DI / 10 DQ / 2 AI  (DC/DC/DC)", 8.5, BoldTypeface, CreateSolid("#E2E8F0"), dpiScale), new Point(centerX, midFace.Y + 33));
         string pwrInfo = plc.IsPowered
             ? $"24VDC OK  •  DI: {plc.Runtime.Di.Count(x => x)}/14  •  DQ: {plc.Runtime.Dq.Count(x => x)}/10"
             : "24VDC OFF  •  14 DI / 10 DQ / 2 AI";

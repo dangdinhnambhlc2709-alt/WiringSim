@@ -7,7 +7,7 @@ using WiringSim.UI.Services;
 namespace WiringSim.UI.Dialogs;
 
 /// <summary>
-/// Cửa sổ nổi tự do cho Trình lập trình PLC Siemens S7-1200 (Ladder OB1 &amp; Tag Table):
+/// Cửa sổ nổi tự do cho Trình lập trình PLC (Ladder OB1 &amp; PLC Tags):
 /// - Hỗ trợ kéo di chuyển sang mọi màn hình, kéo giãn 4 cạnh/góc (MinWidth 680 x MinHeight 460).
 /// - Đủ 3 nút điều khiển cửa sổ: Minimize (xuống Taskbar), Maximize/Restore (chuẩn WM_GETMINMAXINFO), Close (ẩn cửa sổ giữ nguyên chương trình).
 /// </summary>
@@ -29,7 +29,7 @@ public partial class PlcLadderWindow : Window
         UpdateWindowHeaderText();
     }
 
-    public void BindAndPresent(PlcS71200Component? plc, bool openTagTable, bool isSimulating)
+    public void BindAndPresent(PlcControllerComponent? plc, bool openTagTable, bool isSimulating)
     {
         LadderEditor.BindPlc(plc, openTagTable);
         LadderEditor.SetSimulationMode(isSimulating);

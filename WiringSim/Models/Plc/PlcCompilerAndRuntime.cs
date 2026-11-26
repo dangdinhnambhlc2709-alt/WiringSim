@@ -8,7 +8,9 @@ namespace WiringSim.Models.Plc;
 public sealed class PlcTimerDbState
 {
     public double ElapsedSeconds { get; set; }
+    public double PresetSeconds { get; set; }
     public double PresetOverrideSeconds { get; set; } = -1.0;
+    public bool In { get; set; }
     public bool Q { get; set; }
     public bool PrevIn { get; set; }
     public bool PulseActive { get; set; }
@@ -17,6 +19,11 @@ public sealed class PlcTimerDbState
 public sealed class PlcCounterDbState
 {
     public int Cv { get; set; }
+    public int Pv { get; set; }
+    public bool Cu { get; set; }
+    public bool Cd { get; set; }
+    public bool R { get; set; }
+    public bool Ld { get; set; }
     public bool Qu { get; set; }
     public bool Qd { get; set; }
     public bool PrevCu { get; set; }
@@ -24,8 +31,8 @@ public sealed class PlcCounterDbState
 }
 
 /// <summary>
-/// Bộ biên dịch chương trình Ladder chuẩn S7-1200 cho đầy đủ 10 nhóm lệnh TIA Portal:
-/// - Kiểm tra nhánh hở, địa chỉ bit/word/real (%I, %Q, %M, %MW, %MD, %IW, %QW, %DB), PT/PV, trùng %DB.
+/// Bộ biên dịch chương trình Ladder chuẩn TIA Portal cho đầy đủ 10 nhóm lệnh PLC:
+/// - Kiểm tra nhánh hở, địa chỉ bit/byte/word/real (%I, %Q, %M, %MB, %MW, %MD, %IW, %QW, %DB), ký hiệu Tag &amp; thuộc tính DB ("TD11".Q), PT/PV, trùng %DB, &lt;???&gt;.
 /// - Kiểm tra Empty box chưa gán tên lệnh.
 /// - Kiểm tra đích nhảy -(JMP)/-(JMPN)/JMP_LIST/SWITCH tới LABEL không tồn tại hoặc tạo vòng lặp nhảy vô hạn.
 /// </summary>
@@ -34,10 +41,10 @@ public static partial class PlcProgramCompiler
     [GeneratedRegex(@"^%?(?<area>I|Q|M)(?<byte>\d+)\.(?<bit>[0-7])$", RegexOptions.IgnoreCase)]
     private static partial Regex BitAddrRegex();
 
-    [GeneratedRegex(@"^%?(?<area>IW|QW|MW|MD)(?<offset>\d+)$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^%?(?<area>IB|QB|MB|IW|QW|MW|ID|QD|MD)(?<offset>\d+)$", RegexOptions.IgnoreCase)]
     private static partial Regex NumericAddrRegex();
 
-    [GeneratedRegex(@"^%?DB(?<num>\d+)(?:\.(?<field>Q|QU|QD|ET|CV))?$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^%?DB(?<num>\d+)(?:\.(?<field>IN|Q|PT|ET|CU|CD|R|LD|QU|QD|PV|CV))?$", RegexOptions.IgnoreCase)]
     private static partial Regex DbAddrRegex();
 
     [GeneratedRegex(@"^T#(?:(?<h>\d+(?:\.\d+)?)H)?(?:(?<m>\d+(?:\.\d+)?)M(?!S))?(?:(?<s>\d+(?:\.\d+)?)S)?(?:(?<ms>\d+(?:\.\d+)?)MS)?$", RegexOptions.IgnoreCase)]
@@ -64,7 +71,7 @@ public static partial class PlcProgramCompiler
         return total >= 0.0;
     }
 
-    public static bool IsValidBitAddress(string? raw, bool allowInputsAndDb, out string errorReason)
+    public static bool IsValidBitAddress(string? raw, bool allowInputsAndDb, out string errorReason, PlcProgramModel? program = null)
     {
         errorReason = string.Empty;
         if (string.IsNullOrWhiteSpace(raw))
@@ -73,7 +80,8 @@ public static partial class PlcProgramCompiler
             return false;
         }
 
-        string s = raw.Trim().ToUpperInvariant();
+        string resolved = program is not null ? program.ResolveAddressForRuntime(raw) : raw.Trim();
+        string s = resolved.Trim().ToUpperInvariant();
         var dbMatch = DbAddrRegex().Match(s);
         if (dbMatch.Success)
         {
@@ -83,7 +91,7 @@ public static partial class PlcProgramCompiler
                 return false;
             }
             string field = dbMatch.Groups["field"].Value.ToUpperInvariant();
-            if (field is "Q" or "QU" or "QD") return true;
+            if (field is "Q" or "IN" or "QU" or "QD" or "CU" or "CD" or "R" or "LD") return true;
             errorReason = LocalizationManager.Format("Str.Plc.ErrInvalidAddr", raw);
             return false;
         }
@@ -127,7 +135,7 @@ public static partial class PlcProgramCompiler
         }
     }
 
-    public static bool IsValidNumericOrAddress(string? raw, bool mustBeWritable, out string errorReason)
+    public static bool IsValidNumericOrAddress(string? raw, bool mustBeWritable, out string errorReason, PlcProgramModel? program = null)
     {
         errorReason = string.Empty;
         if (string.IsNullOrWhiteSpace(raw))
@@ -136,7 +144,8 @@ public static partial class PlcProgramCompiler
             return false;
         }
 
-        string s = raw.Trim().ToUpperInvariant();
+        string resolved = program is not null ? program.ResolveAddressForRuntime(raw) : raw.Trim();
+        string s = resolved.Trim().ToUpperInvariant();
         if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
         {
             if (mustBeWritable)
@@ -151,7 +160,7 @@ public static partial class PlcProgramCompiler
         if (dbMatch.Success)
         {
             string field = dbMatch.Groups["field"].Value.ToUpperInvariant();
-            if (!mustBeWritable && field is "CV" or "ET") return true;
+            if (!mustBeWritable && field is "CV" or "PV" or "ET" or "PT") return true;
             errorReason = LocalizationManager.Format("Str.Plc.ErrInvalidWordAddr", raw);
             return false;
         }
@@ -168,6 +177,13 @@ public static partial class PlcProgramCompiler
 
         return area switch
         {
+            "IB" when mustBeWritable => Fail(LocalizationManager.Format("Str.Plc.ErrTargetMustBeWord", raw), out errorReason),
+            "IB" when offset <= 1 => true,
+            "IB" => Fail(LocalizationManager.Format("Str.Plc.ErrAddrOutOfRange", raw, "%IB0–%IB1"), out errorReason),
+            "QB" when offset <= 1 => true,
+            "QB" => Fail(LocalizationManager.Format("Str.Plc.ErrAddrOutOfRange", raw, "%QB0–%QB1"), out errorReason),
+            "MB" when offset <= 199 => true,
+            "MB" => Fail(LocalizationManager.Format("Str.Plc.ErrAddrOutOfRange", raw, "%MB0–%MB199"), out errorReason),
             "IW" when mustBeWritable => Fail(LocalizationManager.Format("Str.Plc.ErrTargetMustBeWord", raw), out errorReason),
             "IW" when offset is 64 or 66 => true,
             "IW" => Fail(LocalizationManager.Format("Str.Plc.ErrAddrOutOfRange", raw, "%IW64, %IW66"), out errorReason),
@@ -175,6 +191,11 @@ public static partial class PlcProgramCompiler
             "MW" => Fail(LocalizationManager.Format("Str.Plc.ErrAddrOutOfRange", raw, "%MW0–%MW198"), out errorReason),
             "MD" when offset <= 196 => true,
             "MD" => Fail(LocalizationManager.Format("Str.Plc.ErrAddrOutOfRange", raw, "%MD0–%MD196"), out errorReason),
+            "ID" when mustBeWritable => Fail(LocalizationManager.Format("Str.Plc.ErrTargetMustBeWord", raw), out errorReason),
+            "ID" when offset <= 68 => true,
+            "ID" => Fail(LocalizationManager.Format("Str.Plc.ErrAddrOutOfRange", raw, "%ID0–%ID68"), out errorReason),
+            "QD" when offset <= 16 => true,
+            "QD" => Fail(LocalizationManager.Format("Str.Plc.ErrAddrOutOfRange", raw, "%QD0–%QD16"), out errorReason),
             "QW" when offset <= 16 => true,
             "QW" => Fail(LocalizationManager.Format("Str.Plc.ErrAddrOutOfRange", raw, "%QW0–%QW16"), out errorReason),
             _ => Fail(LocalizationManager.Format("Str.Plc.ErrInvalidWordAddr", raw), out errorReason)
@@ -187,7 +208,7 @@ public static partial class PlcProgramCompiler
         return false;
     }
 
-    public static bool IsValidDbInstanceAddress(string? raw, out string normalizedDb, out string errorReason)
+    public static bool IsValidDbInstanceAddress(string? raw, out string normalizedDb, out string errorReason, PlcProgramModel? program = null)
     {
         normalizedDb = string.Empty;
         errorReason = string.Empty;
@@ -197,7 +218,8 @@ public static partial class PlcProgramCompiler
             return false;
         }
 
-        var m = DbAddrRegex().Match(raw.Trim());
+        string resolved = program is not null ? program.ResolveAddressForRuntime(raw) : raw.Trim();
+        var m = DbAddrRegex().Match(resolved.Trim());
         if (!m.Success || m.Groups["field"].Success)
         {
             errorReason = LocalizationManager.Format("Str.Plc.ErrInvalidDb", raw);
@@ -244,7 +266,7 @@ public static partial class PlcProgramCompiler
                 continue;
             }
 
-            bool hasOutputOrLabel = ValidateBranch(net.MainBranch, netNum, hasConditionBefore: false, seenDbs, definedLabels, result);
+            bool hasOutputOrLabel = ValidateBranch(program, net.MainBranch, netNum, hasConditionBefore: false, seenDbs, definedLabels, result);
             if (!hasOutputOrLabel)
             {
                 result.Diagnostics.Add(new PlcDiagnostic(true, netNum, net.MainBranch.Nodes[^1].Id,
@@ -271,6 +293,7 @@ public static partial class PlcProgramCompiler
     }
 
     private static bool ValidateBranch(
+        PlcProgramModel program,
         LadderBranch branch,
         int netNum,
         bool hasConditionBefore,
@@ -303,7 +326,7 @@ public static partial class PlcProgramCompiler
                         allSubsHaveOutput = false;
                         continue;
                     }
-                    bool subOut = ValidateBranch(sub, netNum, condSeen, seenDbs, definedLabels, result);
+                    bool subOut = ValidateBranch(program, sub, netNum, condSeen, seenDbs, definedLabels, result);
                     if (subOut) anySubHasOutput = true;
                     else allSubsHaveOutput = false;
                 }
@@ -330,13 +353,14 @@ public static partial class PlcProgramCompiler
             else
                 condSeen = true;
 
-            ValidateSingleNode(node, netNum, condSeen, seenDbs, definedLabels, result);
+            ValidateSingleNode(program, node, netNum, condSeen, seenDbs, definedLabels, result);
         }
 
         return hasAnyOutput;
     }
 
     private static void ValidateSingleNode(
+        PlcProgramModel program,
         LadderNode node,
         int netNum,
         bool hasConditionBefore,
@@ -350,7 +374,7 @@ public static partial class PlcProgramCompiler
         {
             case LadderElementKind.ContactNO:
             case LadderElementKind.ContactNC:
-                if (!IsValidBitAddress(node.Address, allowInputsAndDb: true, out string cErr)) Err($"NW{netNum}: {cErr}");
+                if (!IsValidBitAddress(node.Address, allowInputsAndDb: true, out string cErr, program)) Err($"NW{netNum}: {cErr}");
                 break;
 
             case LadderElementKind.InvertRLO:
@@ -365,35 +389,35 @@ public static partial class PlcProgramCompiler
             case LadderElementKind.CoilReset:
             case LadderElementKind.PTrig:
             case LadderElementKind.NTrig:
-                if (!IsValidBitAddress(node.Address, allowInputsAndDb: false, out string qErr)) Err($"NW{netNum}: {qErr}");
+                if (!IsValidBitAddress(node.Address, allowInputsAndDb: false, out string qErr, program)) Err($"NW{netNum}: {qErr}");
                 break;
 
             case LadderElementKind.EdgePositive:
             case LadderElementKind.EdgeNegative:
             case LadderElementKind.CoilEdgePositive:
             case LadderElementKind.CoilEdgeNegative:
-                if (!IsValidBitAddress(node.Address, allowInputsAndDb: node.Kind is LadderElementKind.EdgePositive or LadderElementKind.EdgeNegative, out string eErr))
+                if (!IsValidBitAddress(node.Address, allowInputsAndDb: node.Kind is LadderElementKind.EdgePositive or LadderElementKind.EdgeNegative, out string eErr, program))
                     Err($"NW{netNum}: {eErr}");
-                if (!string.IsNullOrWhiteSpace(node.Param1) && !IsValidBitAddress(node.Param1, allowInputsAndDb: false, out string mErr))
+                if (!string.IsNullOrWhiteSpace(node.Param1) && !IsValidBitAddress(node.Param1, allowInputsAndDb: false, out string mErr, program))
                     Err($"NW{netNum} (M-Bit): {mErr}");
                 break;
 
             case LadderElementKind.SetBitField:
             case LadderElementKind.ResetBitField:
-                if (!IsValidBitAddress(node.Address, allowInputsAndDb: false, out string bfErr)) Err($"NW{netNum}: {bfErr}");
-                if (!IsValidNumericOrAddress(node.Param1, false, out string nErr)) Err($"NW{netNum} (N): {nErr}");
+                if (!IsValidBitAddress(node.Address, allowInputsAndDb: false, out string bfErr, program)) Err($"NW{netNum}: {bfErr}");
+                if (!IsValidNumericOrAddress(node.Param1, false, out string nErr, program)) Err($"NW{netNum} (N): {nErr}");
                 break;
 
             case LadderElementKind.FlipFlopSR:
             case LadderElementKind.FlipFlopRS:
-                if (!IsValidBitAddress(node.Address, allowInputsAndDb: false, out string ffErr)) Err($"NW{netNum} (Q): {ffErr}");
-                if (!string.IsNullOrWhiteSpace(node.Param1) && !IsValidBitAddress(node.Param1, allowInputsAndDb: true, out string ff2Err))
+                if (!IsValidBitAddress(node.Address, allowInputsAndDb: false, out string ffErr, program)) Err($"NW{netNum} (Q): {ffErr}");
+                if (!string.IsNullOrWhiteSpace(node.Param1) && !IsValidBitAddress(node.Param1, allowInputsAndDb: true, out string ff2Err, program))
                     Err($"NW{netNum} (R1/S1): {ff2Err}");
                 break;
 
             case LadderElementKind.RTrig:
             case LadderElementKind.FTrig:
-                CheckDbUnique(node.Address, netNum, seenDbs, Err);
+                CheckDbUnique(program, node.Address, netNum, seenDbs, Err);
                 break;
 
             case LadderElementKind.TimerTP:
@@ -404,33 +428,33 @@ public static partial class PlcProgramCompiler
             case LadderElementKind.CoilTON:
             case LadderElementKind.CoilTOF:
             case LadderElementKind.CoilTONR:
-                CheckDbUnique(node.Address, netNum, seenDbs, Err);
+                CheckDbUnique(program, node.Address, netNum, seenDbs, Err);
                 if (!TryParseTimeSeconds(node.Param1, out _))
                     Err(LocalizationManager.Format("Str.Plc.ErrInvalidPt", netNum, node.Param1));
                 if (node.Kind == LadderElementKind.TimerTONR && !string.IsNullOrWhiteSpace(node.Param2) &&
-                    !IsValidBitAddress(node.Param2, true, out string rErr))
+                    !IsValidBitAddress(node.Param2, true, out string rErr, program))
                     Err($"NW{netNum} (R): {rErr}");
                 break;
 
             case LadderElementKind.CoilRT:
-                if (!IsValidDbInstanceAddress(node.Address, out _, out string rtErr)) Err($"NW{netNum}: {rtErr}");
+                if (!IsValidDbInstanceAddress(node.Address, out _, out string rtErr, program)) Err($"NW{netNum}: {rtErr}");
                 break;
 
             case LadderElementKind.CoilPT:
-                if (!IsValidDbInstanceAddress(node.Address, out _, out string ptDbErr)) Err($"NW{netNum}: {ptDbErr}");
+                if (!IsValidDbInstanceAddress(node.Address, out _, out string ptDbErr, program)) Err($"NW{netNum}: {ptDbErr}");
                 if (!TryParseTimeSeconds(node.Param1, out _)) Err(LocalizationManager.Format("Str.Plc.ErrInvalidPt", netNum, node.Param1));
                 break;
 
             case LadderElementKind.CounterCTU:
             case LadderElementKind.CounterCTD:
             case LadderElementKind.CounterCTUD:
-                CheckDbUnique(node.Address, netNum, seenDbs, Err);
-                if (!IsValidNumericOrAddress(node.Param1, false, out _))
+                CheckDbUnique(program, node.Address, netNum, seenDbs, Err);
+                if (!IsValidNumericOrAddress(node.Param1, false, out _, program))
                     Err(LocalizationManager.Format("Str.Plc.ErrInvalidPv", netNum, node.Param1));
-                if (!string.IsNullOrWhiteSpace(node.Param2) && !IsValidBitAddress(node.Param2, true, out string crErr))
+                if (!string.IsNullOrWhiteSpace(node.Param2) && !IsValidBitAddress(node.Param2, true, out string crErr, program))
                     Err($"NW{netNum} (R/LD): {crErr}");
                 if (node.Kind == LadderElementKind.CounterCTUD && !string.IsNullOrWhiteSpace(node.OutputAddress) &&
-                    !IsValidBitAddress(node.OutputAddress, true, out string cdErr))
+                    !IsValidBitAddress(node.OutputAddress, true, out string cdErr, program))
                     Err($"NW{netNum} (CD): {cdErr}");
                 break;
 
@@ -440,20 +464,20 @@ public static partial class PlcProgramCompiler
             case LadderElementKind.CmpLessOrEqual:
             case LadderElementKind.CmpGreater:
             case LadderElementKind.CmpLess:
-                if (!IsValidNumericOrAddress(node.Param1, false, out string c1Err)) Err($"NW{netNum} (IN1): {c1Err}");
-                if (!IsValidNumericOrAddress(node.Param2, false, out string c2Err)) Err($"NW{netNum} (IN2): {c2Err}");
+                if (!IsValidNumericOrAddress(node.Param1, false, out string c1Err, program)) Err($"NW{netNum} (IN1): {c1Err}");
+                if (!IsValidNumericOrAddress(node.Param2, false, out string c2Err, program)) Err($"NW{netNum} (IN2): {c2Err}");
                 break;
 
             case LadderElementKind.InRange:
             case LadderElementKind.OutRange:
-                if (!IsValidNumericOrAddress(node.Param1, false, out string vErr)) Err($"NW{netNum} (VAL): {vErr}");
-                if (!IsValidNumericOrAddress(node.Param2, false, out string mnErr)) Err($"NW{netNum} (MIN): {mnErr}");
-                if (!IsValidNumericOrAddress(node.ExtraParam, false, out string mxErr)) Err($"NW{netNum} (MAX): {mxErr}");
+                if (!IsValidNumericOrAddress(node.Param1, false, out string vErr, program)) Err($"NW{netNum} (VAL): {vErr}");
+                if (!IsValidNumericOrAddress(node.Param2, false, out string mnErr, program)) Err($"NW{netNum} (MIN): {mnErr}");
+                if (!IsValidNumericOrAddress(node.ExtraParam, false, out string mxErr, program)) Err($"NW{netNum} (MAX): {mxErr}");
                 break;
 
             case LadderElementKind.CheckOk:
             case LadderElementKind.CheckNotOk:
-                if (!IsValidNumericOrAddress(node.Address, false, out string okErr)) Err($"NW{netNum}: {okErr}");
+                if (!IsValidNumericOrAddress(node.Address, false, out string okErr, program)) Err($"NW{netNum}: {okErr}");
                 break;
 
             case LadderElementKind.Label:
@@ -474,7 +498,7 @@ public static partial class PlcProgramCompiler
                     Err(LocalizationManager.Format("Str.Plc.ErrEmptyLabel", netNum));
                 else
                     ValidateJumpTargets(lbls, netNum, isUnconditional: false, definedLabels, Err);
-                if (!IsValidNumericOrAddress(node.Param1, false, out string kErr)) Err($"NW{netNum} (K): {kErr}");
+                if (!IsValidNumericOrAddress(node.Param1, false, out string kErr, program)) Err($"NW{netNum} (K): {kErr}");
                 break;
             }
 
@@ -482,19 +506,19 @@ public static partial class PlcProgramCompiler
             case LadderElementKind.MathDec:
             case LadderElementKind.GetError:
             case LadderElementKind.GetErrId:
-                if (!IsValidNumericOrAddress(node.OutputAddress, true, out string ioErr)) Err($"NW{netNum} (OUT): {ioErr}");
+                if (!IsValidNumericOrAddress(node.OutputAddress, true, out string ioErr, program)) Err($"NW{netNum} (OUT): {ioErr}");
                 break;
 
             case LadderElementKind.Scatter:
             case LadderElementKind.ScatterBlk:
-                if (!IsValidNumericOrAddress(node.Param1, false, out string scInErr)) Err($"NW{netNum} (IN): {scInErr}");
-                if (!IsValidBitAddress(node.OutputAddress, false, out string scOutErr)) Err($"NW{netNum} (OUT): {scOutErr}");
+                if (!IsValidNumericOrAddress(node.Param1, false, out string scInErr, program)) Err($"NW{netNum} (IN): {scInErr}");
+                if (!IsValidBitAddress(node.OutputAddress, false, out string scOutErr, program)) Err($"NW{netNum} (OUT): {scOutErr}");
                 break;
 
             case LadderElementKind.Gather:
             case LadderElementKind.GatherBlk:
-                if (!IsValidBitAddress(node.Param1, true, out string gaInErr)) Err($"NW{netNum} (IN): {gaInErr}");
-                if (!IsValidNumericOrAddress(node.OutputAddress, true, out string gaOutErr)) Err($"NW{netNum} (OUT): {gaOutErr}");
+                if (!IsValidBitAddress(node.Param1, true, out string gaInErr, program)) Err($"NW{netNum} (IN): {gaInErr}");
+                if (!IsValidNumericOrAddress(node.OutputAddress, true, out string gaOutErr, program)) Err($"NW{netNum} (OUT): {gaOutErr}");
                 break;
 
             default:
@@ -502,22 +526,28 @@ public static partial class PlcProgramCompiler
                 var meta = PlcInstructionCatalog.Get(node.Kind);
                 if (meta is null || meta.GroupIndex == 4) break; // Variant comparators accept flexible names
                 if (meta.OutLabel is not null && node.Kind != LadderElementKind.WordDemux &&
-                    !IsValidNumericOrAddress(node.OutputAddress, true, out string oErr))
+                    !IsValidNumericOrAddress(node.OutputAddress, true, out string oErr, program))
                     Err($"NW{netNum} ({meta.OutLabel}): {oErr}");
                 if (meta.Param1Label is not null && node.Kind is not (LadderElementKind.VarEqTypeOfDb or LadderElementKind.VarNeTypeOfDb) &&
-                    !IsValidNumericOrAddress(node.Param1, false, out string p1Err))
+                    !IsValidNumericOrAddress(node.Param1, false, out string p1Err, program))
                     Err($"NW{netNum} ({meta.Param1Label}): {p1Err}");
                 if (meta.Param2Label is not null && node.Kind is not (LadderElementKind.Calculate or LadderElementKind.WordDemux) &&
-                    !IsValidNumericOrAddress(node.Param2, false, out string p2Err))
+                    !IsValidNumericOrAddress(node.Param2, false, out string p2Err, program))
                     Err($"NW{netNum} ({meta.Param2Label}): {p2Err}");
                 break;
             }
         }
     }
 
-    private static void CheckDbUnique(string? rawDb, int netNum, Dictionary<string, int> seenDbs, Action<string> onError)
+    private static void CheckDbUnique(PlcProgramModel program, string? rawDb, int netNum, Dictionary<string, int> seenDbs, Action<string> onError)
     {
-        if (!IsValidDbInstanceAddress(rawDb, out string dbNorm, out string dbErr))
+        if (string.Equals(rawDb?.Trim(), "<???>", StringComparison.Ordinal))
+        {
+            onError(LocalizationManager.Format("Str.Plc.ErrUnassignedDb", netNum));
+            return;
+        }
+
+        if (!IsValidDbInstanceAddress(rawDb, out string dbNorm, out string dbErr, program))
         {
             onError($"NW{netNum}: {dbErr}");
         }
@@ -563,8 +593,8 @@ public static partial class PlcProgramCompiler
 }
 
 /// <summary>
-/// Động cơ thực thi vòng quét PLC S7-1200 (50ms) hỗ trợ trọn vẹn 10 nhóm hàm/lệnh TIA Portal:
-/// - Vùng nhớ Bit (%I, %Q, %M), Word (%MW, %IW, %QW), Real/DWord (%MD), DataBlock (%DB).
+/// Động cơ thực thi vòng quét PLC (50ms) hỗ trợ trọn vẹn 10 nhóm hàm/lệnh chuẩn TIA Portal:
+/// - Vùng nhớ Bit (%I, %Q, %M), Byte (%MB, %IB, %QB), Word (%MW, %IW, %QW), Real/DWord (%MD), DataBlock (%DB) &amp; truy xuất thành phần DB ("TD11".Q).
 /// - Online Monitoring thời gian thực + bảo vệ chống treo vòng lặp nhảy tối đa 64 bước/vòng quét.
 /// </summary>
 public sealed class PlcRuntimeEngine
@@ -573,6 +603,7 @@ public sealed class PlcRuntimeEngine
     public bool[] Dq { get; } = new bool[10];
     public int[] Ai { get; } = new int[2];
     public bool[] MemoryBits { get; } = new bool[800]; // %M0.0 .. %M99.7
+    public Dictionary<int, byte> MemoryBytes { get; } = new();
     public Dictionary<int, int> MemoryWords { get; } = new();
     public Dictionary<int, double> MemoryReals { get; } = new(); // %MD0 .. %MD196
     public Dictionary<int, int> OutputWords { get; } = new();
@@ -590,6 +621,7 @@ public sealed class PlcRuntimeEngine
     public Dictionary<string, bool> LiveNodePowerOut { get; } = new();
     public Dictionary<string, string> LiveNodeStatusText { get; } = new();
 
+    private PlcProgramModel? _activeProgram;
     private string? _pendingJumpLabel;
     private bool _returnRequested;
 
@@ -599,6 +631,7 @@ public sealed class PlcRuntimeEngine
         Array.Clear(Dq);
         Array.Clear(Ai);
         Array.Clear(MemoryBits);
+        MemoryBytes.Clear();
         MemoryWords.Clear();
         MemoryReals.Clear();
         OutputWords.Clear();
@@ -625,6 +658,7 @@ public sealed class PlcRuntimeEngine
 
     public void ExecuteScanCycle(PlcProgramModel program, double deltaSeconds)
     {
+        _activeProgram = program;
         ClearLiveOverlay();
         double dt = Math.Clamp(deltaSeconds, 0.0, 0.25);
         LastCycleSeconds = dt > 0 ? dt : 0.05;
@@ -1491,12 +1525,15 @@ public sealed class PlcRuntimeEngine
 
     private bool EvaluateTimer(LadderNode node, bool powerIn, double dt)
     {
-        string dbKey = PlcProgramModel.NormalizeAddress(node.Address);
+        string dbKey = ResolveRuntimeAddress(node.Address);
+        if (string.IsNullOrWhiteSpace(dbKey) || dbKey == "<???>") return false;
         if (!TimerDbs.TryGetValue(dbKey, out var st))
             TimerDbs[dbKey] = st = new PlcTimerDbState();
 
         PlcProgramCompiler.TryParseTimeSeconds(node.Param1, out double ptSec);
         if (st.PresetOverrideSeconds >= 0) ptSec = st.PresetOverrideSeconds;
+        st.In = powerIn;
+        st.PresetSeconds = ptSec;
 
         switch (node.Kind)
         {
@@ -1574,17 +1611,21 @@ public sealed class PlcRuntimeEngine
 
     private bool EvaluateCounter(LadderNode node, bool powerIn)
     {
-        string dbKey = PlcProgramModel.NormalizeAddress(node.Address);
+        string dbKey = ResolveRuntimeAddress(node.Address);
+        if (string.IsNullOrWhiteSpace(dbKey) || dbKey == "<???>") return false;
         if (!CounterDbs.TryGetValue(dbKey, out var st))
             CounterDbs[dbKey] = st = new PlcCounterDbState();
 
         int pv = (int)Math.Round(ReadNumber(node.Param1));
+        st.Pv = pv;
+        st.Cu = powerIn;
 
         switch (node.Kind)
         {
             case LadderElementKind.CounterCTU:
             {
                 bool r = !string.IsNullOrWhiteSpace(node.Param2) && ReadBit(node.Param2);
+                st.R = r;
                 if (r) st.Cv = 0;
                 else if (powerIn && !st.PrevCu) st.Cv++;
                 st.PrevCu = powerIn;
@@ -1596,6 +1637,8 @@ public sealed class PlcRuntimeEngine
             case LadderElementKind.CounterCTD:
             {
                 bool ld = !string.IsNullOrWhiteSpace(node.Param2) && ReadBit(node.Param2);
+                st.Ld = ld;
+                st.Cd = powerIn;
                 if (ld) st.Cv = pv;
                 else if (powerIn && !st.PrevCd) st.Cv--;
                 st.PrevCd = powerIn;
@@ -1609,6 +1652,9 @@ public sealed class PlcRuntimeEngine
                 bool r = !string.IsNullOrWhiteSpace(node.Param2) && ReadBit(node.Param2);
                 bool cd = !string.IsNullOrWhiteSpace(node.OutputAddress) && ReadBit(node.OutputAddress);
                 bool ld = !string.IsNullOrWhiteSpace(node.ExtraParam) && ReadBit(node.ExtraParam);
+                st.R = r;
+                st.Cd = cd;
+                st.Ld = ld;
                 if (r) st.Cv = 0;
                 else if (ld) st.Cv = pv;
                 else
@@ -1691,22 +1737,41 @@ public sealed class PlcRuntimeEngine
         return pos > start && double.TryParse(s[start..pos], NumberStyles.Float, CultureInfo.InvariantCulture, out val);
     }
 
-    // --- Đọc / Ghi Bộ nhớ Bit, Word (%MW/%IW/%QW) & Real (%MD) ---
+    private string ResolveRuntimeAddress(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+        return _activeProgram is not null
+            ? _activeProgram.ResolveAddressForRuntime(raw)
+            : PlcProgramModel.NormalizeAddress(raw);
+    }
+
+    // --- Đọc / Ghi Bộ nhớ Bit, Byte (%MB/%IB/%QB), Word (%MW/%IW/%QW), Real (%MD) & Thuộc tính DB ---
     public bool ReadBit(string? address)
     {
         if (string.IsNullOrWhiteSpace(address)) return false;
-        string s = PlcProgramModel.NormalizeAddress(address);
+        string s = ResolveRuntimeAddress(address).ToUpperInvariant();
 
-        if (s.StartsWith("%DB"))
+        if (s.StartsWith("%DB", StringComparison.Ordinal))
         {
             int dot = s.IndexOf('.');
             if (dot > 3)
             {
                 string dbKey = s[..dot];
                 string field = s[(dot + 1)..];
-                if (field == "Q" && TimerDbs.TryGetValue(dbKey, out var t)) return t.Q;
-                if (field is "Q" or "QU" && CounterDbs.TryGetValue(dbKey, out var cu)) return cu.Qu;
-                if (field == "QD" && CounterDbs.TryGetValue(dbKey, out var cd)) return cd.Qd;
+                if (TimerDbs.TryGetValue(dbKey, out var t))
+                {
+                    if (field == "Q") return t.Q;
+                    if (field == "IN") return t.In;
+                }
+                if (CounterDbs.TryGetValue(dbKey, out var c))
+                {
+                    if (field is "Q" or "QU") return c.Qu;
+                    if (field == "QD") return c.Qd;
+                    if (field == "CU") return c.Cu;
+                    if (field == "CD") return c.Cd;
+                    if (field == "R") return c.R;
+                    if (field == "LD") return c.Ld;
+                }
             }
             return false;
         }
@@ -1718,7 +1783,7 @@ public sealed class PlcRuntimeEngine
     public void WriteBit(string? address, bool value)
     {
         if (string.IsNullOrWhiteSpace(address)) return;
-        string s = PlcProgramModel.NormalizeAddress(address);
+        string s = ResolveRuntimeAddress(address).ToUpperInvariant();
         if (!TryParseBitOffset(s, out char area, out int linearBit)) return;
         WriteBitLinear(area, linearBit, value);
     }
@@ -1746,8 +1811,8 @@ public sealed class PlcRuntimeEngine
         if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out double lit))
             return lit;
 
-        s = PlcProgramModel.NormalizeAddress(s);
-        if (s.StartsWith("%DB"))
+        s = ResolveRuntimeAddress(raw).ToUpperInvariant();
+        if (s.StartsWith("%DB", StringComparison.Ordinal))
         {
             int dot = s.IndexOf('.');
             if (dot > 3)
@@ -1755,21 +1820,41 @@ public sealed class PlcRuntimeEngine
                 string dbKey = s[..dot];
                 string field = s[(dot + 1)..];
                 if (field == "CV" && CounterDbs.TryGetValue(dbKey, out var c)) return c.Cv;
+                if (field == "PV" && CounterDbs.TryGetValue(dbKey, out var cp)) return cp.Pv;
                 if (field == "ET" && TimerDbs.TryGetValue(dbKey, out var t)) return Math.Round(t.ElapsedSeconds * 1000.0);
+                if (field == "PT" && TimerDbs.TryGetValue(dbKey, out var tp)) return Math.Round(tp.PresetSeconds * 1000.0);
             }
             return 0.0;
         }
 
-        if (s.StartsWith("%IW") && int.TryParse(s[3..], out int iwOff))
+        if (s.StartsWith("%IB", StringComparison.Ordinal) && int.TryParse(s[3..], out int ibOff))
+            return ReadPackedByte('I', ibOff);
+        if (s.StartsWith("%QB", StringComparison.Ordinal) && int.TryParse(s[3..], out int qbOff))
+            return ReadPackedByte('Q', qbOff);
+        if (s.StartsWith("%MB", StringComparison.Ordinal) && int.TryParse(s[3..], out int mbOff))
+            return MemoryBytes.TryGetValue(mbOff, out byte bVal) ? bVal : ReadPackedByte('M', mbOff);
+
+        if (s.StartsWith("%IW", StringComparison.Ordinal) && int.TryParse(s[3..], out int iwOff))
             return iwOff == 64 ? Ai[0] : (iwOff == 66 ? Ai[1] : 0);
-        if (s.StartsWith("%MW") && int.TryParse(s[3..], out int mwOff))
+        if (s.StartsWith("%MW", StringComparison.Ordinal) && int.TryParse(s[3..], out int mwOff))
             return MemoryWords.GetValueOrDefault(mwOff, 0);
-        if (s.StartsWith("%MD") && int.TryParse(s[3..], out int mdOff))
+        if (s.StartsWith("%MD", StringComparison.Ordinal) && int.TryParse(s[3..], out int mdOff))
             return MemoryReals.GetValueOrDefault(mdOff, 0.0);
-        if (s.StartsWith("%QW") && int.TryParse(s[3..], out int qwOff))
+        if (s.StartsWith("%QW", StringComparison.Ordinal) && int.TryParse(s[3..], out int qwOff))
             return OutputWords.GetValueOrDefault(qwOff, 0);
 
         return 0.0;
+    }
+
+    private byte ReadPackedByte(char area, int byteOffset)
+    {
+        byte val = 0;
+        for (int b = 0; b < 8; b++)
+        {
+            if (ReadBitLinear(area, byteOffset * 8 + b))
+                val |= (byte)(1 << b);
+        }
+        return val;
     }
 
     public void WriteWord(string? raw, int value) => WriteNumber(raw, value);
@@ -1777,27 +1862,39 @@ public sealed class PlcRuntimeEngine
     public void WriteNumber(string? raw, double value)
     {
         if (string.IsNullOrWhiteSpace(raw)) return;
-        string s = PlcProgramModel.NormalizeAddress(raw);
-        if (s.StartsWith("%MW") && int.TryParse(s[3..], out int mwOff))
+        string s = ResolveRuntimeAddress(raw).ToUpperInvariant();
+        if (s.StartsWith("%MB", StringComparison.Ordinal) && int.TryParse(s[3..], out int mbOff))
+        {
+            byte bv = (byte)Math.Clamp((int)Math.Round(value), 0, 255);
+            MemoryBytes[mbOff] = bv;
+            for (int b = 0; b < 8; b++) WriteBitLinear('M', mbOff * 8 + b, ((bv >> b) & 1) != 0);
+        }
+        else if (s.StartsWith("%QB", StringComparison.Ordinal) && int.TryParse(s[3..], out int qbOff))
+        {
+            byte bv = (byte)Math.Clamp((int)Math.Round(value), 0, 255);
+            for (int b = 0; b < 8; b++) WriteBitLinear('Q', qbOff * 8 + b, ((bv >> b) & 1) != 0);
+        }
+        else if (s.StartsWith("%MW", StringComparison.Ordinal) && int.TryParse(s[3..], out int mwOff))
             MemoryWords[mwOff] = (int)Math.Round(value);
-        else if (s.StartsWith("%MD") && int.TryParse(s[3..], out int mdOff))
+        else if (s.StartsWith("%MD", StringComparison.Ordinal) && int.TryParse(s[3..], out int mdOff))
             MemoryReals[mdOff] = value;
-        else if (s.StartsWith("%QW") && int.TryParse(s[3..], out int qwOff))
+        else if (s.StartsWith("%QW", StringComparison.Ordinal) && int.TryParse(s[3..], out int qwOff))
             OutputWords[qwOff] = (int)Math.Round(value);
     }
 
     public string FormatLiveValueForAddress(string? address)
     {
         if (string.IsNullOrWhiteSpace(address)) return "-";
-        string s = PlcProgramModel.NormalizeAddress(address);
-        if (s.StartsWith("%DB") && !s.Contains('.'))
+        string s = ResolveRuntimeAddress(address).ToUpperInvariant();
+        if (s.StartsWith("%DB", StringComparison.Ordinal) && !s.Contains('.'))
         {
             if (TimerDbs.TryGetValue(s, out var t)) return $"Q={(t.Q ? "1" : "0")}, ET={FormatElapsedTime(t.ElapsedSeconds)}";
             if (CounterDbs.TryGetValue(s, out var c)) return $"CV={c.Cv}, Q={(c.Qu ? "1" : "0")}";
             return "Idle";
         }
-        if (s.StartsWith("%MD")) return FmtNum(ReadNumber(s));
-        if (s.StartsWith("%MW") || s.StartsWith("%IW") || s.StartsWith("%QW"))
+        if (s.StartsWith("%MD", StringComparison.Ordinal)) return FmtNum(ReadNumber(s));
+        if (s.StartsWith("%MB", StringComparison.Ordinal) || s.StartsWith("%IB", StringComparison.Ordinal) || s.StartsWith("%QB", StringComparison.Ordinal) ||
+            s.StartsWith("%MW", StringComparison.Ordinal) || s.StartsWith("%IW", StringComparison.Ordinal) || s.StartsWith("%QW", StringComparison.Ordinal))
             return ReadWordOrConstant(s).ToString(CultureInfo.InvariantCulture);
 
         return ReadBit(s) ? "TRUE (1)" : "FALSE (0)";

@@ -938,10 +938,10 @@ public sealed class CircuitSimulationEngine
             shortedTwoWire.DamageByNoLoadShort(LocalizationManager.Get("Str.Fault.TwoWireNoLoadShort"));
         }
 
-        PlcS71200Component? faultedPlc = null;
-        if (srcA.Terminal.Owner is PlcS71200Component plcA && srcA.Terminal.Id.StartsWith('Q'))
+        PlcControllerComponent? faultedPlc = null;
+        if (srcA.Terminal.Owner is PlcControllerComponent plcA && srcA.Terminal.Id.StartsWith('Q'))
             faultedPlc = plcA;
-        else if (srcB.Terminal.Owner is PlcS71200Component plcB && srcB.Terminal.Id.StartsWith('Q'))
+        else if (srcB.Terminal.Owner is PlcControllerComponent plcB && srcB.Terminal.Id.StartsWith('Q'))
             faultedPlc = plcB;
 
         if (faultedPlc is not null)

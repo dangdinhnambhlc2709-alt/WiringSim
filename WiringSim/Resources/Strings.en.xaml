@@ -518,10 +518,10 @@
     <sys:String x:Key="Str.Preset4.Name">4. Intermediate Relay Control via 2-Wire AC 220V Proximity Sensor</sys:String>
     <sys:String x:Key="Str.Preset4.Guide">Switch to [▶ Simulate] → Click the 2-wire AC sensor (B1): current flows in series L → BN → BU → Relay K1 coil (~3.5V drop, Voltmeter reads ~216.5V) energizing K1 and lighting H1!</sys:String>
 
-    <!-- v1.3: Siemens S7-1200 PLC (CPU 1214C) & TIA Portal Ladder Editor -->
+    <!-- v1.3: PLC & TIA Portal Ladder Editor -->
     <sys:String x:Key="Str.Cat.Programmable">7. PROGRAMMABLE CONTROL (PLC)</sys:String>
-    <sys:String x:Key="Str.Comp.PlcS71200.Title">PLC S7-1200 (CPU 1214C)</sys:String>
-    <sys:String x:Key="Str.Comp.PlcS71200.Sub">14 DI • 10 DQ • 2 AI • Ladder OB1</sys:String>
+    <sys:String x:Key="Str.Comp.Plc.Title">PLC (14 DI / 10 DQ / 2 AI)</sys:String>
+    <sys:String x:Key="Str.Comp.Plc.Sub">14 DI • 10 DQ • 2 AI • Ladder OB1</sys:String>
     <sys:String x:Key="Str.Vis.PlcOpenLadder">Open Ladder Editor</sys:String>
     <sys:String x:Key="Str.Toolbar.PlcLadder">Ladder Editor</sys:String>
     <sys:String x:Key="Str.Toolbar.PlcLadderTip">Show / Hide PLC Ladder Editor Panel (TIA Portal Style)</sys:String>
@@ -531,7 +531,7 @@
     <sys:String x:Key="Str.Menu.PlcRun">▶ Switch CPU to RUN</sys:String>
     <sys:String x:Key="Str.Menu.PlcStop">⏹ Switch CPU to STOP</sys:String>
 
-    <sys:String x:Key="Str.Plc.EditorTitle">PLC S7-1200 Programmer — Ladder (OB1)</sys:String>
+    <sys:String x:Key="Str.Plc.EditorTitle">PLC Programmer — Ladder (OB1)</sys:String>
     <sys:String x:Key="Str.Plc.TabLadder">Ladder (OB1)</sys:String>
     <sys:String x:Key="Str.Plc.TabTags">PLC Tag Table</sys:String>
     <sys:String x:Key="Str.Plc.ToggleInstructions">Instructions</sys:String>
@@ -539,13 +539,13 @@
     <sys:String x:Key="Str.Plc.Compile">Compile</sys:String>
     <sys:String x:Key="Str.Plc.CompileTip">Compile &amp; syntax-check Ladder networks</sys:String>
     <sys:String x:Key="Str.Plc.Download">Download</sys:String>
-    <sys:String x:Key="Str.Plc.DownloadTip">Compile and download program into PLC S7-1200 memory</sys:String>
+    <sys:String x:Key="Str.Plc.DownloadTip">Compile and download program into PLC memory</sys:String>
     <sys:String x:Key="Str.Plc.AddNetwork">+ Network</sys:String>
     <sys:String x:Key="Str.Plc.DelNode">Delete Node</sys:String>
     <sys:String x:Key="Str.Plc.OpenBranch">Open Branch //</sys:String>
     <sys:String x:Key="Str.Plc.CloseBranch">Close Branch</sys:String>
     <sys:String x:Key="Str.Plc.OnlineMonitor">ONLINE</sys:String>
-    <sys:String x:Key="Str.Plc.NoPlcSelected">No PLC S7-1200 selected on the canvas. Drag a PLC S7-1200 from the Library onto the workspace.</sys:String>
+    <sys:String x:Key="Str.Plc.NoPlcSelected">No PLC selected on the canvas. Drag a PLC from the Library onto the workspace.</sys:String>
 
     <sys:String x:Key="Str.Plc.InstrHeader">PLC INSTRUCTIONS</sys:String>
     <sys:String x:Key="Str.Plc.GrpBit">1. Bit Logic</sys:String>
@@ -571,7 +571,7 @@
 
     <sys:String x:Key="Str.Plc.CompileOk">✅ Compile succeeded: 0 errors, {0} warnings.</sys:String>
     <sys:String x:Key="Str.Plc.CompileFail">❌ Compile failed: {0} errors, {1} warnings. Click an error to jump to its network.</sys:String>
-    <sys:String x:Key="Str.Plc.Downloading">⏳ Downloading program to {0} (CPU 1214C)...</sys:String>
+    <sys:String x:Key="Str.Plc.Downloading">⏳ Downloading program to {0}...</sys:String>
     <sys:String x:Key="Str.Plc.DownloadDone">✅ Downloaded to {0}! CPU switched to RUN mode.</sys:String>
     <sys:String x:Key="Str.Plc.DownloadBlocked">❌ Cannot download to PLC while compile errors exist!</sys:String>
     <sys:String x:Key="Str.Plc.OutputShortFault">PLC OUTPUT SHORT CIRCUIT [{0}]: Outputs protected and ERROR LED activated!</sys:String>
@@ -594,7 +594,7 @@
     <sys:String x:Key="Str.Plc.ErrInvalidPt">Network {0}: Invalid PT time literal '{1}' (expected e.g. T#3s, T#500ms, T#1m).</sys:String>
     <sys:String x:Key="Str.Plc.ErrInvalidPv">Network {0}: Missing or invalid preset value PV '{1}' for Counter.</sys:String>
 
-    <sys:String x:Key="Str.Preset5.Name">5. Sequential Lights Control via PLC S7-1200 (TON Timer &amp; %MW Compare)</sys:String>
+    <sys:String x:Key="Str.Preset5.Name">5. Sequential Lights Control via PLC (TON Timer &amp; %MW Compare)</sys:String>
     <sys:String x:Key="Str.Preset5.Guide">Switch to [▶ Simulate] → Press START (%I0.0): PLC sequences H1 → H2 → H3 every 3s using TON (%DB1) &amp; %MW2 ("SEQUENCE") comparators. Watch live green Online Monitoring in the Ladder Editor!</sys:String>
 
     <!-- v1.3 Full 10-Category TIA Portal Instruction Tree -->
@@ -766,8 +766,50 @@
     <sys:String x:Key="Str.Plc.D.ROR">Rotate right by N bits</sys:String>
     <sys:String x:Key="Str.Plc.D.ROL">Rotate left by N bits</sys:String>
 
-    <!-- Hotfix v1.3.1: Floating PLC Ladder Window & Single-Row Toolbar -->
-    <sys:String x:Key="Str.Plc.WindowTitle">WiringSim — PLC S7-1200 Ladder Programmer</sys:String>
+    <!-- Hotfix v1.3.1: Floating PLC Ladder Window & TIA Portal V21 Mechanics -->
+    <sys:String x:Key="Str.Plc.WindowTitle">WiringSim — PLC Ladder Programmer</sys:String>
     <sys:String x:Key="Str.Plc.CompactBtn">PLC Ladder</sys:String>
+
+    <!-- TIA Portal V21: PLC Tags Table, Address Picker, Call options & DB Autocomplete -->
+    <sys:String x:Key="Str.Plc.TagColName">Name</sys:String>
+    <sys:String x:Key="Str.Plc.TagColType">Data type</sys:String>
+    <sys:String x:Key="Str.Plc.TagColAddr">Address</sys:String>
+    <sys:String x:Key="Str.Plc.TagColRetain">Retain</sys:String>
+    <sys:String x:Key="Str.Plc.TagColAccessible">Accessible</sys:String>
+    <sys:String x:Key="Str.Plc.TagColWritable">Writable</sys:String>
+    <sys:String x:Key="Str.Plc.TagColVisible">Visible</sys:String>
+    <sys:String x:Key="Str.Plc.TagColComment">Comment</sys:String>
+    <sys:String x:Key="Str.Plc.TagAddNew">&lt;Add new&gt;</sys:String>
+    <sys:String x:Key="Str.Plc.TagEnterTip">Press Enter at the end of a row to auto-add a tag with the next sequential address</sys:String>
+
+    <sys:String x:Key="Str.Plc.AddrPickerTitle">Address Picker</sys:String>
+    <sys:String x:Key="Str.Plc.AddrOpId">Operand identifier:</sys:String>
+    <sys:String x:Key="Str.Plc.AddrOpType">Operand type:</sys:String>
+    <sys:String x:Key="Str.Plc.AddrByte">Address:</sys:String>
+    <sys:String x:Key="Str.Plc.AddrBit">Bit number:</sys:String>
+
+    <sys:String x:Key="Str.Plc.CallOptTitle">Call options</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptSubtitle">Configure instance Data Block for instruction {0}</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptSingleInstance">Single instance</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptSingleInstanceDesc">Dedicated instance Data Block (DB)</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptDbGroup">Data block</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptName">Name:</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptNumber">Number:</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptAuto">Automatic</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptAutoDesc">Automatically assign the next available Data Block number (%DB{0}).</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptManual">Manual</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptManualDesc">Manually specify the Data Block number (1–99).</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptOk">OK</sys:String>
+    <sys:String x:Key="Str.Plc.CallOptCancel">Cancel</sys:String>
+    <sys:String x:Key="Str.Plc.ErrUnassignedDb">Network {0}: Timer / Counter block has no assigned Data Block (&lt;???&gt;). Click &lt;???&gt; to open Call options!</sys:String>
+    <sys:String x:Key="Str.Plc.ClickAssignDbTip">Click to open Call options and assign a Data Block</sys:String>
+
+    <sys:String x:Key="Str.Plc.AutoSearchHint">Search Tag, address, or type 'DbName.' for members...</sys:String>
+    <sys:String x:Key="Str.Plc.AutoColName">Name</sys:String>
+    <sys:String x:Key="Str.Plc.AutoColType">Data type</sys:String>
+    <sys:String x:Key="Str.Plc.AutoColAddr">Address</sys:String>
+    <sys:String x:Key="Str.Plc.AutoBackToAll">← All Tags &amp; Data Blocks</sys:String>
+    <sys:String x:Key="Str.Plc.AutoEmpty">No matching Tags or Data Blocks found.</sys:String>
+    <sys:String x:Key="Str.Plc.DoubleClickHint">Double-click any Ladder address to pick a Tag or DB member (e.g. "TD11".Q)</sys:String>
 
 </ResourceDictionary>

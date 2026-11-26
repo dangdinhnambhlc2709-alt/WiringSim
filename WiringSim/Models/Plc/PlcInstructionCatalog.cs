@@ -22,7 +22,7 @@ public sealed record PlcInstructionMeta(
     string? OutLabel = null);
 
 /// <summary>
-/// Danh mục tập trung toàn bộ 10 nhóm hàm/lệnh chuẩn Siemens TIA Portal S7-1200 (~100 lệnh):
+/// Danh mục tập trung toàn bộ 10 nhóm hàm/lệnh PLC chuẩn TIA Portal (~105 lệnh):
 /// - Giữ nguyên 100% ký hiệu/tên hàm chuyên ngành (TON, TONR, SET_BF, NORM_X, SCALE_X, CALCULATE, SHR, ROL...).
 /// - Bản địa hóa 100% tên nhóm và mô tả chú thích qua LocalizationManager.
 /// </summary>

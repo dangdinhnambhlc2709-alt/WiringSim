@@ -80,8 +80,8 @@ public static class ComponentRegistry
         Register(new(Motor3Phase6PinComponent.TypeId, "Str.Comp.Motor3P6.Title", "Str.Comp.Motor3P6.Sub", "M 6P", "M", "#0891B2", ComponentCategory.Load, () => new Motor3Phase6PinComponent { DisplayName = "M1" }));
         Register(new(MotorLinearTrackComponent.TypeId, "Str.Comp.MotorTrack.Title", "Str.Comp.MotorTrack.Sub", "TRACK", "MT", "#14B8A6", ComponentCategory.Load, () => new MotorLinearTrackComponent { DisplayName = "MT1" }));
 
-        // 7. ĐIỀU KHIỂN LẬP TRÌNH (PLC SIEMENS S7-1200)
-        Register(new(PlcS71200Component.TypeId, "Str.Comp.PlcS71200.Title", "Str.Comp.PlcS71200.Sub", "S7-1200", "PLC", "#009999", ComponentCategory.ProgrammableControl, () => new PlcS71200Component { DisplayName = "PLC1" }));
+        // 7. ĐIỀU KHIỂN LẬP TRÌNH (PLC)
+        Register(new(PlcControllerComponent.TypeId, "Str.Comp.Plc.Title", "Str.Comp.Plc.Sub", "PLC", "PLC", "#009999", ComponentCategory.ProgrammableControl, () => new PlcControllerComponent { DisplayName = "PLC1" }));
     }
 
     public static IReadOnlyList<PaletteItemDescriptor> Items => _items;
@@ -95,6 +95,8 @@ public static class ComponentRegistry
     {
         if (string.Equals(typeKey, WireJunctionComponent.TypeId, StringComparison.OrdinalIgnoreCase))
             return new WireJunctionComponent();
+        if (typeKey.StartsWith("PLC_", StringComparison.OrdinalIgnoreCase))
+            return new PlcControllerComponent { DisplayName = "PLC1" };
         if (string.Equals(typeKey, "MOTOR_3P", StringComparison.OrdinalIgnoreCase))
             return new Motor3Phase6PinComponent { DisplayName = "M1" };
         if (string.Equals(typeKey, PilotLightComponent.TypeIdRed, StringComparison.OrdinalIgnoreCase))

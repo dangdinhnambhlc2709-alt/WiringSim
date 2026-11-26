@@ -36,7 +36,7 @@
 
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Border Background="#009999" CornerRadius="4" Padding="6,2" Margin="0,0,8,0">
-                        <TextBlock Text="S7-1200" FontSize="10" FontWeight="Bold" Foreground="White" />
+                        <TextBlock Text="PLC" FontSize="10" FontWeight="Bold" Foreground="White" />
                     </Border>
                     <TextBlock x:Name="TxtPlcHeader"
                                Text="{DynamicResource Str.Plc.EditorTitle}"
@@ -85,7 +85,7 @@
                             Content="{DynamicResource Str.Plc.ToggleInstructions}" />
                 </StackPanel>
 
-                <!-- Cụm chính bên trái (cuộn ngang mượt nếu cửa sổ rất hẹp, không bao giờ che mất nút phải) -->
+                <!-- Cụm chính bên trái -->
                 <ScrollViewer HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Disabled"
                               VerticalAlignment="Center">
@@ -156,7 +156,7 @@
             </DockPanel>
         </Border>
 
-        <!-- 2. GENERAL QUICK ACTION BAR (CUỘN NGANG THÔNG MINH KHI THU HẸP) -->
+        <!-- 2. GENERAL QUICK ACTION BAR -->
         <Border Grid.Row="2"
                 Background="{DynamicResource SubtleSurfaceBrush}"
                 BorderBrush="{DynamicResource BorderSubtleBrush}"
@@ -219,7 +219,7 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- 2A. CÂY THƯ VIỆN 10 NHÓM HÀM/LỆNH PLC (2 CỘT + Ô TÌM KIẾM NHANH) -->
+            <!-- 3A. CÂY THƯ VIỆN 10 NHÓM HÀM/LỆNH PLC -->
             <Border x:Name="InstructionsPanelBorder"
                     Grid.Column="0"
                     Background="{DynamicResource SubtleSurfaceBrush}"
@@ -273,7 +273,7 @@
                 </DockPanel>
             </Border>
 
-            <!-- 2B. LADDER WORKSPACE (ZOOM 50%..200% + CTRL+WHEEL) -->
+            <!-- 3B. LADDER WORKSPACE & PLC TAGS TABLE -->
             <Grid Grid.Column="1">
                 <TextBlock x:Name="TxtNoPlcPlaceholder"
                            Text="{DynamicResource Str.Plc.NoPlcSelected}"
@@ -298,19 +298,32 @@
                     </StackPanel>
                 </ScrollViewer>
 
+                <!-- PLC TAGS TABLE (TIA PORTAL V21) -->
                 <Grid x:Name="TagTableContainer" Visibility="Collapsed" Background="{DynamicResource AppBgBrush}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     <Border Grid.Row="0" Background="{DynamicResource SubtleSurfaceBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="10,6">
-                        <StackPanel Orientation="Horizontal">
-                            <Button Style="{StaticResource ToolbarButtonStyle}" Padding="9,4" Margin="0,0,6,0" Content="{DynamicResource Str.Plc.TagAdd}" Click="OnAddTagClick" />
-                            <Button Style="{StaticResource DangerToolbarButtonStyle}" Padding="9,4" Content="{DynamicResource Str.Plc.TagDelete}" Click="OnDeleteTagClick" />
-                        </StackPanel>
+                        <DockPanel LastChildFill="True">
+                            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                                <Button Style="{StaticResource ToolbarButtonStyle}" Padding="9,4" Margin="0,0,6,0" Content="{DynamicResource Str.Plc.TagAdd}" Click="OnAddTagClick" />
+                                <Button Style="{StaticResource DangerToolbarButtonStyle}" Padding="9,4" Content="{DynamicResource Str.Plc.TagDelete}" Click="OnDeleteTagClick" />
+                            </StackPanel>
+                            <TextBlock Text="{DynamicResource Str.Plc.TagEnterTip}"
+                                       FontSize="10.5"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Right"
+                                       Margin="12,0,0,0"
+                                       TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
                     </Border>
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="10">
-                        <StackPanel x:Name="TagRowsStack" />
+                    <ScrollViewer Grid.Row="1"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Padding="10">
+                        <StackPanel x:Name="TagRowsStack" MinWidth="820" />
                     </ScrollViewer>
                 </Grid>
             </Grid>
@@ -325,7 +338,7 @@
                 Padding="8,5">
             <WrapPanel VerticalAlignment="Center">
                 <TextBlock x:Name="TxtSelectedNodeSummary"
-                           Text="{DynamicResource Str.Plc.PropBarHint}"
+                           Text="{DynamicResource Str.Plc.DoubleClickHint}"
                            FontSize="11"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource AccentCyanBrush}"
@@ -334,22 +347,25 @@
 
                 <StackPanel x:Name="PanelPropAddress" Orientation="Horizontal" Margin="0,2,8,2" Visibility="Collapsed">
                     <TextBlock x:Name="LblPropAddress" Text="{DynamicResource Str.Plc.PropAddr}" FontSize="10.8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                    <TextBox x:Name="TbPropAddress" Width="88" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
+                    <TextBox x:Name="TbPropAddress" Width="106" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
+                    <Button x:Name="BtnPickPropAddress" Content="▾" Width="20" Padding="0" Margin="2,0,0,0" FontSize="10" Style="{StaticResource ToolbarButtonStyle}" Tag="Address" Click="OnOpenAutocompleteFromPropClick" />
                 </StackPanel>
 
                 <StackPanel x:Name="PanelPropSymbol" Orientation="Horizontal" Margin="0,2,8,2" Visibility="Collapsed">
                     <TextBlock Text="{DynamicResource Str.Plc.PropTag}" FontSize="10.8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                    <TextBox x:Name="TbPropSymbol" Width="92" Padding="4,2" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
+                    <TextBox x:Name="TbPropSymbol" Width="96" Padding="4,2" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
                 </StackPanel>
 
                 <StackPanel x:Name="PanelPropParam1" Orientation="Horizontal" Margin="0,2,8,2" Visibility="Collapsed">
                     <TextBlock x:Name="LblPropParam1" Text="{DynamicResource Str.Plc.PropParam1}" FontSize="10.8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                    <TextBox x:Name="TbPropParam1" Width="76" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
+                    <TextBox x:Name="TbPropParam1" Width="82" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
+                    <Button Content="▾" Width="20" Padding="0" Margin="2,0,0,0" FontSize="10" Style="{StaticResource ToolbarButtonStyle}" Tag="Param1" Click="OnOpenAutocompleteFromPropClick" />
                 </StackPanel>
 
                 <StackPanel x:Name="PanelPropParam2" Orientation="Horizontal" Margin="0,2,8,2" Visibility="Collapsed">
                     <TextBlock x:Name="LblPropParam2" Text="{DynamicResource Str.Plc.PropParam2}" FontSize="10.8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                    <TextBox x:Name="TbPropParam2" Width="76" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
+                    <TextBox x:Name="TbPropParam2" Width="82" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
+                    <Button Content="▾" Width="20" Padding="0" Margin="2,0,0,0" FontSize="10" Style="{StaticResource ToolbarButtonStyle}" Tag="Param2" Click="OnOpenAutocompleteFromPropClick" />
                 </StackPanel>
 
                 <StackPanel x:Name="PanelPropExtra" Orientation="Horizontal" Margin="0,2,8,2" Visibility="Collapsed">
@@ -359,7 +375,8 @@
 
                 <StackPanel x:Name="PanelPropOut" Orientation="Horizontal" Margin="0,2,8,2" Visibility="Collapsed">
                     <TextBlock x:Name="LblPropOut" Text="{DynamicResource Str.Plc.PropOut}" FontSize="10.8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                    <TextBox x:Name="TbPropOut" Width="78" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
+                    <TextBox x:Name="TbPropOut" Width="82" Padding="4,2" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" KeyDown="OnPropTextBoxKeyDown" />
+                    <Button Content="▾" Width="20" Padding="0" Margin="2,0,0,0" FontSize="10" Style="{StaticResource ToolbarButtonStyle}" Tag="Out" Click="OnOpenAutocompleteFromPropClick" />
                 </StackPanel>
 
                 <Button x:Name="BtnApplyNodeProps"
@@ -373,7 +390,7 @@
             </WrapPanel>
         </Border>
 
-        <!-- 5. COMPILER OUTPUT + DOWNLOAD PROGRESS + ZOOM CONTROLS (50%-200%) -->
+        <!-- 5. COMPILER OUTPUT + DOWNLOAD PROGRESS + ZOOM CONTROLS -->
         <Border Grid.Row="5"
                 Background="{DynamicResource ToolbarBgBrush}"
                 Padding="8,6">
@@ -433,5 +450,207 @@
                 </DockPanel>
             </Grid>
         </Border>
+
+        <!-- POPUP 1: TIA PORTAL V21 ADDRESS PICKER -->
+        <Popup x:Name="AddressPickerPopup"
+               StaysOpen="False"
+               AllowsTransparency="True"
+               Placement="Bottom"
+               VerticalOffset="2">
+            <Border Background="{DynamicResource SurfaceBgBrush}"
+                    BorderBrush="{DynamicResource AccentCyanBrush}"
+                    BorderThickness="1.4"
+                    CornerRadius="6"
+                    Padding="10"
+                    Width="268">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="14" ShadowDepth="3" Opacity="0.35" Color="Black" />
+                </Border.Effect>
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Str.Plc.AddrPickerTitle}"
+                               FontSize="11.2"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource AccentCyanBrush}"
+                               Margin="0,0,0,8" />
+
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="128" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{DynamicResource Str.Plc.AddrOpId}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                        <ComboBox x:Name="CbAddrOpId" Grid.Column="1" FontSize="11.2" FontFamily="Consolas" SelectionChanged="OnAddressPickerFieldChanged">
+                            <ComboBoxItem Content="I" />
+                            <ComboBoxItem Content="Q" />
+                            <ComboBoxItem Content="M" />
+                        </ComboBox>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="128" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{DynamicResource Str.Plc.AddrOpType}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                        <ComboBox x:Name="CbAddrOpType" Grid.Column="1" FontSize="11.2" SelectionChanged="OnAddressPickerFieldChanged">
+                            <ComboBoxItem Content="Bit" />
+                            <ComboBoxItem Content="Byte" />
+                            <ComboBoxItem Content="Word" />
+                            <ComboBoxItem Content="DWord" />
+                        </ComboBox>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="128" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{DynamicResource Str.Plc.AddrByte}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                        <TextBox x:Name="TbAddrByte" Grid.Column="1" Padding="5,3" FontFamily="Consolas" FontSize="11.2" Background="{DynamicResource InputBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource ButtonBorderBrush}" TextChanged="OnAddressPickerByteChanged" />
+                    </Grid>
+
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="128" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{DynamicResource Str.Plc.AddrBit}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                        <ComboBox x:Name="CbAddrBit" Grid.Column="1" FontSize="11.2" FontFamily="Consolas" SelectionChanged="OnAddressPickerFieldChanged">
+                            <ComboBoxItem Content="0" />
+                            <ComboBoxItem Content="1" />
+                            <ComboBoxItem Content="2" />
+                            <ComboBoxItem Content="3" />
+                            <ComboBoxItem Content="4" />
+                            <ComboBoxItem Content="5" />
+                            <ComboBoxItem Content="6" />
+                            <ComboBoxItem Content="7" />
+                        </ComboBox>
+                    </Grid>
+
+                    <DockPanel LastChildFill="True">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="✓"
+                                    Width="32"
+                                    Height="26"
+                                    Padding="0"
+                                    Margin="0,0,5,0"
+                                    FontSize="12.5"
+                                    FontWeight="Bold"
+                                    Foreground="#22C55E"
+                                    BorderBrush="#22C55E"
+                                    Style="{StaticResource ToolbarButtonStyle}"
+                                    Click="OnAddressPickerConfirmClick" />
+                            <Button Content="✕"
+                                    Width="32"
+                                    Height="26"
+                                    Padding="0"
+                                    FontSize="11.5"
+                                    Style="{StaticResource DangerToolbarButtonStyle}"
+                                    Click="OnAddressPickerCancelClick" />
+                        </StackPanel>
+                        <TextBlock x:Name="TxtAddrPickerPreview"
+                                   FontFamily="Consolas"
+                                   FontSize="12"
+                                   FontWeight="Bold"
+                                   Foreground="#2DD4BF"
+                                   VerticalAlignment="Center" />
+                    </DockPanel>
+                </StackPanel>
+            </Border>
+        </Popup>
+
+        <!-- POPUP 2: TIA PORTAL V21 3-COLUMN TAG / DB AUTOCOMPLETE POPUP -->
+        <Popup x:Name="TagAutocompletePopup"
+               StaysOpen="False"
+               AllowsTransparency="True"
+               Placement="Bottom"
+               VerticalOffset="2">
+            <Border Background="{DynamicResource SurfaceBgBrush}"
+                    BorderBrush="{DynamicResource AccentCyanBrush}"
+                    BorderThickness="1.4"
+                    CornerRadius="6"
+                    Padding="8"
+                    Width="372">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="16" ShadowDepth="4" Opacity="0.38" Color="Black" />
+                </Border.Effect>
+                <StackPanel>
+                    <!-- Search input -->
+                    <Grid Margin="0,0,0,6">
+                        <TextBox x:Name="TbAutoSearch"
+                                 Padding="7,4"
+                                 FontFamily="Consolas"
+                                 FontSize="11.5"
+                                 Background="{DynamicResource InputBgBrush}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 BorderBrush="{DynamicResource AccentCyanBrush}"
+                                 TextChanged="OnAutoSearchTextChanged"
+                                 PreviewKeyDown="OnAutoSearchPreviewKeyDown" />
+                        <TextBlock x:Name="TxtAutoSearchHint"
+                                   Text="{DynamicResource Str.Plc.AutoSearchHint}"
+                                   FontSize="10.4"
+                                   Foreground="{DynamicResource TextMutedBrush}"
+                                   IsHitTestVisible="False"
+                                   VerticalAlignment="Center"
+                                   Margin="9,0,8,0" />
+                    </Grid>
+
+                    <!-- Breadcrumb when expanded into DB members -->
+                    <Border x:Name="AutoDbHeaderBanner"
+                            Visibility="Collapsed"
+                            Background="{DynamicResource SubtleSurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6,3"
+                            Margin="0,0,0,5">
+                        <DockPanel LastChildFill="True">
+                            <Button x:Name="BtnAutoBack"
+                                    DockPanel.Dock="Left"
+                                    Content="{DynamicResource Str.Plc.AutoBackToAll}"
+                                    Style="{StaticResource ToolbarButtonStyle}"
+                                    Padding="6,1.5"
+                                    FontSize="10"
+                                    Click="OnAutoBackToAllClick" />
+                            <TextBlock x:Name="TxtAutoActiveDb"
+                                       HorizontalAlignment="Right"
+                                       VerticalAlignment="Center"
+                                       FontFamily="Consolas"
+                                       FontSize="10.8"
+                                       FontWeight="Bold"
+                                       Foreground="#2DD4BF" />
+                        </DockPanel>
+                    </Border>
+
+                    <!-- 3-Column Header -->
+                    <Border Background="{DynamicResource SubtleSurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4,4,0,0"
+                            Padding="6,3.5">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="78" />
+                                <ColumnDefinition Width="74" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{DynamicResource Str.Plc.AutoColName}" FontSize="10.2" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}" />
+                            <TextBlock Grid.Column="1" Text="{DynamicResource Str.Plc.AutoColType}" FontSize="10.2" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}" />
+                            <TextBlock Grid.Column="2" Text="{DynamicResource Str.Plc.AutoColAddr}" FontSize="10.2" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Results list -->
+                    <Border BorderBrush="{DynamicResource BorderSubtleBrush}"
+                            BorderThickness="1,0,1,1"
+                            CornerRadius="0,0,4,4"
+                            Background="{DynamicResource AppBgBrush}">
+                        <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="AutoResultsStack" />
+                        </ScrollViewer>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </Popup>
     </Grid>
 </UserControl>

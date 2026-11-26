@@ -25,7 +25,7 @@ public static class ContextMenuBuilder
         Action<string> onChangedMessage,
         Action onDeleteRequested,
         Action<VfdComponent>? onOpenVfdKeypad = null,
-        Action<PlcS71200Component, bool>? onOpenPlcLadder = null)
+        Action<PlcControllerComponent, bool>? onOpenPlcLadder = null)
     {
         bool isDesign = currentMode == AppMode.Design;
         var menu = new ContextMenu();
@@ -93,7 +93,7 @@ public static class ContextMenuBuilder
                     onOpenVfdKeypad?.Invoke(vfd);
                 }, "#38BDF8"));
                 break;
-            case PlcS71200Component plc:
+            case PlcControllerComponent plc:
                 BuildPlcItems(menu, plc, onChangedMessage, onOpenPlcLadder);
                 break;
             case ContactorComponent km:
@@ -1070,9 +1070,9 @@ public static class ContextMenuBuilder
 
     private static void BuildPlcItems(
         ContextMenu menu,
-        PlcS71200Component plc,
+        PlcControllerComponent plc,
         Action<string> notify,
-        Action<PlcS71200Component, bool>? onOpenPlcLadder)
+        Action<PlcControllerComponent, bool>? onOpenPlcLadder)
     {
         menu.Items.Add(CreateActionItem(LocalizationManager.Get("Str.Menu.PlcOpenLadder"), () =>
         {

@@ -1,24 +1,28 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using WiringSim.Models.Components.Control;
 using WiringSim.Models.Enums;
 using WiringSim.Models.Plc;
+using WiringSim.UI.Dialogs;
 using WiringSim.UI.Services;
 
 namespace WiringSim.UI.Controls;
 
 /// <summary>
-/// Trình lập trình PLC Ladder chuẩn Siemens TIA Portal (10 nhóm hàm/lệnh đầy đủ):
+/// Trình lập trình PLC Ladder chuẩn TIA Portal V21 (10 nhóm hàm/lệnh đầy đủ):
 /// - Thanh General (Insert network, Empty box [F8], Insert input, Open/Close branch [Shift+F8/F9]).
-/// - Cây Thư viện 10 nhóm hàm/lệnh PLC (2 cột: Ký hiệu chuyên ngành + Mô tả bản địa hóa + Ô tìm kiếm nhanh).
-/// - Compile kiểm tra nhánh hở, địa chỉ, trùng %DB, nhảy tới LABEL không tồn tại &amp; vòng lặp vô hạn.
-/// - Download 1.5s kèm nhấp nháy LED RUN/STOP &amp; MAINT + Online Monitoring xanh lá thời gian thực + Zoom 50%–200%.
+/// - Bảng PLC Tags chuẩn TIA Portal V21: số thứ tự, Data type dropdown, tự động thêm %, nhấn Enter tăng địa chỉ tuần tự, Address Picker Popup &amp; dòng &lt;Add new&gt;.
+/// - Hộp thoại Call options khi chèn Timer / Counter (Single instance, Automatic/Manual DB, Cancel để &lt;???&gt; đỏ).
+/// - Nhấp đúp địa chỉ trên Ladder mở Popup gợi ý 3 cột + truy xuất thuộc tính DB ("TD11".Q) qua nút &gt;&gt; hoặc dấu chấm (.).
 /// </summary>
 public partial class PlcLadderEditorControl : UserControl
 {
-    private PlcS71200Component? _plc;
+    private PlcControllerComponent? _plc;
     private bool _isInstructionsVisible = true;
     private bool _isSimulating;
     private bool _updatingZoomUi;
@@ -28,12 +32,26 @@ public partial class PlcLadderEditorControl : UserControl
     private LadderNode? _selectedNode;
     private PlcTagEntry? _selectedTag;
 
+    // Trạng thái Address Picker Popup (bảng PLC Tags)
+    private PlcTagEntry? _addrPickerTag;
+    private bool _updatingAddrPickerUi;
+
+    // Trạng thái Autocomplete Popup 3 cột (Ladder & Property Bar)
+    private LadderNode? _autoTargetNode;
+    private string _autoTargetField = "Address";
+    private PlcTagEntry? _autoExpandedDb;
+    private bool _updatingAutoSearch;
+    private readonly List<Action> _autoRowActions = new();
+
+    // Hỗ trợ tự focus ô Name của dòng mới tạo khi nhấn Enter trong bảng PLC Tags
+    private PlcTagEntry? _pendingFocusTag;
+
     public event Action? HideRequested;
     public event Action? ProgramEdited;
     public event Action? PlcHardwareVisualChanged;
     public event Action<string>? StatusMessageChanged;
 
-    public PlcS71200Component? ActivePlc => _plc;
+    public PlcControllerComponent? ActivePlc => _plc;
 
     public bool ShowEmbeddedHeader
     {
@@ -54,13 +72,15 @@ public partial class PlcLadderEditorControl : UserControl
         ThemeManager.ThemeChanged += RefreshAllViews;
     }
 
-    public void BindPlc(PlcS71200Component? plc, bool openTagTable = false)
+    public void BindPlc(PlcControllerComponent? plc, bool openTagTable = false)
     {
         _plc = plc;
         _selectedNetworkIndex = 0;
         _selectedNode = null;
         _selectedBranch = plc?.DraftProgram.Networks.FirstOrDefault()?.MainBranch;
         _selectedTag = null;
+        AddressPickerPopup.IsOpen = false;
+        TagAutocompletePopup.IsOpen = false;
 
         if (openTagTable)
             RbTabTags.IsChecked = true;
@@ -87,9 +107,13 @@ public partial class PlcLadderEditorControl : UserControl
 
         if (RbTabLadder.IsChecked == true)
             RenderNetworks();
-        else
+        else if (!IsKeyboardFocusWithinTagInputs())
             RenderTagTable();
     }
+
+    private bool IsKeyboardFocusWithinTagInputs() =>
+        TagTableContainer.Visibility == Visibility.Visible &&
+        (TagTableContainer.IsKeyboardFocusWithin || AddressPickerPopup.IsOpen);
 
     private void RefreshAllViews()
     {
@@ -293,6 +317,12 @@ public partial class PlcLadderEditorControl : UserControl
 
         var node = PlcInstructionCatalog.CreateDefaultNode(kind, prog);
 
+        // Chuẩn TIA Portal V21: chèn Timer / Counter sẽ tự động bật hộp thoại Call options để gán DB!
+        if (node.RequiresCallOptions)
+        {
+            PromptCallOptionsForNode(node, isNewInsert: true);
+        }
+
         int insertIdx = _selectedNode is not null ? branch.Nodes.IndexOf(_selectedNode) + 1 : branch.Nodes.Count;
         if (insertIdx <= 0 || insertIdx > branch.Nodes.Count)
             insertIdx = branch.Nodes.Count;
@@ -312,10 +342,53 @@ public partial class PlcLadderEditorControl : UserControl
         }
     }
 
+    /// <summary>
+    /// Mở hộp thoại Call options chuẩn TIA Portal V21 cho khối Timer / Counter.
+    /// - OK: tạo Data Block (%DB1, %DB2...), lưu vào danh sách Tags và gắn lên đầu khối.
+    /// - Cancel (khi chèn mới): giữ khối trên Network với chữ đỏ &lt;???&gt; chờ gán sau.
+    /// </summary>
+    private bool PromptCallOptionsForNode(LadderNode node, bool isNewInsert)
+    {
+        if (_plc is null) return false;
+        var prog = _plc.DraftProgram;
+        bool isTimer = node.IsTimer || node.IsTimerCoil;
+        var meta = PlcInstructionCatalog.Get(node.Kind);
+        string instrName = meta?.BoxHeader ?? node.Kind.ToString();
+
+        int autoNum = prog.AllocateNextDbNumber();
+        string suggestedName = !isNewInsert && !string.IsNullOrWhiteSpace(node.SymbolName)
+            ? PlcAddressHelper.StripQuotes(node.SymbolName)
+            : prog.SuggestNextDbName(isTimer);
+
+        var dlg = new PlcCallOptionsDialog(instrName, suggestedName, autoNum);
+        var owner = Window.GetWindow(this);
+        if (owner is { IsVisible: true })
+            dlg.Owner = owner;
+
+        if (dlg.ShowDialog() == true)
+        {
+            string dbAddr = $"%DB{dlg.SelectedDbNumber}";
+            string dbName = dlg.SelectedDbName;
+            node.Address = dbAddr;
+            node.SymbolName = dbName;
+            prog.EnsureTagExists(dbAddr, dbName, isTimer ? "IEC_Timer" : "IEC_Counter");
+            return true;
+        }
+
+        if (isNewInsert)
+        {
+            node.Address = "<???>";
+            node.SymbolName = string.Empty;
+        }
+        return false;
+    }
+
     // --- Phím tắt chuẩn TIA Portal: F8 (Empty box), Shift+F8 (Open branch), Shift+F9 (Close branch) ---
     private void OnEditorPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (_plc is null || RbTabLadder.IsChecked != true) return;
+        if (TagAutocompletePopup.IsOpen) return;
+
         if (e.Key == Key.F8 && Keyboard.Modifiers == ModifierKeys.None)
         {
             InsertInstruction(LadderElementKind.EmptyBox);
@@ -337,7 +410,7 @@ public partial class PlcLadderEditorControl : UserControl
     private void OnInsertInputClick(object sender, RoutedEventArgs e) => InsertInstruction(LadderElementKind.ContactNO);
 
     // =========================================================================
-    // 2. KẾT XUẤT TIA PORTAL NETWORKS + PARALLEL BRANCHES + ONLINE MONITORING
+    // 2. KẾT XUẤT TIA PORTAL NETWORKS + PARALLEL BRANCHES + DOUBLE-CLICK PICKER
     // =========================================================================
 
     private void RenderNetworks()
@@ -596,6 +669,26 @@ public partial class PlcLadderEditorControl : UserControl
             _selectedNetworkIndex = netIdx;
             _selectedBranch = ownerBranch;
             _selectedNode = node;
+
+            if (e.ClickCount == 2)
+            {
+                UpdatePropertyBarForSelectedNode();
+                if (node.RequiresCallOptions && (node.Address == "<???>" || meta is { UsesDbBlock: true }))
+                {
+                    if (PromptCallOptionsForNode(node, isNewInsert: false))
+                    {
+                        NotifyProgramChanged();
+                        RenderNetworks();
+                        UpdatePropertyBarForSelectedNode();
+                    }
+                    return;
+                }
+
+                string targetField = meta?.AddrLabel is not null ? "Address" : (meta?.Param1Label is not null ? "Param1" : "Address");
+                OpenTagAutocompletePopup(container, node, targetField);
+                return;
+            }
+
             RenderNetworks();
             UpdatePropertyBarForSelectedNode();
         };
@@ -603,34 +696,74 @@ public partial class PlcLadderEditorControl : UserControl
         // --- Ký hiệu tiếp điểm / cuộn hút / nhãn nhảy inline ---
         if (meta is { IsInlineGlyph: true })
         {
-            string displayAddr = node.Kind is LadderElementKind.Jump or LadderElementKind.JumpNot
-                ? node.Address
-                : PlcProgramModel.NormalizeAddress(node.Address);
-            string sym = node.Kind is LadderElementKind.Jump or LadderElementKind.JumpNot or LadderElementKind.InvertRLO or LadderElementKind.Return
-                ? string.Empty
-                : _plc!.DraftProgram.ResolveTagName(displayAddr, node.SymbolName);
+            bool isJumpOrControl = node.Kind is LadderElementKind.Jump or LadderElementKind.JumpNot or LadderElementKind.InvertRLO or LadderElementKind.Return;
+            string displayAddr;
+            string quotedSym;
+            if (isJumpOrControl)
+            {
+                displayAddr = node.Address;
+                quotedSym = string.Empty;
+            }
+            else
+            {
+                (displayAddr, quotedSym) = _plc!.DraftProgram.FormatDisplayPair(node.Address, node.SymbolName);
+            }
 
-            var vStack = new StackPanel { Width = 98, HorizontalAlignment = HorizontalAlignment.Center };
+            bool isUnassignedDb = displayAddr == "<???>";
+            var vStack = new StackPanel { MinWidth = 104, HorizontalAlignment = HorizontalAlignment.Center };
 
-            vStack.Children.Add(new TextBlock
+            var headerClickable = new Border
+            {
+                Padding = new Thickness(4, 1, 4, 1),
+                CornerRadius = new CornerRadius(3),
+                Background = isUnassignedDb ? CreateBrush("#22EF4444") : Brushes.Transparent,
+                BorderThickness = new Thickness(isUnassignedDb ? 1 : 0),
+                BorderBrush = isUnassignedDb ? CreateBrush("#EF4444") : Brushes.Transparent,
+                ToolTip = isUnassignedDb
+                    ? LocalizationManager.Get("Str.Plc.ClickAssignDbTip")
+                    : LocalizationManager.Get("Str.Plc.DoubleClickHint")
+            };
+
+            var hdrStack = new StackPanel();
+            hdrStack.Children.Add(new TextBlock
             {
                 Text = string.IsNullOrEmpty(displayAddr) ? " " : displayAddr,
                 FontFamily = new FontFamily("Consolas"),
                 FontSize = 10.0,
                 FontWeight = FontWeights.Bold,
-                Foreground = CreateBrush(addrTeal),
+                Foreground = CreateBrush(isUnassignedDb ? "#EF4444" : addrTeal),
                 HorizontalAlignment = HorizontalAlignment.Center
             });
 
-            vStack.Children.Add(new TextBlock
+            hdrStack.Children.Add(new TextBlock
             {
-                Text = !string.IsNullOrEmpty(sym) ? $"\"{sym}\"" : (!string.IsNullOrEmpty(node.Param1) ? node.Param1 : " "),
-                FontSize = 9.2,
+                Text = !string.IsNullOrEmpty(quotedSym) ? quotedSym : (!string.IsNullOrEmpty(node.Param1) ? node.Param1 : " "),
+                FontSize = 9.4,
                 FontWeight = FontWeights.SemiBold,
-                Foreground = !string.IsNullOrEmpty(sym) ? (Brush)FindResource("TextPrimaryBrush") : CreateBrush(paramBlue),
+                Foreground = !string.IsNullOrEmpty(quotedSym) ? (Brush)FindResource("TextPrimaryBrush") : CreateBrush(paramBlue),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis
             });
+            headerClickable.Child = hdrStack;
+
+            if (isUnassignedDb && node.RequiresCallOptions)
+            {
+                headerClickable.MouseLeftButtonDown += (_, e) =>
+                {
+                    e.Handled = true;
+                    _selectedNetworkIndex = netIdx;
+                    _selectedBranch = ownerBranch;
+                    _selectedNode = node;
+                    if (PromptCallOptionsForNode(node, isNewInsert: false))
+                    {
+                        NotifyProgramChanged();
+                        RenderNetworks();
+                        UpdatePropertyBarForSelectedNode();
+                    }
+                };
+            }
+
+            vStack.Children.Add(headerClickable);
 
             var glyphGrid = new Grid { Height = 26, Margin = new Thickness(0, 2, 0, 2) };
             glyphGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -683,33 +816,70 @@ public partial class PlcLadderEditorControl : UserControl
         Grid.SetColumn(outWire, 2);
         boxGrid.Children.Add(outWire);
 
-        var blockOuter = new StackPanel { MinWidth = 148 };
+        var blockOuter = new StackPanel { MinWidth = 152 };
 
-        // Địa chỉ DB hoặc địa chỉ chính ở trên hộp (chuẩn TIA Portal)
+        // Địa chỉ DB hoặc địa chỉ chính ở trên hộp (chuẩn TIA Portal — hiển thị <???> đỏ nếu chưa gán DB)
         if (meta is { UsesDbBlock: true } || node.Kind is LadderElementKind.FlipFlopSR or LadderElementKind.FlipFlopRS or LadderElementKind.SetBitField or LadderElementKind.ResetBitField or LadderElementKind.PTrig or LadderElementKind.NTrig)
         {
-            string normA = PlcProgramModel.NormalizeAddress(node.Address);
-            string sym = _plc!.DraftProgram.ResolveTagName(normA, node.SymbolName);
-            blockOuter.Children.Add(new TextBlock
+            var (normA, quotedSym) = _plc!.DraftProgram.FormatDisplayPair(node.Address, node.SymbolName);
+            bool isUnassigned = normA == "<???>";
+
+            var dbHeaderPill = new Border
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Padding = new Thickness(6, 1, 6, 1),
+                Margin = new Thickness(0, 0, 0, 1),
+                CornerRadius = new CornerRadius(3),
+                Background = isUnassigned ? CreateBrush("#28EF4444") : Brushes.Transparent,
+                BorderThickness = new Thickness(isUnassigned ? 1 : 0),
+                BorderBrush = isUnassigned ? CreateBrush("#EF4444") : Brushes.Transparent,
+                Cursor = Cursors.Hand,
+                ToolTip = isUnassigned
+                    ? LocalizationManager.Get("Str.Plc.ClickAssignDbTip")
+                    : LocalizationManager.Get("Str.Plc.DoubleClickHint")
+            };
+
+            var dbHdrStack = new StackPanel();
+            dbHdrStack.Children.Add(new TextBlock
             {
                 Text = normA,
                 FontFamily = new FontFamily("Consolas"),
-                FontSize = 9.8,
+                FontSize = 10.0,
                 FontWeight = FontWeights.Bold,
-                Foreground = CreateBrush(addrTeal),
+                Foreground = CreateBrush(isUnassigned ? "#EF4444" : addrTeal),
                 HorizontalAlignment = HorizontalAlignment.Center
             });
-            if (!string.IsNullOrEmpty(sym))
+            if (!string.IsNullOrEmpty(quotedSym))
             {
-                blockOuter.Children.Add(new TextBlock
+                dbHdrStack.Children.Add(new TextBlock
                 {
-                    Text = $"\"{sym}\"",
-                    FontSize = 9.1,
+                    Text = quotedSym,
+                    FontSize = 9.3,
                     FontWeight = FontWeights.SemiBold,
                     Foreground = (Brush)FindResource("TextPrimaryBrush"),
                     HorizontalAlignment = HorizontalAlignment.Center
                 });
             }
+            dbHeaderPill.Child = dbHdrStack;
+
+            if (isUnassigned && node.RequiresCallOptions)
+            {
+                dbHeaderPill.MouseLeftButtonDown += (_, e) =>
+                {
+                    e.Handled = true;
+                    _selectedNetworkIndex = netIdx;
+                    _selectedBranch = ownerBranch;
+                    _selectedNode = node;
+                    if (PromptCallOptionsForNode(node, isNewInsert: false))
+                    {
+                        NotifyProgramChanged();
+                        RenderNetworks();
+                        UpdatePropertyBarForSelectedNode();
+                    }
+                };
+            }
+
+            blockOuter.Children.Add(dbHeaderPill);
         }
 
         bool boxActive = isOnline && powerOut;
@@ -717,7 +887,7 @@ public partial class PlcLadderEditorControl : UserControl
         {
             CornerRadius = new CornerRadius(4),
             BorderThickness = new Thickness(boxActive ? 2.0 : 1.3),
-            BorderBrush = CreateBrush(boxActive ? "#22C55E" : (node.Kind == LadderElementKind.EmptyBox ? "#F59E0B" : (powerIn ? "#38BDF8" : "#64748B"))),
+            BorderBrush = CreateBrush(boxActive ? "#22C55E" : (node.Kind == LadderElementKind.EmptyBox ? "#F59E0B" : (node.Address == "<???>" ? "#EF4444" : (powerIn ? "#38BDF8" : "#64748B")))),
             Margin = new Thickness(0, 2, 0, 2)
         };
         boxBorder.SetResourceReference(Border.BackgroundProperty, "CardBgBrush");
@@ -827,7 +997,374 @@ public partial class PlcLadderEditorControl : UserControl
     }
 
     // =========================================================================
-    // 3. THANH CHỈNH SỬA NHANH THÔNG SỐ (HỖ TRỢ ĐẦY ĐỦ 10 NHÓM + EMPTY BOX)
+    // 3. POPUP GỢI Ý 3 CỘT (TAG / DATA BLOCK + TRUY XUẤT THÀNH PHẦN DB ".")
+    // =========================================================================
+
+    private void OnOpenAutocompleteFromPropClick(object sender, RoutedEventArgs e)
+    {
+        if (_plc is null || _selectedNode is null || sender is not Button btn) return;
+        string field = btn.Tag as string ?? "Address";
+        OpenTagAutocompletePopup(btn, _selectedNode, field);
+    }
+
+    private void OpenTagAutocompletePopup(UIElement anchor, LadderNode node, string targetField)
+    {
+        if (_plc is null) return;
+
+        _autoTargetNode = node;
+        _autoTargetField = targetField;
+        _autoExpandedDb = null;
+
+        TagAutocompletePopup.PlacementTarget = anchor;
+        _updatingAutoSearch = true;
+        TbAutoSearch.Text = string.Empty;
+        _updatingAutoSearch = false;
+        TxtAutoSearchHint.Visibility = Visibility.Visible;
+
+        RebuildAutocompleteResults();
+        TagAutocompletePopup.IsOpen = true;
+
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
+        {
+            TbAutoSearch.Focus();
+            TbAutoSearch.SelectAll();
+        });
+    }
+
+    private void OnAutoSearchTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_updatingAutoSearch || _plc is null) return;
+        string raw = TbAutoSearch.Text ?? string.Empty;
+        TxtAutoSearchHint.Visibility = string.IsNullOrEmpty(raw) ? Visibility.Visible : Visibility.Collapsed;
+
+        // Gõ dấu chấm sau tên Data Block (VD: "TD11." hoặc TD11.) -> tự động mở rộng thuộc tính nội bộ DB!
+        int dot = raw.IndexOf('.');
+        if (dot > 0)
+        {
+            string left = PlcAddressHelper.StripQuotes(raw[..dot]);
+            var db = _plc.DraftProgram.GetAllDataBlocks().FirstOrDefault(d =>
+                d.Name.Equals(left, StringComparison.OrdinalIgnoreCase) ||
+                d.Address.TrimStart('%').Equals(left, StringComparison.OrdinalIgnoreCase));
+            if (db is not null)
+                _autoExpandedDb = db;
+        }
+        else if (string.IsNullOrWhiteSpace(raw))
+        {
+            _autoExpandedDb = null;
+        }
+
+        RebuildAutocompleteResults();
+    }
+
+    private void OnAutoSearchPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            TagAutocompletePopup.IsOpen = false;
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter)
+        {
+            if (_autoRowActions.Count > 0)
+            {
+                _autoRowActions[0].Invoke();
+            }
+            else if (!string.IsNullOrWhiteSpace(TbAutoSearch.Text))
+            {
+                ApplyAutocompleteSelection(TbAutoSearch.Text.Trim(), string.Empty);
+            }
+            e.Handled = true;
+        }
+    }
+
+    private void OnAutoBackToAllClick(object sender, RoutedEventArgs e)
+    {
+        _autoExpandedDb = null;
+        _updatingAutoSearch = true;
+        TbAutoSearch.Text = string.Empty;
+        _updatingAutoSearch = false;
+        TxtAutoSearchHint.Visibility = Visibility.Visible;
+        RebuildAutocompleteResults();
+        TbAutoSearch.Focus();
+    }
+
+    private void RebuildAutocompleteResults()
+    {
+        AutoResultsStack.Children.Clear();
+        _autoRowActions.Clear();
+        if (_plc is null) return;
+
+        var prog = _plc.DraftProgram;
+        string query = (TbAutoSearch.Text ?? string.Empty).Trim();
+
+        // Chế độ 2: Đang xem thuộc tính nội bộ của 1 Data Block (VD: "TD11".IN, "TD11".Q, "TD11".PT, "TD11".ET)
+        if (_autoExpandedDb is not null)
+        {
+            AutoDbHeaderBanner.Visibility = Visibility.Visible;
+            TxtAutoActiveDb.Text = $"\"{_autoExpandedDb.Name}\" ({_autoExpandedDb.Address.TrimStart('%')})";
+
+            string memberFilter = string.Empty;
+            int dot = query.IndexOf('.');
+            if (dot >= 0 && dot < query.Length - 1)
+                memberFilter = query[(dot + 1)..].Trim();
+            else if (dot < 0 && !query.Equals(_autoExpandedDb.Name, StringComparison.OrdinalIgnoreCase))
+                memberFilter = query;
+
+            var members = PlcAddressHelper.GetDbMembers(_autoExpandedDb.DataType)
+                .Where(m => string.IsNullOrEmpty(memberFilter) ||
+                            m.Name.Contains(memberFilter, StringComparison.OrdinalIgnoreCase) ||
+                            m.DataType.Contains(memberFilter, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var mem in members)
+            {
+                string symbolicMember = $"\"{_autoExpandedDb.Name}\".{mem.Name}";
+                string absMember = $"{PlcProgramModel.NormalizeAddress(_autoExpandedDb.Address)}.{mem.Name}";
+                Action selectAction = () => ApplyAutocompleteSelection(symbolicMember, symbolicMember);
+                _autoRowActions.Add(selectAction);
+
+                AutoResultsStack.Children.Add(CreateAutocompleteRow(
+                    iconText: ".",
+                    iconBgHex: "#0284C7",
+                    displayName: $".{mem.Name}  ({mem.Description})",
+                    dataType: mem.DataType,
+                    absAddr: absMember,
+                    onClick: selectAction,
+                    onExpandDb: null));
+            }
+
+            if (members.Count == 0)
+                AddAutocompleteEmptyRow();
+            return;
+        }
+
+        // Chế độ 1: Liệt kê toàn bộ PLC Tags + Data Blocks đã tạo (3 cột: Icon & Name | Data type | Address)
+        AutoDbHeaderBanner.Visibility = Visibility.Collapsed;
+
+        var combined = new List<(PlcTagEntry Entry, bool IsDb)>();
+        var seenAddr = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var tag in prog.Tags)
+        {
+            string norm = PlcProgramModel.NormalizeAddress(tag.Address);
+            bool isDb = norm.StartsWith("%DB", StringComparison.OrdinalIgnoreCase) && !norm.Contains('.');
+            if (!string.IsNullOrWhiteSpace(norm)) seenAddr.Add(norm);
+            combined.Add((tag, isDb));
+        }
+
+        foreach (var db in prog.GetAllDataBlocks())
+        {
+            string norm = PlcProgramModel.NormalizeAddress(db.Address);
+            if (seenAddr.Add(norm))
+                combined.Add((db, true));
+        }
+
+        var filtered = combined.Where(item =>
+            string.IsNullOrEmpty(query) ||
+            item.Entry.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+            item.Entry.Address.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+            item.Entry.DataType.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        foreach (var (entry, isDb) in filtered)
+        {
+            string normAddr = PlcProgramModel.NormalizeAddress(entry.Address);
+            if (isDb)
+            {
+                var capturedDb = entry;
+                Action expandAction = () =>
+                {
+                    _autoExpandedDb = capturedDb;
+                    _updatingAutoSearch = true;
+                    TbAutoSearch.Text = $"\"{capturedDb.Name}\".";
+                    TbAutoSearch.CaretIndex = TbAutoSearch.Text.Length;
+                    _updatingAutoSearch = false;
+                    TxtAutoSearchHint.Visibility = Visibility.Collapsed;
+                    RebuildAutocompleteResults();
+                    TbAutoSearch.Focus();
+                };
+                _autoRowActions.Add(expandAction);
+
+                AutoResultsStack.Children.Add(CreateAutocompleteRow(
+                    iconText: "DB",
+                    iconBgHex: "#0F766E",
+                    displayName: $"\"{entry.Name}\"",
+                    dataType: entry.DataType,
+                    absAddr: normAddr.TrimStart('%'),
+                    onClick: expandAction,
+                    onExpandDb: expandAction));
+            }
+            else
+            {
+                Action pickTag = () => ApplyAutocompleteSelection(normAddr, entry.Name);
+                _autoRowActions.Add(pickTag);
+
+                AutoResultsStack.Children.Add(CreateAutocompleteRow(
+                    iconText: "T",
+                    iconBgHex: "#2563EB",
+                    displayName: string.IsNullOrWhiteSpace(entry.Name) ? normAddr : $"\"{entry.Name}\"",
+                    dataType: entry.DataType,
+                    absAddr: normAddr,
+                    onClick: pickTag,
+                    onExpandDb: null));
+            }
+        }
+
+        if (filtered.Count == 0)
+            AddAutocompleteEmptyRow();
+    }
+
+    private UIElement CreateAutocompleteRow(
+        string iconText,
+        string iconBgHex,
+        string displayName,
+        string dataType,
+        string absAddr,
+        Action onClick,
+        Action? onExpandDb)
+    {
+        var rowGrid = new Grid();
+        rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(78) });
+        rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(74) });
+
+        var nameDock = new DockPanel { LastChildFill = true };
+        var badge = new Border
+        {
+            Background = CreateBrush(iconBgHex),
+            CornerRadius = new CornerRadius(3),
+            Width = 20,
+            Height = 16,
+            Margin = new Thickness(0, 0, 6, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock
+            {
+                Text = iconText,
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 8.8,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.White,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            }
+        };
+        DockPanel.SetDock(badge, Dock.Left);
+        nameDock.Children.Add(badge);
+
+        if (onExpandDb is not null)
+        {
+            var expandBtn = new Button
+            {
+                Content = ">>",
+                Padding = new Thickness(5, 0.5, 5, 0.5),
+                Margin = new Thickness(4, 0, 4, 0),
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 9.5,
+                FontWeight = FontWeights.Bold,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            expandBtn.SetResourceReference(StyleProperty, "ToolbarButtonStyle");
+            expandBtn.Click += (_, e) => { e.Handled = true; onExpandDb(); };
+            DockPanel.SetDock(expandBtn, Dock.Right);
+            nameDock.Children.Add(expandBtn);
+        }
+
+        var nameTb = new TextBlock
+        {
+            Text = displayName,
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        nameTb.SetResourceReference(TextBlock.ForegroundProperty, "TextPrimaryBrush");
+        nameDock.Children.Add(nameTb);
+        Grid.SetColumn(nameDock, 0);
+        rowGrid.Children.Add(nameDock);
+
+        var typeTb = new TextBlock
+        {
+            Text = dataType,
+            FontSize = 10.5,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        typeTb.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondaryBrush");
+        Grid.SetColumn(typeTb, 1);
+        rowGrid.Children.Add(typeTb);
+
+        var addrTb = new TextBlock
+        {
+            Text = absAddr,
+            FontFamily = new FontFamily("Consolas"),
+            FontSize = 10.6,
+            FontWeight = FontWeights.Bold,
+            Foreground = CreateBrush("#2DD4BF"),
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        Grid.SetColumn(addrTb, 2);
+        rowGrid.Children.Add(addrTb);
+
+        var btn = new Button
+        {
+            Content = rowGrid,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            Padding = new Thickness(6, 4, 6, 4),
+            Cursor = Cursors.Hand
+        };
+        btn.SetResourceReference(BorderBrushProperty, "BorderSubtleBrush");
+        btn.MouseEnter += (_, _) => btn.SetResourceReference(BackgroundProperty, "MenuHoverBrush");
+        btn.MouseLeave += (_, _) => btn.Background = Brushes.Transparent;
+        btn.Click += (_, _) => onClick();
+        return btn;
+    }
+
+    private void AddAutocompleteEmptyRow()
+    {
+        var tb = new TextBlock
+        {
+            Text = LocalizationManager.Get("Str.Plc.AutoEmpty"),
+            FontSize = 10.8,
+            FontStyle = FontStyles.Italic,
+            Margin = new Thickness(10, 10, 10, 10),
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        tb.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondaryBrush");
+        AutoResultsStack.Children.Add(tb);
+    }
+
+    private void ApplyAutocompleteSelection(string value, string symbol)
+    {
+        if (_plc is null || _autoTargetNode is null) return;
+
+        switch (_autoTargetField)
+        {
+            case "Param1":
+                _autoTargetNode.Param1 = value;
+                break;
+            case "Param2":
+                _autoTargetNode.Param2 = value;
+                break;
+            case "Out":
+                _autoTargetNode.OutputAddress = value;
+                break;
+            default:
+                _autoTargetNode.Address = value;
+                _autoTargetNode.SymbolName = symbol;
+                break;
+        }
+
+        TagAutocompletePopup.IsOpen = false;
+        _selectedNode = _autoTargetNode;
+        NotifyProgramChanged();
+        RenderNetworks();
+        UpdatePropertyBarForSelectedNode();
+    }
+
+    // =========================================================================
+    // 4. THANH CHỈNH SỬA NHANH THÔNG SỐ (HỖ TRỢ ĐẦY ĐỦ 10 NHÓM + EMPTY BOX)
     // =========================================================================
 
     private void UpdatePropertyBarForSelectedNode()
@@ -842,7 +1379,7 @@ public partial class PlcLadderEditorControl : UserControl
 
         if (_plc is null || _selectedNode is null || _selectedNode.Kind == LadderElementKind.ParallelBlock)
         {
-            TxtSelectedNodeSummary.Text = LocalizationManager.Get("Str.Plc.PropBarHint");
+            TxtSelectedNodeSummary.Text = LocalizationManager.Get("Str.Plc.DoubleClickHint");
             return;
         }
 
@@ -853,11 +1390,13 @@ public partial class PlcLadderEditorControl : UserControl
         {
             TxtSelectedNodeSummary.Text = "[Empty box]";
             PanelPropAddress.Visibility = Visibility.Visible;
+            BtnPickPropAddress.Visibility = Visibility.Collapsed;
             LblPropAddress.Text = "Instruction:";
             TbPropAddress.Text = n.Address == "???" ? string.Empty : n.Address;
             return;
         }
 
+        BtnPickPropAddress.Visibility = Visibility.Visible;
         var meta = PlcInstructionCatalog.Get(n.Kind);
         TxtSelectedNodeSummary.Text = $"[{meta?.Symbol ?? n.Kind.ToString()}]";
 
@@ -928,6 +1467,10 @@ public partial class PlcLadderEditorControl : UserControl
                 _selectedNode.Param2 = replacement.Param2;
                 _selectedNode.ExtraParam = replacement.ExtraParam;
                 _selectedNode.OutputAddress = replacement.OutputAddress;
+
+                if (_selectedNode.RequiresCallOptions)
+                    PromptCallOptionsForNode(_selectedNode, isNewInsert: true);
+
                 NotifyProgramChanged();
                 RenderNetworks();
                 UpdatePropertyBarForSelectedNode();
@@ -941,24 +1484,27 @@ public partial class PlcLadderEditorControl : UserControl
         }
 
         if (PanelPropAddress.Visibility == Visibility.Visible)
-            _selectedNode.Address = TbPropAddress.Text.Trim();
+        {
+            string rawAddr = TbPropAddress.Text.Trim();
+            _selectedNode.Address = PlcProgramModel.NormalizeAddress(rawAddr);
+        }
+
         if (PanelPropSymbol.Visibility == Visibility.Visible)
         {
-            string sym = TbPropSymbol.Text.Trim();
+            string sym = PlcAddressHelper.StripQuotes(TbPropSymbol.Text.Trim());
             _selectedNode.SymbolName = sym;
-            if (!string.IsNullOrWhiteSpace(sym) && !string.IsNullOrWhiteSpace(_selectedNode.Address))
+            if (!string.IsNullOrWhiteSpace(sym) &&
+                !string.IsNullOrWhiteSpace(_selectedNode.Address) &&
+                PlcAddressHelper.IsAbsoluteAddress(_selectedNode.Address) &&
+                !_selectedNode.Address.Contains(".Q", StringComparison.OrdinalIgnoreCase))
             {
                 string norm = PlcProgramModel.NormalizeAddress(_selectedNode.Address);
-                var existing = _plc.DraftProgram.Tags.FirstOrDefault(t => PlcProgramModel.NormalizeAddress(t.Address) == norm);
-                if (existing is not null)
-                    existing.Name = sym;
-                else
-                    _plc.DraftProgram.Tags.Add(new PlcTagEntry
-                    {
-                        Name = sym,
-                        Address = norm,
-                        DataType = _selectedNode.IsTimer ? "IEC_Timer" : (_selectedNode.IsCounter ? "IEC_Counter" : (norm.StartsWith("%MD") ? "Real" : (norm.StartsWith("%MW") ? "Int" : "Bool")))
-                    });
+                string inferredType = _selectedNode.IsTimer ? "IEC_Timer"
+                    : (_selectedNode.IsCounter ? "IEC_Counter"
+                    : (norm.StartsWith("%MD") ? "Real"
+                    : (norm.StartsWith("%MW") ? "Int"
+                    : (norm.StartsWith("%MB") ? "Byte" : "Bool"))));
+                _plc.DraftProgram.EnsureTagExists(norm, sym, inferredType);
             }
         }
         if (PanelPropParam1.Visibility == Visibility.Visible) _selectedNode.Param1 = TbPropParam1.Text.Trim();
@@ -971,7 +1517,7 @@ public partial class PlcLadderEditorControl : UserControl
     }
 
     // =========================================================================
-    // 4. BẢNG KÝ HIỆU BIẾN (PLC TAG TABLE)
+    // 5. BẢNG KÝ HIỆU BIẾN PLC TAGS CHUẨN TIA PORTAL V21 + ADDRESS PICKER POPUP
     // =========================================================================
 
     private void RenderTagTable()
@@ -979,92 +1525,416 @@ public partial class PlcLadderEditorControl : UserControl
         TagRowsStack.Children.Clear();
         if (_plc is null) return;
 
-        TagRowsStack.Children.Add(CreateTagRowGrid(
-            LocalizationManager.Get("Str.Plc.TagName"),
-            LocalizationManager.Get("Str.Plc.TagAddr"),
-            LocalizationManager.Get("Str.Plc.TagType"),
-            LocalizationManager.Get("Str.Plc.TagLive"),
-            isHeader: true,
-            tagEntry: null));
+        // Dòng tiêu đề 11 cột chuẩn TIA Portal V21
+        TagRowsStack.Children.Add(BuildTagHeaderRow());
 
-        foreach (var tag in _plc.DraftProgram.Tags)
+        var tags = _plc.DraftProgram.Tags;
+        for (int i = 0; i < tags.Count; i++)
         {
+            var tag = tags[i];
             string liveVal = _isSimulating && _plc.IsPowered ? _plc.Runtime.FormatLiveValueForAddress(tag.Address) : "—";
-            TagRowsStack.Children.Add(CreateTagRowGrid(tag.Name, tag.Address, tag.DataType, liveVal, isHeader: false, tagEntry: tag));
+            TagRowsStack.Children.Add(BuildTagDataRow(i + 1, tag, liveVal));
         }
+
+        // Dòng <Add new> cuối bảng chuẩn TIA Portal V21
+        TagRowsStack.Children.Add(BuildAddNewTagRow(tags.Count + 1));
     }
 
-    private UIElement CreateTagRowGrid(string name, string addr, string type, string liveVal, bool isHeader, PlcTagEntry? tagEntry)
+    private static Grid CreateTagColumnsGrid()
+    {
+        var g = new Grid();
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });   // #
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });   // Icon
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(142) });  // Name
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });   // Data type
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(122) });  // Address + picker
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });   // Retain
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(66) });   // Accessible
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(58) });   // Writable
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });   // Visible
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(86) });   // Live
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 110 }); // Comment
+        return g;
+    }
+
+    private Border BuildTagHeaderRow()
     {
         var border = new Border
         {
-            Padding = new Thickness(6, 4, 6, 4),
+            Padding = new Thickness(6, 5, 6, 5),
             Margin = new Thickness(0, 0, 0, 3),
             CornerRadius = new CornerRadius(4),
             BorderThickness = new Thickness(1)
         };
-        border.SetResourceReference(Border.BackgroundProperty, isHeader ? "SubtleSurfaceBrush" : (tagEntry == _selectedTag ? "MenuHoverBrush" : "CardBgBrush"));
-        border.SetResourceReference(Border.BorderBrushProperty, tagEntry == _selectedTag && !isHeader ? "AccentCyanBrush" : "BorderSubtleBrush");
+        border.SetResourceReference(Border.BackgroundProperty, "SubtleSurfaceBrush");
+        border.SetResourceReference(Border.BorderBrushProperty, "BorderSubtleBrush");
 
-        var g = new Grid();
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.2, GridUnitType.Star) });
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.9, GridUnitType.Star) });
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.8, GridUnitType.Star) });
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.0, GridUnitType.Star) });
-
-        if (isHeader)
-        {
-            AddHeaderCell(g, 0, name);
-            AddHeaderCell(g, 1, addr);
-            AddHeaderCell(g, 2, type);
-            AddHeaderCell(g, 3, liveVal);
-        }
-        else if (tagEntry is not null)
-        {
-            var tbName = CreateEditableCell(tagEntry.Name, v => { tagEntry.Name = v; NotifyProgramChanged(); });
-            var tbAddr = CreateEditableCell(tagEntry.Address, v => { tagEntry.Address = PlcProgramModel.NormalizeAddress(v); NotifyProgramChanged(); }, mono: true);
-            var tbType = CreateEditableCell(tagEntry.DataType, v => { tagEntry.DataType = v; NotifyProgramChanged(); });
-            var tbLive = new TextBlock
-            {
-                Text = liveVal,
-                FontFamily = new FontFamily("Consolas"),
-                FontSize = 11,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = CreateBrush(liveVal.StartsWith("TRUE") ? "#22C55E" : "#94A3B8"),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(6, 0, 0, 0)
-            };
-
-            Grid.SetColumn(tbName, 0);
-            Grid.SetColumn(tbAddr, 1);
-            Grid.SetColumn(tbType, 2);
-            Grid.SetColumn(tbLive, 3);
-            g.Children.Add(tbName);
-            g.Children.Add(tbAddr);
-            g.Children.Add(tbType);
-            g.Children.Add(tbLive);
-
-            border.MouseLeftButtonDown += (_, _) => { _selectedTag = tagEntry; RenderTagTable(); };
-        }
+        var g = CreateTagColumnsGrid();
+        AddHeaderCell(g, 0, "#", center: true);
+        AddHeaderCell(g, 1, "", center: true);
+        AddHeaderCell(g, 2, LocalizationManager.Get("Str.Plc.TagColName"));
+        AddHeaderCell(g, 3, LocalizationManager.Get("Str.Plc.TagColType"));
+        AddHeaderCell(g, 4, LocalizationManager.Get("Str.Plc.TagColAddr"));
+        AddHeaderCell(g, 5, LocalizationManager.Get("Str.Plc.TagColRetain"), center: true);
+        AddHeaderCell(g, 6, LocalizationManager.Get("Str.Plc.TagColAccessible"), center: true);
+        AddHeaderCell(g, 7, LocalizationManager.Get("Str.Plc.TagColWritable"), center: true);
+        AddHeaderCell(g, 8, LocalizationManager.Get("Str.Plc.TagColVisible"), center: true);
+        AddHeaderCell(g, 9, LocalizationManager.Get("Str.Plc.TagLive"));
+        AddHeaderCell(g, 10, LocalizationManager.Get("Str.Plc.TagColComment"));
 
         border.Child = g;
         return border;
     }
 
-    private void AddHeaderCell(Grid g, int col, string text)
+    private Border BuildTagDataRow(int rowNum, PlcTagEntry tag, string liveVal)
     {
-        var tb = new TextBlock { Text = text, FontSize = 10.5, FontWeight = FontWeights.Bold };
+        bool isSelected = tag == _selectedTag;
+        bool isDb = PlcProgramModel.NormalizeAddress(tag.Address).StartsWith("%DB", StringComparison.OrdinalIgnoreCase);
+
+        var border = new Border
+        {
+            Padding = new Thickness(6, 3.5, 6, 3.5),
+            Margin = new Thickness(0, 0, 0, 2.5),
+            CornerRadius = new CornerRadius(4),
+            BorderThickness = new Thickness(1)
+        };
+        border.SetResourceReference(Border.BackgroundProperty, isSelected ? "MenuHoverBrush" : "CardBgBrush");
+        border.SetResourceReference(Border.BorderBrushProperty, isSelected ? "AccentCyanBrush" : "BorderSubtleBrush");
+
+        var g = CreateTagColumnsGrid();
+
+        // Col 0: #
+        var numTb = new TextBlock
+        {
+            Text = rowNum.ToString(CultureInfo.InvariantCulture),
+            FontSize = 10.5,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        numTb.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondaryBrush");
+        Grid.SetColumn(numTb, 0);
+        g.Children.Add(numTb);
+
+        // Col 1: Tag / DB Icon
+        var iconBadge = new Border
+        {
+            Width = 18,
+            Height = 16,
+            CornerRadius = new CornerRadius(3),
+            Background = CreateBrush(isDb ? "#0F766E" : "#2563EB"),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock
+            {
+                Text = isDb ? "DB" : "T",
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 8.4,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.White,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            }
+        };
+        Grid.SetColumn(iconBadge, 1);
+        g.Children.Add(iconBadge);
+
+        // Col 2: Name
+        var tbName = CreateEditableCell(tag.Name, v => { tag.Name = v; NotifyProgramChanged(); },
+            onEnter: () => HandleTagRowEnter(tag));
+        Grid.SetColumn(tbName, 2);
+        g.Children.Add(tbName);
+
+        if (tag == _pendingFocusTag)
+        {
+            _pendingFocusTag = null;
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
+            {
+                tbName.Focus();
+                tbName.SelectAll();
+            });
+        }
+
+        // Col 3: Data type ComboBox
+        var cbType = new ComboBox
+        {
+            Margin = new Thickness(0, 0, 5, 0),
+            FontSize = 10.8,
+            VerticalContentAlignment = VerticalAlignment.Center
+        };
+        foreach (string dt in PlcAddressHelper.SupportedDataTypes)
+            cbType.Items.Add(dt);
+        if (!PlcAddressHelper.SupportedDataTypes.Contains(tag.DataType, StringComparer.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(tag.DataType))
+            cbType.Items.Add(tag.DataType);
+        cbType.SelectedItem = cbType.Items.Cast<string>().FirstOrDefault(x => x.Equals(tag.DataType, StringComparison.OrdinalIgnoreCase)) ?? "Bool";
+        cbType.IsEnabled = !isDb;
+        cbType.SelectionChanged += (_, _) =>
+        {
+            if (cbType.SelectedItem is string chosen && !chosen.Equals(tag.DataType, StringComparison.Ordinal))
+            {
+                tag.DataType = chosen;
+                NotifyProgramChanged();
+            }
+        };
+        Grid.SetColumn(cbType, 3);
+        g.Children.Add(cbType);
+
+        // Col 4: Address TextBox + Address Picker dropdown arrow button (▾)
+        var addrDock = new DockPanel { Margin = new Thickness(0, 0, 5, 0) };
+        var btnPicker = new Button
+        {
+            Content = "▾",
+            Width = 20,
+            Padding = new Thickness(0),
+            Margin = new Thickness(2, 0, 0, 0),
+            FontSize = 10,
+            IsEnabled = !isDb,
+            ToolTip = LocalizationManager.Get("Str.Plc.AddrPickerTitle")
+        };
+        btnPicker.SetResourceReference(StyleProperty, "ToolbarButtonStyle");
+        btnPicker.Click += (_, e) =>
+        {
+            e.Handled = true;
+            OpenAddressPicker(addrDock, tag);
+        };
+        DockPanel.SetDock(btnPicker, Dock.Right);
+        addrDock.Children.Add(btnPicker);
+
+        TextBox tbAddr = null!;
+        tbAddr = CreateEditableCell(tag.Address, v =>
+        {
+            string norm = PlcProgramModel.NormalizeAddress(v);
+            tag.Address = norm;
+            if (tbAddr.Text != norm) tbAddr.Text = norm;
+            NotifyProgramChanged();
+        }, mono: true, onEnter: () =>
+        {
+            string norm = PlcProgramModel.NormalizeAddress(tbAddr.Text.Trim());
+            tag.Address = norm;
+            tbAddr.Text = norm;
+            NotifyProgramChanged();
+            HandleTagRowEnter(tag);
+        });
+        tbAddr.Margin = new Thickness(0);
+        addrDock.Children.Add(tbAddr);
+        Grid.SetColumn(addrDock, 4);
+        g.Children.Add(addrDock);
+
+        // Col 5-8: Retain, Accessible, Writable, Visible checkboxes
+        AddTagCheckbox(g, 5, tag.Retain, v => { tag.Retain = v; NotifyProgramChanged(); });
+        AddTagCheckbox(g, 6, tag.Accessible, v => { tag.Accessible = v; NotifyProgramChanged(); });
+        AddTagCheckbox(g, 7, tag.Writable, v => { tag.Writable = v; NotifyProgramChanged(); });
+        AddTagCheckbox(g, 8, tag.Visible, v => { tag.Visible = v; NotifyProgramChanged(); });
+
+        // Col 9: Live Value
+        var tbLive = new TextBlock
+        {
+            Text = liveVal,
+            FontFamily = new FontFamily("Consolas"),
+            FontSize = 10.6,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = CreateBrush(liveVal.StartsWith("TRUE") ? "#22C55E" : "#94A3B8"),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(4, 0, 4, 0),
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        Grid.SetColumn(tbLive, 9);
+        g.Children.Add(tbLive);
+
+        // Col 10: Comment
+        var tbComment = CreateEditableCell(tag.Comment, v => { tag.Comment = v; NotifyProgramChanged(); },
+            onEnter: () => HandleTagRowEnter(tag));
+        tbComment.Margin = new Thickness(0);
+        Grid.SetColumn(tbComment, 10);
+        g.Children.Add(tbComment);
+
+        border.PreviewMouseLeftButtonDown += (_, _) => { _selectedTag = tag; };
+        border.Child = g;
+        return border;
+    }
+
+    private Border BuildAddNewTagRow(int nextRowNum)
+    {
+        var border = new Border
+        {
+            Padding = new Thickness(6, 4, 6, 4),
+            Margin = new Thickness(0, 2, 0, 4),
+            CornerRadius = new CornerRadius(4),
+            BorderThickness = new Thickness(1)
+        };
+        border.SetResourceReference(Border.BackgroundProperty, "SubtleSurfaceBrush");
+        border.SetResourceReference(Border.BorderBrushProperty, "BorderSubtleBrush");
+
+        var g = CreateTagColumnsGrid();
+
+        var numTb = new TextBlock
+        {
+            Text = nextRowNum.ToString(CultureInfo.InvariantCulture),
+            FontSize = 10.2,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        numTb.SetResourceReference(TextBlock.ForegroundProperty, "TextMutedBrush");
+        Grid.SetColumn(numTb, 0);
+        g.Children.Add(numTb);
+
+        var plusTb = new TextBlock
+        {
+            Text = "+",
+            FontSize = 12,
+            FontWeight = FontWeights.Bold,
+            Foreground = CreateBrush("#22C55E"),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(plusTb, 1);
+        g.Children.Add(plusTb);
+
+        var inputGrid = new Grid { Margin = new Thickness(0, 0, 5, 0) };
+        var tbNewName = new TextBox
+        {
+            Padding = new Thickness(4, 2, 4, 2),
+            FontSize = 11
+        };
+        tbNewName.SetResourceReference(TextBox.BackgroundProperty, "InputBgBrush");
+        tbNewName.SetResourceReference(TextBox.ForegroundProperty, "TextPrimaryBrush");
+        tbNewName.SetResourceReference(TextBox.BorderBrushProperty, "BorderSubtleBrush");
+
+        var phTb = new TextBlock
+        {
+            Text = LocalizationManager.Get("Str.Plc.TagAddNew"),
+            FontSize = 10.8,
+            FontStyle = FontStyles.Italic,
+            IsHitTestVisible = false,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(6, 0, 0, 0)
+        };
+        phTb.SetResourceReference(TextBlock.ForegroundProperty, "TextMutedBrush");
+        tbNewName.TextChanged += (_, _) => phTb.Visibility = string.IsNullOrEmpty(tbNewName.Text) ? Visibility.Visible : Visibility.Collapsed;
+        tbNewName.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter)
+            {
+                e.Handled = true;
+                AddTagFromAddNewRow(tbNewName.Text.Trim());
+            }
+        };
+
+        inputGrid.Children.Add(tbNewName);
+        inputGrid.Children.Add(phTb);
+        Grid.SetColumn(inputGrid, 2);
+        g.Children.Add(inputGrid);
+
+        string previewAddr = ComputeNextDefaultTagAddress(out string nextType);
+        var nextTypeTb = new TextBlock { Text = nextType, FontSize = 10.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) };
+        nextTypeTb.SetResourceReference(TextBlock.ForegroundProperty, "TextMutedBrush");
+        Grid.SetColumn(nextTypeTb, 3);
+        g.Children.Add(nextTypeTb);
+
+        var nextAddrTb = new TextBlock { Text = previewAddr, FontFamily = new FontFamily("Consolas"), FontSize = 10.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) };
+        nextAddrTb.SetResourceReference(TextBlock.ForegroundProperty, "TextMutedBrush");
+        Grid.SetColumn(nextAddrTb, 4);
+        g.Children.Add(nextAddrTb);
+
+        border.Child = g;
+        return border;
+    }
+
+    private string ComputeNextDefaultTagAddress(out string dataType)
+    {
+        dataType = "Bool";
+        if (_plc is null) return "%I0.0";
+
+        // Lấy tag gần nhất không phải DB để tiếp tục dải địa chỉ (VD: %I0.0 -> %I0.1, %Q0.0 -> %Q0.1, %MW0 -> %MW2)
+        var lastIoTag = _plc.DraftProgram.Tags.LastOrDefault(t =>
+            !PlcProgramModel.NormalizeAddress(t.Address).StartsWith("%DB", StringComparison.OrdinalIgnoreCase));
+
+        if (lastIoTag is null)
+            return "%I0.0";
+
+        dataType = PlcAddressHelper.SupportedDataTypes.Contains(lastIoTag.DataType, StringComparer.OrdinalIgnoreCase)
+            ? lastIoTag.DataType
+            : "Bool";
+        return PlcAddressHelper.ComputeNextAddress(lastIoTag.Address, dataType);
+    }
+
+    private void HandleTagRowEnter(PlcTagEntry currentTag)
+    {
+        if (_plc is null) return;
+        var tags = _plc.DraftProgram.Tags;
+        int idx = tags.IndexOf(currentTag);
+        if (idx < 0) return;
+
+        string dt = PlcAddressHelper.SupportedDataTypes.Contains(currentTag.DataType, StringComparer.OrdinalIgnoreCase)
+            ? currentTag.DataType
+            : "Bool";
+        string nextAddr = PlcAddressHelper.ComputeNextAddress(currentTag.Address, dt);
+
+        var nextEntry = new PlcTagEntry
+        {
+            Name = $"Tag_{tags.Count + 1}",
+            Address = nextAddr,
+            DataType = dt
+        };
+
+        tags.Insert(idx + 1, nextEntry);
+        _selectedTag = nextEntry;
+        _pendingFocusTag = nextEntry;
+        NotifyProgramChanged();
+        RenderTagTable();
+    }
+
+    private void AddTagFromAddNewRow(string typedName)
+    {
+        if (_plc is null) return;
+        string nextAddr = ComputeNextDefaultTagAddress(out string nextType);
+        var entry = new PlcTagEntry
+        {
+            Name = string.IsNullOrWhiteSpace(typedName) ? $"Tag_{_plc.DraftProgram.Tags.Count + 1}" : typedName,
+            Address = nextAddr,
+            DataType = nextType
+        };
+        _plc.DraftProgram.Tags.Add(entry);
+        _selectedTag = entry;
+        _pendingFocusTag = string.IsNullOrWhiteSpace(typedName) ? entry : null;
+        NotifyProgramChanged();
+        RenderTagTable();
+    }
+
+    private void AddHeaderCell(Grid g, int col, string text, bool center = false)
+    {
+        var tb = new TextBlock
+        {
+            Text = text,
+            FontSize = 10.2,
+            FontWeight = FontWeights.Bold,
+            HorizontalAlignment = center ? HorizontalAlignment.Center : HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center
+        };
         tb.SetResourceReference(TextBlock.ForegroundProperty, "AccentCyanBrush");
         Grid.SetColumn(tb, col);
         g.Children.Add(tb);
     }
 
-    private TextBox CreateEditableCell(string initial, Action<string> onChanged, bool mono = false)
+    private static void AddTagCheckbox(Grid g, int col, bool isChecked, Action<bool> onChanged)
+    {
+        var cb = new CheckBox
+        {
+            IsChecked = isChecked,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        cb.Checked += (_, _) => onChanged(true);
+        cb.Unchecked += (_, _) => onChanged(false);
+        Grid.SetColumn(cb, col);
+        g.Children.Add(cb);
+    }
+
+    private TextBox CreateEditableCell(string initial, Action<string> onChanged, bool mono = false, Action? onEnter = null)
     {
         var tb = new TextBox
         {
             Text = initial,
-            Margin = new Thickness(0, 0, 6, 0),
+            Margin = new Thickness(0, 0, 5, 0),
             Padding = new Thickness(4, 2, 4, 2),
             FontSize = 11,
             FontFamily = mono ? new FontFamily("Consolas") : new FontFamily("Segoe UI")
@@ -1073,16 +1943,96 @@ public partial class PlcLadderEditorControl : UserControl
         tb.SetResourceReference(TextBox.ForegroundProperty, "TextPrimaryBrush");
         tb.SetResourceReference(TextBox.BorderBrushProperty, "BorderSubtleBrush");
         tb.LostFocus += (_, _) => onChanged(tb.Text.Trim());
+        tb.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter)
+            {
+                onChanged(tb.Text.Trim());
+                onEnter?.Invoke();
+                e.Handled = true;
+            }
+        };
         return tb;
     }
+
+    // --- Address Picker Popup handlers ---
+    private void OpenAddressPicker(UIElement anchor, PlcTagEntry tag)
+    {
+        _addrPickerTag = tag;
+        _updatingAddrPickerUi = true;
+
+        PlcAddressHelper.TryParseAddressParts(tag.Address, out string opId, out string opType, out int byteAddr, out int bitNum);
+
+        CbAddrOpId.SelectedIndex = opId switch { "Q" => 1, "M" => 2, _ => 0 };
+        CbAddrOpType.SelectedIndex = opType switch { "Byte" => 1, "Word" => 2, "DWord" => 3, _ => 0 };
+        TbAddrByte.Text = byteAddr.ToString(CultureInfo.InvariantCulture);
+        CbAddrBit.SelectedIndex = Math.Clamp(bitNum, 0, 7);
+
+        _updatingAddrPickerUi = false;
+        UpdateAddressPickerPreview();
+
+        AddressPickerPopup.PlacementTarget = anchor;
+        AddressPickerPopup.IsOpen = true;
+    }
+
+    private void OnAddressPickerFieldChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_updatingAddrPickerUi || !IsInitialized) return;
+        UpdateAddressPickerPreview();
+    }
+
+    private void OnAddressPickerByteChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_updatingAddrPickerUi || !IsInitialized) return;
+        UpdateAddressPickerPreview();
+    }
+
+    private string BuildAddressFromPicker(out string opType)
+    {
+        string opId = (CbAddrOpId.SelectedItem as ComboBoxItem)?.Content as string ?? "I";
+        opType = (CbAddrOpType.SelectedItem as ComboBoxItem)?.Content as string ?? "Bit";
+        int byteAddr = int.TryParse(TbAddrByte.Text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int b) ? b : 0;
+        int bitNum = Math.Clamp(CbAddrBit.SelectedIndex, 0, 7);
+        return PlcAddressHelper.BuildAddress(opId, opType, byteAddr, bitNum);
+    }
+
+    private void UpdateAddressPickerPreview()
+    {
+        string built = BuildAddressFromPicker(out string opType);
+        CbAddrBit.IsEnabled = opType == "Bit";
+        TxtAddrPickerPreview.Text = built;
+    }
+
+    private void OnAddressPickerConfirmClick(object sender, RoutedEventArgs e)
+    {
+        if (_addrPickerTag is not null)
+        {
+            string built = BuildAddressFromPicker(out string opType);
+            _addrPickerTag.Address = built;
+            if (!PlcAddressHelper.IsDataTypeCompatibleWithOperandType(_addrPickerTag.DataType, opType))
+                _addrPickerTag.DataType = PlcAddressHelper.DefaultDataTypeForOperandType(opType);
+
+            NotifyProgramChanged();
+            RenderTagTable();
+        }
+        AddressPickerPopup.IsOpen = false;
+    }
+
+    private void OnAddressPickerCancelClick(object sender, RoutedEventArgs e) => AddressPickerPopup.IsOpen = false;
 
     private void OnAddTagClick(object sender, RoutedEventArgs e)
     {
         if (_plc is null) return;
-        int n = _plc.DraftProgram.Tags.Count + 1;
-        var entry = new PlcTagEntry { Name = $"TAG_{n}", Address = $"%M{n}.0", DataType = "Bool" };
+        string nextAddr = ComputeNextDefaultTagAddress(out string nextType);
+        var entry = new PlcTagEntry
+        {
+            Name = $"Tag_{_plc.DraftProgram.Tags.Count + 1}",
+            Address = nextAddr,
+            DataType = nextType
+        };
         _plc.DraftProgram.Tags.Add(entry);
         _selectedTag = entry;
+        _pendingFocusTag = entry;
         NotifyProgramChanged();
         RenderTagTable();
     }
@@ -1097,7 +2047,7 @@ public partial class PlcLadderEditorControl : UserControl
     }
 
     // =========================================================================
-    // 5. COMPILE & DOWNLOAD (HIỆU ỨNG NẠP 1.5s + NHẤP NHÁY LED PLC)
+    // 6. COMPILE & DOWNLOAD (HIỆU ỨNG NẠP 1.5s + NHẤP NHÁY LED PLC)
     // =========================================================================
 
     public PlcCompileResult CompileCurrentProgram()
@@ -1246,7 +2196,7 @@ public partial class PlcLadderEditorControl : UserControl
     }
 
     // =========================================================================
-    // 6. NETWORK, PARALLEL BRANCH, CPU, ZOOM & THU GỌN
+    // 7. NETWORK, PARALLEL BRANCH, CPU, ZOOM & THU GỌN
     // =========================================================================
 
     private void OnAddNetworkClick(object sender, RoutedEventArgs e)
@@ -1346,6 +2296,8 @@ public partial class PlcLadderEditorControl : UserControl
     private void OnTabChanged(object sender, RoutedEventArgs e)
     {
         if (!IsLoaded) return;
+        AddressPickerPopup.IsOpen = false;
+        TagAutocompletePopup.IsOpen = false;
         RefreshAllViews();
     }
 

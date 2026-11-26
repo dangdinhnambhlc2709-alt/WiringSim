@@ -6,15 +6,15 @@ using WiringSim.Models.Plc;
 namespace WiringSim.Models.Components.Control;
 
 /// <summary>
-/// Khối phần cứng PLC công nghiệp Siemens S7-1200 (CPU 1214C DC/DC/DC):
+/// Khối phần cứng PLC công nghiệp (14 DI / 10 DQ / 2 AI — DC/DC/DC):
 /// - 3 đèn LED hệ thống: RUN/STOP (xanh/vàng cam/nhấp nháy khi nạp), ERROR (đỏ nhấp nháy khi lỗi), MAINT (vàng cam).
 /// - Hàng trên (20 chân): L+, M, PE, 1M (chọn PNP/NPN), 14 ngõ vào số (I0.0–I0.7, I1.0–I1.5), 2 ngõ vào tương tự (AI0, AI1: 0–10V).
 /// - Hàng dưới (12 chân): Nguồn phụ (L+, M) và 10 ngõ ra số (Q0.0–Q0.7, Q1.0, Q1.1).
-/// - Tích hợp chương trình Ladder, Bảng Tag ký hiệu biến, Bộ biên dịch &amp; Vòng quét 50ms.
+/// - Tích hợp chương trình Ladder, Bảng PLC Tags, Data Blocks, Bộ biên dịch &amp; Vòng quét 50ms.
 /// </summary>
-public sealed class PlcS71200Component : ElectricalComponent
+public sealed class PlcControllerComponent : ElectricalComponent
 {
-    public const string TypeId = "PLC_S7_1200";
+    public const string TypeId = "PLC_CONTROLLER";
     public override string TypeKey => TypeId;
     public override ComponentCategory Category => ComponentCategory.ProgrammableControl;
 
@@ -25,7 +25,6 @@ public sealed class PlcS71200Component : ElectricalComponent
         PropertyNameCaseInsensitive = true
     };
 
-    // --- Chương trình đang soạn thảo (Draft) & Chương trình đã nạp trong bộ nhớ CPU (Loaded) ---
     public PlcProgramModel DraftProgram { get; set; } = CreateDefaultProgram();
     public PlcProgramModel LoadedProgram { get; private set; } = CreateDefaultProgram();
     public PlcRuntimeEngine Runtime { get; } = new();
@@ -60,9 +59,8 @@ public sealed class PlcS71200Component : ElectricalComponent
     public static readonly string[] DqNames =
         ["Q0.0", "Q0.1", "Q0.2", "Q0.3", "Q0.4", "Q0.5", "Q0.6", "Q0.7", "Q1.0", "Q1.1"];
 
-    public PlcS71200Component() : base("PLC1", 420, 200)
+    public PlcControllerComponent() : base("PLC1", 420, 200)
     {
-        // Hàng trên (X = 20..400, bước 20px chuẩn lưới)
         SupplyLPlus = AddTerminal("L+", "L+", 20, 0, TerminalSide.Top, "Nguồn cấp PLC +24VDC (L+)");
         SupplyM = AddTerminal("M", "M", 40, 0, TerminalSide.Top, "Nguồn cấp PLC 0VDC (M)");
         SupplyPe = AddTerminal("PE", "PE", 60, 0, TerminalSide.Top, "Tiếp địa bảo vệ (PE)");
@@ -77,7 +75,6 @@ public sealed class PlcS71200Component : ElectricalComponent
         Ai0 = AddTerminal("AI0", "AI0", 380, 0, TerminalSide.Top, "Ngõ vào tương tự AI0 (0–10VDC → %IW64)");
         Ai1 = AddTerminal("AI1", "AI1", 400, 0, TerminalSide.Top, "Ngõ vào tương tự AI1 (0–10VDC → %IW66)");
 
-        // Hàng dưới (Nguồn phụ 24V + 10 ngõ ra số DQ)
         AuxLPlus = AddTerminal("AUX_L+", "L+", 20, 200, TerminalSide.Bottom, "Nguồn phụ đầu ra +24VDC (L+)");
         AuxM = AddTerminal("AUX_M", "M", 40, 200, TerminalSide.Bottom, "Nguồn phụ đầu ra 0VDC (M)");
 
@@ -95,7 +92,7 @@ public sealed class PlcS71200Component : ElectricalComponent
         prog.Tags.Add(new PlcTagEntry { Name = "STOP", Address = "%I0.1", DataType = "Bool" });
         prog.Tags.Add(new PlcTagEntry { Name = "LAMP1", Address = "%Q0.0", DataType = "Bool" });
 
-        var nw1 = new LadderNetwork { Title = "Start / Stop Motor" };
+        var nw1 = new LadderNetwork { Title = "Start / Stop" };
         nw1.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.ContactNO, Address = "%I0.0" });
         nw1.MainBranch.Nodes.Add(new LadderNode { Kind = LadderElementKind.CoilOut, Address = "%Q0.0" });
         prog.Networks.Add(nw1);
@@ -139,7 +136,6 @@ public sealed class PlcS71200Component : ElectricalComponent
         if (!IsPowered || IsBurnedOut)
             yield break;
 
-        // Nguồn phụ L+ / M phía dưới xuất 24VDC khi PLC đang có nguồn
         yield return (AuxLPlus, new PotentialToken(Id, AuxLPlus.Id, CurrentKind.DC, PhaseType.DC_Plus, SupplyVoltage));
         yield return (AuxM, new PotentialToken(Id, AuxM.Id, CurrentKind.DC, PhaseType.DC_Minus, 0.0));
 
@@ -187,14 +183,14 @@ public sealed class PlcS71200Component : ElectricalComponent
 
         SupplyVoltage = Math.Round(vSup, 1);
 
-        // 1. Đọc 14 ngõ vào số DI (hỗ trợ cả Sink/PNP khi 1M=0V và Source/NPN khi 1M=+24V!)
+        // 1. Đọc 14 ngõ vào số DI (hỗ trợ cả Sink/PNP khi 1M=0V và Source/NPN khi 1M=+24V)
         for (int i = 0; i < DiTerminals.Length; i++)
         {
             double vIn = ElectricalAnalysisHelper.GetOperatingVoltageAcross(DiTerminals[i], InputCommon1M, out var inKind);
             Runtime.Di[i] = inKind == CurrentKind.DC && vIn >= 12.0;
         }
 
-        // 2. Đọc 2 ngõ vào tương tự AI0, AI1 (0–10VDC -> 0–27648 chuẩn S7-1200)
+        // 2. Đọc 2 ngõ vào tương tự AI0, AI1 (0–10VDC -> 0–27648)
         double vAi0 = ElectricalAnalysisHelper.GetOperatingVoltageAcross(Ai0, SupplyM, out var k0);
         double vAi1 = ElectricalAnalysisHelper.GetOperatingVoltageAcross(Ai1, SupplyM, out var k1);
         Runtime.Ai[0] = k0 == CurrentKind.DC ? (int)Math.Round(Math.Clamp(vAi0, 0.0, 10.0) * 2764.8) : 0;
