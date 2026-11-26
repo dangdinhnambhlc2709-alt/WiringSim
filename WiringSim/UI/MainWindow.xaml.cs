@@ -37,6 +37,7 @@ public partial class MainWindow : Window
     private bool _isPaletteCollapsed;
     private bool _isApplyingHistory;
     private bool _isDirty;
+    private bool _startupUpdateCheckScheduled;
     private string? _openedFileName;
 
     // --- Win32 WM_GETMINMAXINFO để Maximize không bị Windows Taskbar che mất thanh Status Bar ---
@@ -97,6 +98,7 @@ public partial class MainWindow : Window
             }
         };
         StateChanged += OnWindowStateChanged;
+        Loaded += OnMainWindowLoaded;
 
         BuildPaletteItems();
         BuildPresetContextMenu();
@@ -339,12 +341,72 @@ public partial class MainWindow : Window
 
     private void OnOpenSettingsClick(object sender, RoutedEventArgs e)
     {
-        new SettingsDialog(this, _settings).ShowDialog();
+        new SettingsDialog(this, _settings, PrepareForUpdateExit).ShowDialog();
     }
 
-    private void OnOpenUpdatesClick(object sender, RoutedEventArgs e)
+    private async void OnOpenUpdatesClick(object sender, RoutedEventArgs e)
     {
-        new UpdateDialog(this, _settings).ShowDialog();
+        await CheckForUpdatesAsync(isSilent: false);
+    }
+
+    private async void OnMainWindowLoaded(object sender, RoutedEventArgs e)
+    {
+        if (_startupUpdateCheckScheduled) return;
+        _startupUpdateCheckScheduled = true;
+
+        try
+        {
+            // Chờ đúng 3 giây sau khi giao diện chính hiển thị ổn định rồi kiểm tra cập nhật im lặng
+            await Task.Delay(3000);
+            if (!IsLoaded || !IsVisible) return;
+
+            await CheckForUpdatesAsync(isSilent: true);
+        }
+        catch
+        {
+            // Im lặng hoàn toàn khi chạy nền khởi động
+        }
+    }
+
+    public async Task CheckForUpdatesAsync(bool isSilent)
+    {
+        if (!isSilent)
+        {
+            new UpdateDialog(this, _settings, preloadedResult: null, prepareForUpdateExit: PrepareForUpdateExit).ShowDialog();
+            return;
+        }
+
+        var result = await UpdateService.CheckForUpdateAsync(_settings.UpdateFeedUrl);
+        if (result.Status != UpdateCheckStatus.UpdateAvailable)
+            return;
+
+        if (UpdateService.IsVersionSkipped(_settings.SkippedUpdateVersion, result.LatestTagName))
+            return;
+
+        if (!IsLoaded || !IsVisible)
+            return;
+
+        new UpdateDialog(this, _settings, preloadedResult: result, prepareForUpdateExit: PrepareForUpdateExit).ShowDialog();
+    }
+
+    /// <summary>
+    /// Hỏi lưu dự án (nếu IsDirty == true) trước khi thoát ứng dụng để cài đặt bản cập nhật mới.
+    /// Trả về true nếu sẵn sàng đóng ứng dụng cài đặt, false nếu người dùng bấm Hủy.
+    /// </summary>
+    private bool PrepareForUpdateExit()
+    {
+        if (!_isDirty) return true;
+
+        var choice = ConfirmSaveDialog.ShowPrompt(this);
+        if (choice == UnsavedExitChoice.Cancel)
+            return false;
+
+        if (choice == UnsavedExitChoice.Save && !TrySaveCircuit())
+            return false;
+
+        _isDirty = false;
+        UpdateProjectTitleDisplay();
+        return true;
     }
 
     private void UpdateProjectTitleDisplay()

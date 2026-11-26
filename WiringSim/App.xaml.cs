@@ -59,12 +59,25 @@ public partial class App : Application
                 }
             }
 
-            // 2. Kiểm tra Metadata phiên bản v1.1_Release & UpdateService.NormalizeVersion
+            // 2. Kiểm tra Metadata phiên bản v1.1.1_Release, UpdateService.NormalizeVersion, SkipVersion & Asset Selection
             string infoVer = UpdateService.GetCurrentInformationalVersion();
-            Assert(string.Equals(infoVer, "v1.1_Release", StringComparison.Ordinal),
-                $"Suite 2: InformationalVersion phải là 'v1.1_Release' (thực tế: '{infoVer}').");
-            Assert(UpdateService.NormalizeVersion("v1.1_Release") == new Version(1, 1, 0),
-                "Suite 2: NormalizeVersion('v1.1_Release') phải trả về 1.1.0.");
+            Assert(string.Equals(infoVer, "v1.1.1_Release", StringComparison.Ordinal),
+                $"Suite 2: InformationalVersion phải là 'v1.1.1_Release' (thực tế: '{infoVer}').");
+            Assert(UpdateService.NormalizeVersion("v1.1.1_Release") == new Version(1, 1, 1),
+                "Suite 2: NormalizeVersion('v1.1.1_Release') phải trả về 1.1.1.");
+            Assert(UpdateService.IsVersionSkipped("v1.2.0_Release", "v1.2.0"),
+                "Suite 2: IsVersionSkipped phải nhận diện trùng phiên bản đã bỏ qua.");
+            var mockRelease = new UpdateCheckResult(
+                UpdateCheckStatus.UpdateAvailable,
+                infoVer,
+                LatestTagName: "v1.2.0_Release",
+                SetupAssetUrl: "https://example.com/WiringSim_Setup_v1.2.0.exe",
+                SetupAssetFileName: "WiringSim_Setup_v1.2.0.exe",
+                PortableZipUrl: "https://example.com/WiringSim_v1.2.0_win-x64.zip",
+                PortableZipFileName: "WiringSim_v1.2.0_win-x64.zip");
+            var preferred = UpdateService.SelectPreferredAsset(mockRelease);
+            Assert(!string.IsNullOrWhiteSpace(preferred.Url) && !string.IsNullOrWhiteSpace(preferred.FileName),
+                "Suite 2: SelectPreferredAsset phải chọn được gói cập nhật phù hợp (Setup/Portable).");
 
             // 3. Kiểm tra CKC AH3-3 Interactive Rotary Timer (8 chân: 2-7 PWR, 1-3-4 tức thời, 8-5-6 định thời + xoay góc)
             LocalizationManager.SetLanguage("vi");

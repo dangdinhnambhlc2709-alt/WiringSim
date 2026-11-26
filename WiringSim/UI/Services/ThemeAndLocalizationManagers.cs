@@ -22,6 +22,7 @@ public sealed class UserSettingsModel
     public AppThemePreference Theme { get; set; } = AppThemePreference.Dark;
     public string Language { get; set; } = "vi";
     public string UpdateFeedUrl { get; set; } = UpdateService.DefaultApiUrl;
+    public string? SkippedUpdateVersion { get; set; }
 }
 
 /// <summary>

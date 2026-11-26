@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using Microsoft.Win32;
 using WiringSim.UI.Services;
 
 namespace WiringSim.UI.Dialogs;
@@ -21,16 +20,18 @@ public enum UnsavedExitChoice
 public sealed class SettingsDialog : Window
 {
     private readonly UserSettingsModel _settings;
+    private readonly Func<bool>? _prepareForUpdateExit;
     private readonly ComboBox _themeCombo;
     private readonly ComboBox _langCombo;
     private readonly TextBox _urlBox;
     private readonly TextBlock _versionLabel;
     private bool _suppressEvents;
 
-    public SettingsDialog(Window? owner, UserSettingsModel settings)
+    public SettingsDialog(Window? owner, UserSettingsModel settings, Func<bool>? prepareForUpdateExit = null)
     {
         Owner = owner;
         _settings = settings;
+        _prepareForUpdateExit = prepareForUpdateExit;
         Width = 480;
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
@@ -45,7 +46,7 @@ public sealed class SettingsDialog : Window
 
         var root = new StackPanel { Margin = new Thickness(20, 18, 20, 18) };
 
-        // 0. Hiển thị phiên bản chính thức hiện tại (v1.0_Release)
+        // 0. Hiển thị phiên bản chính thức hiện tại
         _versionLabel = new TextBlock
         {
             Text = LocalizationManager.Format("Str.Settings.VersionInfo", UpdateService.GetCurrentInformationalVersion()),
@@ -95,7 +96,7 @@ public sealed class SettingsDialog : Window
         {
             _settings.UpdateFeedUrl = _urlBox.Text.Trim();
             AppSettingsStore.Save(_settings);
-            new UpdateDialog(this, _settings).ShowDialog();
+            new UpdateDialog(this, _settings, preloadedResult: null, prepareForUpdateExit: _prepareForUpdateExit).ShowDialog();
         };
         DockPanel.SetDock(btnCheckUpdate, Dock.Left);
         footer.Children.Add(btnCheckUpdate);
@@ -190,27 +191,49 @@ public sealed class SettingsDialog : Window
 }
 
 /// <summary>
-/// Hộp thoại Kiểm tra cập nhật phiên bản tích hợp UpdateService:
-/// - Kết nối đúng repo dangdinhnambhlc2709-alt/WiringSim với User-Agent hợp lệ.
-/// - Chuẩn hóa phiên bản (v1.0_Release -> 1.0.0) &amp; xử lý thân thiện HTTP 404 (chưa có Release).
-/// - Hỗ trợ tải trực tiếp tệp đính kèm (.exe / .zip) hoặc mở trang GitHub Releases.
+/// Hộp thoại Tải về &amp; Cài đặt cập nhật trực tiếp trong phần mềm (v1.1.1_Release):
+/// - Hiển thị phiên bản hiện tại, phiên bản mới, ghi chú phát hành (Release Notes) và chế độ Setup/Portable.
+/// - Thanh tiến trình ProgressBar (0%–100%) kèm dung lượng đã tải (MB / MB).
+/// - 3 nút chính: "Tải về &amp; Cài đặt ngay", "Bỏ qua bản này", "Để sau" + nút dự phòng "Mở trang tải thủ công".
 /// </summary>
 public sealed class UpdateDialog : Window
 {
     private readonly UserSettingsModel _settings;
+    private readonly Func<bool>? _prepareForUpdateExit;
+    private readonly TextBlock _versionHeaderText;
+    private readonly TextBlock _modeBadgeText;
     private readonly TextBlock _statusText;
     private readonly TextBox _notesBox;
-    private readonly Button _directDownloadBtn;
-    private readonly Button _openReleasesBtn;
-    private readonly Button _recheckBtn;
-    private UpdateCheckResult? _lastResult;
+    private readonly StackPanel _progressContainer;
+    private readonly ProgressBar _progressBar;
+    private readonly TextBlock _progressLabel;
 
-    public UpdateDialog(Window? owner, UserSettingsModel settings)
+    private readonly StackPanel _updateActionPanel;
+    private readonly Button _installNowBtn;
+    private readonly Button _skipVersionBtn;
+    private readonly Button _laterBtn;
+
+    private readonly DockPanel _standardFooterPanel;
+    private readonly Button _recheckBtn;
+    private readonly Button _manualDownloadBtn;
+    private readonly Button _closeBtn;
+
+    private UpdateCheckResult? _lastResult;
+    private CancellationTokenSource? _downloadCts;
+    private bool _isDownloading;
+
+    public UpdateDialog(
+        Window? owner,
+        UserSettingsModel settings,
+        UpdateCheckResult? preloadedResult = null,
+        Func<bool>? prepareForUpdateExit = null)
     {
         Owner = owner;
         _settings = settings;
+        _prepareForUpdateExit = prepareForUpdateExit;
+        _lastResult = preloadedResult;
 
-        Width = 510;
+        Width = 540;
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
         WindowStartupLocation = owner is not null ? WindowStartupLocation.CenterOwner : WindowStartupLocation.CenterScreen;
@@ -223,17 +246,42 @@ public sealed class UpdateDialog : Window
 
         var root = new StackPanel { Margin = new Thickness(20, 18, 20, 18) };
 
+        // Hàng tiêu đề phiên bản + huy hiệu chế độ cài đặt (Setup / Portable)
+        var headerDock = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
+        _modeBadgeText = new TextBlock
+        {
+            Text = LocalizationManager.Get(UpdateService.IsInstalledMode() ? "Str.Update.ModeInstalled" : "Str.Update.ModePortable"),
+            FontSize = 10.5,
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        _modeBadgeText.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondaryBrush");
+        var modePill = new Border
+        {
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(5),
+            Padding = new Thickness(8, 3, 8, 3),
+            Child = _modeBadgeText,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        modePill.SetResourceReference(Border.BackgroundProperty, "SubtleSurfaceBrush");
+        modePill.SetResourceReference(Border.BorderBrushProperty, "BorderSubtleBrush");
+        DockPanel.SetDock(modePill, Dock.Right);
+        headerDock.Children.Add(modePill);
+
         string currentBare = UpdateService.GetCurrentInformationalVersion().TrimStart('v', 'V');
-        var verText = new TextBlock
+        _versionHeaderText = new TextBlock
         {
             Text = LocalizationManager.Format("Str.Update.CurrentVer", currentBare),
             FontSize = 14,
             FontWeight = FontWeights.Bold,
-            Margin = new Thickness(0, 0, 0, 8)
+            VerticalAlignment = VerticalAlignment.Center
         };
-        verText.SetResourceReference(TextBlock.ForegroundProperty, "AccentCyanBrush");
-        root.Children.Add(verText);
+        _versionHeaderText.SetResourceReference(TextBlock.ForegroundProperty, "AccentCyanBrush");
+        headerDock.Children.Add(_versionHeaderText);
+        root.Children.Add(headerDock);
 
+        // Trạng thái kiểm tra / tải xuống
         _statusText = new TextBlock
         {
             Text = LocalizationManager.Get("Str.Update.Checking"),
@@ -244,14 +292,16 @@ public sealed class UpdateDialog : Window
         _statusText.SetResourceReference(TextBlock.ForegroundProperty, "TextPrimaryBrush");
         root.Children.Add(_statusText);
 
+        // Ghi chú phát hành (Release Notes từ GitHub API body)
         _notesBox = new TextBox
         {
-            Height = 115,
+            Height = 145,
             IsReadOnly = true,
             TextWrapping = TextWrapping.Wrap,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            Padding = new Thickness(8),
-            Margin = new Thickness(0, 0, 0, 14),
+            Padding = new Thickness(10, 8, 10, 8),
+            Margin = new Thickness(0, 0, 0, 12),
+            FontSize = 12,
             Visibility = Visibility.Collapsed
         };
         _notesBox.SetResourceReference(TextBox.BackgroundProperty, "InputBgBrush");
@@ -259,35 +309,99 @@ public sealed class UpdateDialog : Window
         _notesBox.SetResourceReference(TextBox.BorderBrushProperty, "BorderSubtleBrush");
         root.Children.Add(_notesBox);
 
-        var actionWrap = new WrapPanel { Margin = new Thickness(0, 0, 0, 10) };
-
-        _directDownloadBtn = new Button
+        // Khu vực thanh tiến trình tải xuống (0%–100% + MB / MB)
+        _progressContainer = new StackPanel
         {
-            Visibility = Visibility.Collapsed,
-            Margin = new Thickness(0, 0, 8, 6)
+            Margin = new Thickness(0, 0, 0, 14),
+            Visibility = Visibility.Collapsed
         };
-        _directDownloadBtn.SetResourceReference(StyleProperty, "ToolbarButtonStyle");
-        _directDownloadBtn.SetResourceReference(BorderBrushProperty, "AccentGreenBrush");
-        _directDownloadBtn.Click += async (_, _) => await DownloadAssetDirectAsync();
-        actionWrap.Children.Add(_directDownloadBtn);
-
-        _openReleasesBtn = new Button
+        _progressBar = new ProgressBar
         {
-            Content = LocalizationManager.Get("Str.Update.DownloadBtn"),
-            Visibility = Visibility.Collapsed,
-            Margin = new Thickness(0, 0, 8, 6)
+            Minimum = 0,
+            Maximum = 100,
+            Value = 0,
+            Height = 12,
+            Margin = new Thickness(0, 0, 0, 5)
         };
-        _openReleasesBtn.SetResourceReference(StyleProperty, "ToolbarButtonStyle");
-        _openReleasesBtn.SetResourceReference(BorderBrushProperty, "AccentBlueBrush");
-        _openReleasesBtn.Click += (_, _) =>
-        {
-            string url = _lastResult?.ReleasePageUrl ?? UpdateService.DefaultReleasesPageUrl;
-            try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
-        };
-        actionWrap.Children.Add(_openReleasesBtn);
-        root.Children.Add(actionWrap);
+        _progressBar.SetResourceReference(ProgressBar.BackgroundProperty, "InputBgBrush");
+        _progressBar.SetResourceReference(ProgressBar.ForegroundProperty, "AccentCyanBrush");
+        _progressBar.SetResourceReference(ProgressBar.BorderBrushProperty, "BorderSubtleBrush");
 
-        var btnPanel = new DockPanel();
+        _progressLabel = new TextBlock
+        {
+            FontSize = 11.4,
+            FontFamily = new System.Windows.Media.FontFamily("Consolas")
+        };
+        _progressLabel.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondaryBrush");
+
+        _progressContainer.Children.Add(_progressBar);
+        _progressContainer.Children.Add(_progressLabel);
+        root.Children.Add(_progressContainer);
+
+        // Hàng 3 nút chính khi phát hiện có bản cập nhật mới: Tải về & Cài đặt ngay | Bỏ qua bản này | Để sau
+        _updateActionPanel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 0, 0, 10),
+            Visibility = Visibility.Collapsed
+        };
+
+        _installNowBtn = new Button
+        {
+            Content = LocalizationManager.Get("Str.Update.InstallNowBtn"),
+            Margin = new Thickness(0, 0, 8, 0),
+            IsDefault = true
+        };
+        _installNowBtn.SetResourceReference(StyleProperty, "ToolbarButtonStyle");
+        _installNowBtn.SetResourceReference(BorderBrushProperty, "AccentGreenBrush");
+        _installNowBtn.Click += async (_, _) => await DownloadAndInstallAsync();
+
+        _skipVersionBtn = new Button
+        {
+            Content = LocalizationManager.Get("Str.Update.SkipVersionBtn"),
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        _skipVersionBtn.SetResourceReference(StyleProperty, "ToolbarButtonStyle");
+        _skipVersionBtn.Click += (_, _) =>
+        {
+            if (!string.IsNullOrWhiteSpace(_lastResult?.LatestTagName))
+            {
+                _settings.SkippedUpdateVersion = _lastResult.LatestTagName;
+                AppSettingsStore.Save(_settings);
+            }
+            Close();
+        };
+
+        _laterBtn = new Button
+        {
+            Content = LocalizationManager.Get("Str.Update.LaterBtn"),
+            MinWidth = 82,
+            IsCancel = true
+        };
+        _laterBtn.SetResourceReference(StyleProperty, "ToolbarButtonStyle");
+        _laterBtn.Click += (_, _) => Close();
+
+        _updateActionPanel.Children.Add(_installNowBtn);
+        _updateActionPanel.Children.Add(_skipVersionBtn);
+        _updateActionPanel.Children.Add(_laterBtn);
+        root.Children.Add(_updateActionPanel);
+
+        // Thanh chân trang: Mở trang tải thủ công (dự phòng) | Kiểm tra ngay | Đóng
+        _standardFooterPanel = new DockPanel();
+
+        _manualDownloadBtn = new Button
+        {
+            Content = LocalizationManager.Get("Str.Update.ManualDownloadBtn"),
+            Margin = new Thickness(0, 0, 8, 0),
+            Visibility = Visibility.Collapsed
+        };
+        _manualDownloadBtn.SetResourceReference(StyleProperty, "ToolbarButtonStyle");
+        _manualDownloadBtn.SetResourceReference(BorderBrushProperty, "AccentBlueBrush");
+        _manualDownloadBtn.Click += (_, _) => OpenManualReleasePage();
+        DockPanel.SetDock(_manualDownloadBtn, Dock.Left);
+        _standardFooterPanel.Children.Add(_manualDownloadBtn);
+
         _recheckBtn = new Button
         {
             Content = LocalizationManager.Get("Str.Update.CheckBtn"),
@@ -296,101 +410,203 @@ public sealed class UpdateDialog : Window
         _recheckBtn.SetResourceReference(StyleProperty, "ToolbarButtonStyle");
         _recheckBtn.Click += async (_, _) => await CheckForUpdatesAsync();
         DockPanel.SetDock(_recheckBtn, Dock.Left);
-        btnPanel.Children.Add(_recheckBtn);
+        _standardFooterPanel.Children.Add(_recheckBtn);
 
-        var closeBtn = new Button
+        _closeBtn = new Button
         {
             Content = LocalizationManager.Get("Str.Dialog.Close"),
             MinWidth = 86,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            IsCancel = true
+            HorizontalAlignment = HorizontalAlignment.Right
         };
-        closeBtn.SetResourceReference(StyleProperty, "ToolbarButtonStyle");
-        closeBtn.Click += (_, _) => Close();
-        btnPanel.Children.Add(closeBtn);
+        _closeBtn.SetResourceReference(StyleProperty, "ToolbarButtonStyle");
+        _closeBtn.Click += (_, _) => Close();
+        _standardFooterPanel.Children.Add(_closeBtn);
 
-        root.Children.Add(btnPanel);
+        root.Children.Add(_standardFooterPanel);
         Content = root;
 
-        Loaded += async (_, _) => await CheckForUpdatesAsync();
+        Closed += (_, _) =>
+        {
+            try { _downloadCts?.Cancel(); } catch { }
+            _downloadCts?.Dispose();
+        };
+
+        Loaded += async (_, _) =>
+        {
+            if (_lastResult is not null)
+                ApplyCheckResult(_lastResult);
+            else
+                await CheckForUpdatesAsync();
+        };
     }
 
     private async Task CheckForUpdatesAsync()
     {
         _recheckBtn.IsEnabled = false;
-        _directDownloadBtn.Visibility = Visibility.Collapsed;
-        _openReleasesBtn.Visibility = Visibility.Collapsed;
+        _updateActionPanel.Visibility = Visibility.Collapsed;
+        _manualDownloadBtn.Visibility = Visibility.Collapsed;
         _notesBox.Visibility = Visibility.Collapsed;
+        _progressContainer.Visibility = Visibility.Collapsed;
+        _closeBtn.Visibility = Visibility.Visible;
         _statusText.Text = LocalizationManager.Get("Str.Update.Checking");
 
         var result = await UpdateService.CheckForUpdateAsync(_settings.UpdateFeedUrl);
         _lastResult = result;
+        ApplyCheckResult(result);
 
+        _recheckBtn.IsEnabled = true;
+    }
+
+    private void ApplyCheckResult(UpdateCheckResult result)
+    {
         string currentBare = result.CurrentVersionLabel.TrimStart('v', 'V');
 
         switch (result.Status)
         {
             case UpdateCheckStatus.UpdateAvailable:
+                _versionHeaderText.Text = LocalizationManager.Format(
+                    "Str.Update.VersionCompare",
+                    result.CurrentVersionLabel,
+                    result.LatestTagName ?? "");
                 _statusText.Text = LocalizationManager.Format("Str.Update.Available", result.LatestTagName ?? "");
+
                 if (!string.IsNullOrWhiteSpace(result.ReleaseNotes))
                 {
                     _notesBox.Text = $"{LocalizationManager.Get("Str.Update.NotesHeader")}\n{result.ReleaseNotes}";
                     _notesBox.Visibility = Visibility.Visible;
                 }
-                _openReleasesBtn.Visibility = Visibility.Visible;
-                if (!string.IsNullOrWhiteSpace(result.DirectAssetDownloadUrl) && !string.IsNullOrWhiteSpace(result.DirectAssetFileName))
+
+                var (assetUrl, _, _) = UpdateService.SelectPreferredAsset(result);
+                _installNowBtn.IsEnabled = !string.IsNullOrWhiteSpace(assetUrl);
+                if (string.IsNullOrWhiteSpace(assetUrl))
                 {
-                    _directDownloadBtn.Content = LocalizationManager.Format("Str.Update.DirectDownloadBtn", result.DirectAssetFileName);
-                    _directDownloadBtn.Visibility = Visibility.Visible;
+                    _statusText.Text = LocalizationManager.Get("Str.Update.NoDirectAsset");
                 }
+
+                _updateActionPanel.Visibility = Visibility.Visible;
+                _manualDownloadBtn.Visibility = Visibility.Visible;
+                _recheckBtn.Visibility = Visibility.Collapsed;
+                _closeBtn.Visibility = Visibility.Collapsed;
                 break;
 
             case UpdateCheckStatus.UpToDate:
+                _versionHeaderText.Text = LocalizationManager.Format("Str.Update.CurrentVer", currentBare);
                 _statusText.Text = LocalizationManager.Format("Str.Update.UpToDate", currentBare);
+                _updateActionPanel.Visibility = Visibility.Collapsed;
+                _manualDownloadBtn.Visibility = Visibility.Collapsed;
+                _recheckBtn.Visibility = Visibility.Visible;
+                _closeBtn.Visibility = Visibility.Visible;
                 break;
 
             default:
+                _versionHeaderText.Text = LocalizationManager.Format("Str.Update.CurrentVer", currentBare);
                 _statusText.Text = LocalizationManager.Format("Str.Update.OfflineMsg", result.ErrorMessage ?? "Network Error", result.CurrentVersionLabel);
-                _openReleasesBtn.Visibility = Visibility.Visible;
+                _updateActionPanel.Visibility = Visibility.Collapsed;
+                _manualDownloadBtn.Visibility = Visibility.Visible;
+                _recheckBtn.Visibility = Visibility.Visible;
+                _closeBtn.Visibility = Visibility.Visible;
                 break;
         }
-
-        _recheckBtn.IsEnabled = true;
     }
 
-    private async Task DownloadAssetDirectAsync()
+    private async Task DownloadAndInstallAsync()
     {
-        if (_lastResult?.DirectAssetDownloadUrl is null || _lastResult.DirectAssetFileName is null)
-            return;
+        if (_isDownloading || _lastResult is null) return;
 
-        string ext = Path.GetExtension(_lastResult.DirectAssetFileName);
-        var dlg = new SaveFileDialog
+        var (assetUrl, fileName, isSetupInstaller) = UpdateService.SelectPreferredAsset(_lastResult);
+        if (string.IsNullOrWhiteSpace(assetUrl) || string.IsNullOrWhiteSpace(fileName))
         {
-            FileName = _lastResult.DirectAssetFileName,
-            Filter = $"Installer / Archive (*{ext})|*{ext}|All files (*.*)|*.*"
-        };
-
-        if (dlg.ShowDialog(this) != true)
+            _statusText.Text = LocalizationManager.Get("Str.Update.NoDirectAsset");
             return;
+        }
 
-        _directDownloadBtn.IsEnabled = false;
+        _isDownloading = true;
+        _installNowBtn.IsEnabled = false;
+        _skipVersionBtn.IsEnabled = false;
         _recheckBtn.IsEnabled = false;
+
+        _progressBar.IsIndeterminate = false;
+        _progressBar.Value = 0;
+        _progressContainer.Visibility = Visibility.Visible;
         _statusText.Text = LocalizationManager.Get("Str.Update.Downloading");
+
+        _downloadCts?.Dispose();
+        _downloadCts = new CancellationTokenSource();
+        var ct = _downloadCts.Token;
 
         try
         {
-            await UpdateService.DownloadFileAsync(_lastResult.DirectAssetDownloadUrl, dlg.FileName);
-            _statusText.Text = LocalizationManager.Format("Str.Update.DownloadSuccess", dlg.FileName);
+            string tempDir = UpdateService.GetTempUpdateDirectory();
+            string destPath = Path.Combine(tempDir, fileName);
+
+            var progress = new Progress<UpdateDownloadProgress>(p =>
+            {
+                if (p.TotalBytes is > 0)
+                {
+                    _progressBar.IsIndeterminate = false;
+                    _progressBar.Value = p.Percent;
+                    _progressLabel.Text = LocalizationManager.Format(
+                        "Str.Update.ProgressKnown",
+                        p.Percent,
+                        p.DownloadedMb,
+                        p.TotalMb ?? 0.0);
+                }
+                else
+                {
+                    _progressBar.IsIndeterminate = true;
+                    _progressLabel.Text = LocalizationManager.Format("Str.Update.ProgressUnknown", p.DownloadedMb);
+                }
+            });
+
+            await UpdateService.DownloadFileWithProgressAsync(assetUrl, destPath, progress, ct);
+
+            // Trước khi đóng ứng dụng để cài đặt: kiểm tra IsDirty và hỏi lưu nếu cần!
+            if (_prepareForUpdateExit is not null && !_prepareForUpdateExit())
+            {
+                _statusText.Text = LocalizationManager.Get("Str.Update.InstallCanceled");
+                return;
+            }
+
+            if (isSetupInstaller)
+            {
+                _statusText.Text = LocalizationManager.Get("Str.Update.LaunchingInstaller");
+                UpdateService.LaunchSetupInstaller(destPath);
+            }
+            else
+            {
+                _progressBar.IsIndeterminate = true;
+                _statusText.Text = LocalizationManager.Get("Str.Update.Extracting");
+                string batPath = await Task.Run(() => UpdateService.PreparePortableUpdateScript(destPath), ct);
+
+                _statusText.Text = LocalizationManager.Get("Str.Update.LaunchingInstaller");
+                UpdateService.LaunchPortableUpdaterBatch(batPath);
+            }
+
+            // Đóng toàn bộ ứng dụng ngay lập tức để trình cài đặt / script .bat thay thế file
+            Application.Current.Shutdown();
+        }
+        catch (OperationCanceledException)
+        {
+            // Người dùng đã đóng hộp thoại trong khi đang tải
         }
         catch (Exception ex)
         {
-            _statusText.Text = LocalizationManager.Format("Str.Dialog.FileError", ex.Message);
+            _progressBar.IsIndeterminate = false;
+            _statusText.Text = LocalizationManager.Format("Str.Update.DownloadFailed", ex.Message);
         }
         finally
         {
-            _directDownloadBtn.IsEnabled = true;
+            _isDownloading = false;
+            _installNowBtn.IsEnabled = true;
+            _skipVersionBtn.IsEnabled = true;
             _recheckBtn.IsEnabled = true;
         }
+    }
+
+    private void OpenManualReleasePage()
+    {
+        string url = _lastResult?.ReleasePageUrl ?? UpdateService.DefaultReleasesPageUrl;
+        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
     }
 }
 

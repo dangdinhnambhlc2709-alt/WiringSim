@@ -460,4 +460,20 @@
     <sys:String x:Key="Str.Status.BranchCreated">Created wire T-Junction splice node.</sys:String>
     <sys:String x:Key="Str.Status.BranchStarted">Drawing new branch wire from T-Junction — click any terminal or wire to connect.</sys:String>
 
+    <!-- Hotfix v1.1.1: In-app automatic update check & installer -->
+    <sys:String x:Key="Str.Update.VersionCompare">Current: {0}   →   Latest: {1}</sys:String>
+    <sys:String x:Key="Str.Update.ModeInstalled">Installed Mode (Setup .exe)</sys:String>
+    <sys:String x:Key="Str.Update.ModePortable">Portable Mode (.zip)</sys:String>
+    <sys:String x:Key="Str.Update.InstallNowBtn">📥 Download &amp; Install Now</sys:String>
+    <sys:String x:Key="Str.Update.SkipVersionBtn">Skip This Version</sys:String>
+    <sys:String x:Key="Str.Update.LaterBtn">Later</sys:String>
+    <sys:String x:Key="Str.Update.ManualDownloadBtn">🌐 Open Manual Download Page</sys:String>
+    <sys:String x:Key="Str.Update.ProgressKnown">Downloading: {0:0}%  ({1:0.00} MB / {2:0.00} MB)</sys:String>
+    <sys:String x:Key="Str.Update.ProgressUnknown">Downloading: {0:0.00} MB...</sys:String>
+    <sys:String x:Key="Str.Update.Extracting">Extracting update package...</sys:String>
+    <sys:String x:Key="Str.Update.LaunchingInstaller">Launching updater and restarting WiringSim...</sys:String>
+    <sys:String x:Key="Str.Update.NoDirectAsset">No downloadable installer asset found in this release. Please open the manual download page.</sys:String>
+    <sys:String x:Key="Str.Update.InstallCanceled">Update installation canceled while saving current project.</sys:String>
+    <sys:String x:Key="Str.Update.DownloadFailed">Update download failed ({0}). You can use the Manual Download Page button instead.</sys:String>
+
 </ResourceDictionary>

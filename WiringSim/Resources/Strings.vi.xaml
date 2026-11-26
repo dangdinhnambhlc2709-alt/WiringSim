@@ -460,4 +460,20 @@
     <sys:String x:Key="Str.Status.BranchCreated">Đã tạo nút rẽ nhánh (T-Junction) trên dây dẫn.</sys:String>
     <sys:String x:Key="Str.Status.BranchStarted">Đang kéo nhánh dây mới từ điểm rẽ nhánh — bấm vào chân thiết bị hoặc dây khác để nối.</sys:String>
 
+    <!-- Hotfix v1.1.1: Cập nhật tự động trong ứng dụng -->
+    <sys:String x:Key="Str.Update.VersionCompare">Hiện tại: {0}   →   Mới nhất: {1}</sys:String>
+    <sys:String x:Key="Str.Update.ModeInstalled">Chế độ cài đặt (Setup .exe)</sys:String>
+    <sys:String x:Key="Str.Update.ModePortable">Bản chạy ngay (Portable .zip)</sys:String>
+    <sys:String x:Key="Str.Update.InstallNowBtn">📥 Tải về &amp; Cài đặt ngay</sys:String>
+    <sys:String x:Key="Str.Update.SkipVersionBtn">Bỏ qua bản này</sys:String>
+    <sys:String x:Key="Str.Update.LaterBtn">Để sau</sys:String>
+    <sys:String x:Key="Str.Update.ManualDownloadBtn">🌐 Mở trang tải thủ công</sys:String>
+    <sys:String x:Key="Str.Update.ProgressKnown">Đang tải xuống: {0:0}%  ({1:0.00} MB / {2:0.00} MB)</sys:String>
+    <sys:String x:Key="Str.Update.ProgressUnknown">Đang tải xuống: {0:0.00} MB...</sys:String>
+    <sys:String x:Key="Str.Update.Extracting">Đang giải nén gói cập nhật...</sys:String>
+    <sys:String x:Key="Str.Update.LaunchingInstaller">Đang khởi chạy trình cài đặt cập nhật và khởi động lại ứng dụng...</sys:String>
+    <sys:String x:Key="Str.Update.NoDirectAsset">Không tìm thấy tệp cài đặt đính kèm trong bản phát hành này. Vui lòng dùng nút mở trang tải thủ công.</sys:String>
+    <sys:String x:Key="Str.Update.InstallCanceled">Đã hủy cài đặt cập nhật theo yêu cầu lưu dự án.</sys:String>
+    <sys:String x:Key="Str.Update.DownloadFailed">Tải bản cập nhật thất bại ({0}). Bạn có thể dùng nút Mở trang tải thủ công.</sys:String>
+
 </ResourceDictionary>
