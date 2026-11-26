@@ -1,0 +1,19 @@
+# Build & Publish outputs
+bin/
+obj/
+publish/
+*.user
+*.suo
+*.cache
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+
+# OS & temporary files
+Thumbs.db
+Desktop.ini
+*.log
+*.tmp
+wiringsim.settings.json

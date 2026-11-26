@@ -1,0 +1,405 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <!-- Ứng dụng & Thanh tiêu đề -->
+    <sys:String x:Key="Str.App.Title">WiringSim</sys:String>
+    <sys:String x:Key="Str.Project.Untitled">Dự án mới (Chưa lưu)</sys:String>
+    <sys:String x:Key="Str.TitleBar.Settings">Cài đặt</sys:String>
+    <sys:String x:Key="Str.TitleBar.Updates">Cập nhật</sys:String>
+    <sys:String x:Key="Str.TitleBar.Minimize">Thu nhỏ</sys:String>
+    <sys:String x:Key="Str.TitleBar.Maximize">Phóng to / Khôi phục</sys:String>
+    <sys:String x:Key="Str.TitleBar.Close">Đóng</sys:String>
+
+    <!-- Thanh công cụ CAD/EDA -->
+    <sys:String x:Key="Str.Toolbar.New">Mới</sys:String>
+    <sys:String x:Key="Str.Toolbar.NewTip">Tạo bản vẽ trống mới (Ctrl+N)</sys:String>
+    <sys:String x:Key="Str.Toolbar.Open">Mở</sys:String>
+    <sys:String x:Key="Str.Toolbar.OpenTip">Mở tệp sơ đồ mạch .json (Ctrl+O)</sys:String>
+    <sys:String x:Key="Str.Toolbar.Save">Lưu</sys:String>
+    <sys:String x:Key="Str.Toolbar.SaveTip">Lưu sơ đồ mạch ra tệp .json (Ctrl+S)</sys:String>
+    <sys:String x:Key="Str.Toolbar.Presets">Mạch mẫu ▾</sys:String>
+    <sys:String x:Key="Str.Toolbar.PresetsTip">Nạp sơ đồ mạch mẫu tiêu chuẩn</sys:String>
+
+    <sys:String x:Key="Str.Toolbar.Undo">Hoàn tác</sys:String>
+    <sys:String x:Key="Str.Toolbar.UndoTip">Hoàn tác thao tác trước (Ctrl+Z)</sys:String>
+    <sys:String x:Key="Str.Toolbar.Redo">Làm lại</sys:String>
+    <sys:String x:Key="Str.Toolbar.RedoTip">Làm lại thao tác vừa hoàn tác (Ctrl+Y)</sys:String>
+    <sys:String x:Key="Str.Toolbar.Delete">Xóa</sys:String>
+    <sys:String x:Key="Str.Toolbar.DeleteTip">Xóa thiết bị hoặc dây đang chọn (Delete)</sys:String>
+
+    <sys:String x:Key="Str.Toolbar.WireOrthogonal">⮑ Dây: Vuông góc</sys:String>
+    <sys:String x:Key="Str.Toolbar.WireCurved">∿ Dây: Đường cong</sys:String>
+    <sys:String x:Key="Str.Toolbar.WireStyleTip">Chuyển đổi kiểu đi dây gấp khúc vuông góc hoặc đường cong mượt</sys:String>
+
+    <sys:String x:Key="Str.Wire.Red">Đỏ (L1/+)</sys:String>
+    <sys:String x:Key="Str.Wire.Yellow">Vàng (L2)</sys:String>
+    <sys:String x:Key="Str.Wire.Blue">Xanh (L3)</sys:String>
+    <sys:String x:Key="Str.Wire.Black">Đen (N/-)</sys:String>
+    <sys:String x:Key="Str.Wire.Green">PE</sys:String>
+
+    <sys:String x:Key="Str.Wire.FullRed">Đỏ (L1 / DC+)</sys:String>
+    <sys:String x:Key="Str.Wire.FullYellow">Vàng (L2)</sys:String>
+    <sys:String x:Key="Str.Wire.FullBlue">Xanh dương (L3)</sys:String>
+    <sys:String x:Key="Str.Wire.FullBlack">Đen (N / DC-)</sys:String>
+    <sys:String x:Key="Str.Wire.FullGreen">Xanh lá (PE)</sys:String>
+
+    <sys:String x:Key="Str.Mode.Design">🛠 Thiết kế</sys:String>
+    <sys:String x:Key="Str.Mode.Simulate">▶ Chạy Mô Phỏng</sys:String>
+    <sys:String x:Key="Str.Badge.Design">CHẾ ĐỘ THIẾT KẾ</sys:String>
+    <sys:String x:Key="Str.Badge.Simulate">▶ ĐANG MÔ PHỎNG (50ms BFS)</sys:String>
+
+    <!-- Thư viện bên trái & Mẹo -->
+    <sys:String x:Key="Str.Palette.Header">THƯ VIỆN THIẾT BỊ</sys:String>
+    <sys:String x:Key="Str.Palette.Subheader">Kéo thả vào vùng vẽ hoặc nhấp đúp để đặt</sys:String>
+    <sys:String x:Key="Str.Palette.CollapseTip">Thu gọn thanh thư viện</sys:String>
+    <sys:String x:Key="Str.Palette.ExpandTip">Mở rộng thanh thư viện</sys:String>
+    <sys:String x:Key="Str.Palette.QuickAddTip">Thêm nhanh vào trung tâm vùng vẽ</sys:String>
+
+    <sys:String x:Key="Str.Cat.PowerSource">1. NGUỒN CẤP ĐIỆN</sys:String>
+    <sys:String x:Key="Str.Cat.Switching">2. KHÍ CỤ ĐÓNG CẮT &amp; CÔNG TẮC</sys:String>
+    <sys:String x:Key="Str.Cat.Relay">3. RƠ-LE CHUYÊN DỤNG</sys:String>
+    <sys:String x:Key="Str.Cat.Sensor">4. CẢM BIẾN CÔNG NGHIỆP</sys:String>
+    <sys:String x:Key="Str.Cat.Meter">5. THIẾT BỊ ĐO LƯỜNG</sys:String>
+    <sys:String x:Key="Str.Cat.Load">6. TẢI TIÊU THỤ</sys:String>
+
+    <sys:String x:Key="Str.Tips.Header">💡 THAO TÁC NHANH</sys:String>
+    <sys:String x:Key="Str.Tips.Line1">• Chân A → điểm trống → Chân B: Vẽ dây bẻ góc</sys:String>
+    <sys:String x:Key="Str.Tips.Line2">• Giữ Shift khi kéo dây: Đi dây chéo tự do</sys:String>
+    <sys:String x:Key="Str.Tips.Line3">• Chọn dây: Kéo chấm tròn / + để nắn dây</sys:String>
+    <sys:String x:Key="Str.Tips.Line4">• Chuột phải thiết bị/dây: Cấu hình thông số</sys:String>
+
+    <!-- Điều khiển vùng nhìn & Thanh trạng thái -->
+    <sys:String x:Key="Str.Canvas.SnapGrid">Bắt dính lưới</sys:String>
+    <sys:String x:Key="Str.Canvas.ZoomInTip">Phóng to</sys:String>
+    <sys:String x:Key="Str.Canvas.ZoomOutTip">Thu nhỏ</sys:String>
+    <sys:String x:Key="Str.Canvas.ZoomFitTip">Căn vừa toàn bộ bản vẽ</sys:String>
+    <sys:String x:Key="Str.Banner.Dismiss">Đã rõ / Đóng cảnh báo</sys:String>
+
+    <sys:String x:Key="Str.Status.Ready">Sẵn sàng — Kéo thiết bị từ Thư viện bên trái vào vùng vẽ hoặc chọn [Mạch mẫu] trên thanh công cụ.</sys:String>
+    <sys:String x:Key="Str.Status.StatsFormat">Thiết bị: {0} | Dây dẫn: {1}</sys:String>
+    <sys:String x:Key="Str.Status.ModeDesign">Chế độ Thiết kế: Kéo thả thiết bị, bấm chân A → B để nối dây, chuột phải để cấu hình.</sys:String>
+    <sys:String x:Key="Str.Status.ModeSim">Chế độ Mô phỏng: Đã khóa vị trí thiết bị. Bấm gạt MCB, Công tắc, Nút nhấn, Cảm biến để vận hành!</sys:String>
+    <sys:String x:Key="Str.Status.LockedInSim">Đang ở Chế độ Mô phỏng (đã khóa chỉnh sửa). Hãy chuyển sang [Thiết kế] để sửa sơ đồ!</sys:String>
+    <sys:String x:Key="Str.Status.AddedComp">Đã đặt [{0}] tại ({1:0}, {2:0}). Chuột phải vào thiết bị để chỉnh thông số.</sys:String>
+    <sys:String x:Key="Str.Status.DeletedComp">Đã xóa thiết bị [{0}] và các dây liên quan.</sys:String>
+    <sys:String x:Key="Str.Status.DeletedWire">Đã xóa dây dẫn [{0} ↔ {1}].</sys:String>
+    <sys:String x:Key="Str.Status.WireStarted">Đang đi dây từ [{0}:{1}] — Bấm điểm trống để uốn góc (giữ Shift đi chéo), bấm chân B hoàn tất.</sys:String>
+    <sys:String x:Key="Str.Status.WaypointAdded">Đã đặt điểm uốn #{0} tại ({1:0}, {2:0}). Backspace để lùi, ESC để hủy.</sys:String>
+    <sys:String x:Key="Str.Status.WireCompleted">Đã nối dây [{0}:{1}] ↔ [{2}:{3}].</sys:String>
+    <sys:String x:Key="Str.Status.WireCanceled">Đã hủy thao tác kéo dây.</sys:String>
+    <sys:String x:Key="Str.Status.WireSelected">Đã chọn dây — Kéo các chấm điều khiển để nắn dây, nhấp đúp thêm điểm uốn, Chuột phải mở menu.</sys:String>
+    <sys:String x:Key="Str.Status.CompSelected">Đã chọn [{0}] — Kéo để di chuyển, Delete để xóa, Chuột phải mở cấu hình.</sys:String>
+    <sys:String x:Key="Str.Status.NewCanvas">Đã tạo bản vẽ trống mới.</sys:String>
+    <sys:String x:Key="Str.Status.SavedFile">Đã lưu sơ đồ thành công: {0}</sys:String>
+    <sys:String x:Key="Str.Status.LoadedFile">Đã mở sơ đồ [{0}] ({1} thiết bị, {2} dây dẫn).</sys:String>
+    <sys:String x:Key="Str.Status.PresetLoaded">Đã nạp [{0}]. Chuyển sang [▶ Chạy Mô Phỏng] để vận hành thử!</sys:String>
+    <sys:String x:Key="Str.Status.Undone">Đã hoàn tác thao tác trước.</sys:String>
+    <sys:String x:Key="Str.Status.Redone">Đã làm lại thao tác.</sys:String>
+    <sys:String x:Key="Str.Status.UpdatedProp">[{0}]: Đã cập nhật thông số ({1}).</sys:String>
+
+    <!-- Tên & mô tả thiết bị trong Thư viện -->
+    <sys:String x:Key="Str.Comp.DcSource.Title">Nguồn DC (5–48V)</sys:String>
+    <sys:String x:Key="Str.Comp.DcSource.Sub">5V / 12V / 24V / 48VDC</sys:String>
+    <sys:String x:Key="Str.Comp.Ac1P.Title">Nguồn AC 1 Pha</sys:String>
+    <sys:String x:Key="Str.Comp.Ac1P.Sub">220V / 380VAC • Giả lập mất pha</sys:String>
+    <sys:String x:Key="Str.Comp.Ac3P.Title">Nguồn AC 3 Pha</sys:String>
+    <sys:String x:Key="Str.Comp.Ac3P.Sub">220V / 380V • 5 chân L1,L2,L3,N,PE</sys:String>
+
+    <sys:String x:Key="Str.Comp.Mcb1P.Title">Aptomat MCB 1 Pha</sys:String>
+    <sys:String x:Key="Str.Comp.Mcb1P.Sub">6A–63A • Đặc tuyến B, C, D</sys:String>
+    <sys:String x:Key="Str.Comp.Mcb3P.Title">Aptomat MCB 3 Pha</sys:String>
+    <sys:String x:Key="Str.Comp.Mcb3P.Sub">6A–63A • Bảo vệ ngắn mạch 3P</sys:String>
+    <sys:String x:Key="Str.Comp.Sw1W.Title">Công tắc 1 chiều (1-2)</sys:String>
+    <sys:String x:Key="Str.Comp.Sw1W.Sub">Đóng cắt dân dụng cơ bản</sys:String>
+    <sys:String x:Key="Str.Comp.Sw2W.Title">Công tắc 2 chiều (Cầu thang)</sys:String>
+    <sys:String x:Key="Str.Comp.Sw2W.Sub">Chuyển nhánh COM - L1 - L2</sys:String>
+    <sys:String x:Key="Str.Comp.SwRot.Title">Công tắc xoay 3 vị trí</sys:String>
+    <sys:String x:Key="Str.Comp.SwRot.Sub">1 - 0 - 2 (Man / Off / Auto)</sys:String>
+    <sys:String x:Key="Str.Comp.PbNo.Title">Nút nhấn Ø22 NO (Xanh)</sys:String>
+    <sys:String x:Key="Str.Comp.PbNo.Sub">XB2/LA38 • 1NO / 1NC / 1NO+1NC</sys:String>
+    <sys:String x:Key="Str.Comp.PbNc.Title">Nút nhấn Ø22 NC (Đỏ)</sys:String>
+    <sys:String x:Key="Str.Comp.PbNc.Sub">XB2/LA38 • Tự nhả hoặc Giữ</sys:String>
+    <sys:String x:Key="Str.Comp.LimitSw.Title">Công tắc hành trình</sys:String>
+    <sys:String x:Key="Str.Comp.LimitSw.Sub">ME-8108 / WLCA2 • 1NO(13-14) + 1NC(21-22)</sys:String>
+    <sys:String x:Key="Str.Comp.Contactor.Title">Contactor (LC1D / MC)</sys:String>
+    <sys:String x:Key="Str.Comp.Contactor.Sub">Coil 24V–380V • Phụ 1NO / 1NC</sys:String>
+    <sys:String x:Key="Str.Comp.Vfd.Title">Biến tần (VFD / Inverter)</sys:String>
+    <sys:String x:Key="Str.Comp.Vfd.Sub">R,S,T → U,V,W • Keypad P01–P06 &amp; ACC/DEC</sys:String>
+
+    <sys:String x:Key="Str.Comp.RelayMy.Title">Rơ-le trung gian (MY2N/MY4N)</sys:String>
+    <sys:String x:Key="Str.Comp.RelayMy.Sub">12/24VDC, 220VAC • 8 chân / 14 chân</sys:String>
+    <sys:String x:Key="Str.Comp.Thermal.Title">Rơ-le nhiệt (LRD / MT)</sys:String>
+    <sys:String x:Key="Str.Comp.Thermal.Sub">L1-T1..L3-T3 • 95-96(NC), 97-98(NO)</sys:String>
+    <sys:String x:Key="Str.Comp.Timer.Title">Rơ-le thời gian (Omron H3CR)</sys:String>
+    <sys:String x:Key="Str.Comp.Timer.Sub">ON-Delay / OFF-Delay / Sao-Tam giác</sys:String>
+
+    <sys:String x:Key="Str.Comp.SensInd.Title">Cảm biến từ (Inductive)</sys:String>
+    <sys:String x:Key="Str.Comp.SensInd.Sub">Phát hiện kim loại • PNP/NPN 10–30VDC</sys:String>
+    <sys:String x:Key="Str.Comp.SensCap.Title">Cảm biến điện dung (Capacitive)</sys:String>
+    <sys:String x:Key="Str.Comp.SensCap.Sub">Phi kim / Chất lỏng • PNP/NPN 10–30VDC</sys:String>
+    <sys:String x:Key="Str.Comp.SensPhoto.Title">Cảm biến quang (Photoelectric)</sys:String>
+    <sys:String x:Key="Str.Comp.SensPhoto.Sub">Thu phát / Phản xạ • PNP/NPN 10–30VDC</sys:String>
+    <sys:String x:Key="Str.Comp.SensUltra.Title">Cảm biến siêu âm / Báo mức</sys:String>
+    <sys:String x:Key="Str.Comp.SensUltra.Sub">Khoảng cách / Mức nước • PNP/NPN</sys:String>
+
+    <sys:String x:Key="Str.Comp.Voltmeter.Title">Đồng hồ đo Volt (Voltmeter)</sys:String>
+    <sys:String x:Key="Str.Comp.Voltmeter.Sub">Đấu song song V1-V2 • AC/DC • Số/Kim</sys:String>
+    <sys:String x:Key="Str.Comp.Ammeter.Title">Đồng hồ đo Ampe (Ammeter)</sys:String>
+    <sys:String x:Key="Str.Comp.Ammeter.Sub">Đấu nối tiếp I1-I2 hoặc qua CT</sys:String>
+    <sys:String x:Key="Str.Comp.Ct.Title">Biến dòng đo lường (CT)</sys:String>
+    <sys:String x:Key="Str.Comp.Ct.Sub">Sơ cấp P1-P2 • Thứ cấp S1-S2 (/5A)</sys:String>
+
+    <sys:String x:Key="Str.Comp.PilotG.Title">Đèn báo pha (Pilot Light)</sys:String>
+    <sys:String x:Key="Str.Comp.PilotG.Sub">12VDC / 24VDC / 220VAC • 4 màu</sys:String>
+    <sys:String x:Key="Str.Comp.Lamp.Title">Bóng đèn chiếu sáng</sys:String>
+    <sys:String x:Key="Str.Comp.Lamp.Sub">12VDC / 24VDC / 220VAC</sys:String>
+    <sys:String x:Key="Str.Comp.Motor1P.Title">Động cơ 1 Pha</sys:String>
+    <sys:String x:Key="Str.Comp.Motor1P.Sub">220VAC (L, N, PE) • Quay 60 FPS</sys:String>
+    <sys:String x:Key="Str.Comp.Motor3P3.Title">Động cơ 3 Pha (3 đầu dây)</sys:String>
+    <sys:String x:Key="Str.Comp.Motor3P3.Sub">U1,V1,W1 + PE • Đấu sẵn Sao 380V / Δ 220V</sys:String>
+    <sys:String x:Key="Str.Comp.Motor3P6.Title">Động cơ 3 Pha (6 đầu dây)</sys:String>
+    <sys:String x:Key="Str.Comp.Motor3P6.Sub">U1..W1 &amp; U2..W2 • Sao-Tam giác / Dahlander</sys:String>
+
+    <!-- Nhãn trạng thái vẽ trực tiếp trên mặt thiết bị (Canvas Vector) -->
+    <sys:String x:Key="Str.Vis.Pulled">HÚT</sys:String>
+    <sys:String x:Key="Str.Vis.Released">NHẢ</sys:String>
+    <sys:String x:Key="Str.Vis.Closed">ĐÓNG</sys:String>
+    <sys:String x:Key="Str.Vis.Open">MỞ</sys:String>
+    <sys:String x:Key="Str.Vis.Latch">GIỮ</sys:String>
+    <sys:String x:Key="Str.Vis.SetPrefix">Đặt:</sys:String>
+    <sys:String x:Key="Str.Vis.PhaseLoss">⚠ MẤT PHA!</sys:String>
+    <sys:String x:Key="Str.Vis.LostLine">MẤT PHA L!</sys:String>
+    <sys:String x:Key="Str.Vis.BurnedCoil">🔥 CHÁY CUỘN HÚT!</sys:String>
+    <sys:String x:Key="Str.Vis.BurnedLamp">🔥 CHÁY ĐÈN!</sys:String>
+    <sys:String x:Key="Str.Vis.BurnedSensor">🔥 CHÁY CẢM BIẾN!</sys:String>
+    <sys:String x:Key="Str.Vis.WrongKind">SAI AC/DC</sys:String>
+    <sys:String x:Key="Str.Vis.LowVolt">THẤP ÁP</sys:String>
+    <sys:String x:Key="Str.Vis.OverloadTrip">⚠ QUÁ TẢI (TRIP!)</sys:String>
+    <sys:String x:Key="Str.Vis.ShortPoint">⚡ ĐIỂM CHẬP NGẮN MẠCH</sys:String>
+    <sys:String x:Key="Str.Vis.ObjectDetected">CÓ VẬT</sys:String>
+    <sys:String x:Key="Str.Vis.NoObject">KHÔNG VẬT</sys:String>
+    <sys:String x:Key="Str.Vis.Star">SAO (Y)</sys:String>
+    <sys:String x:Key="Str.Vis.Delta">TAM GIÁC (Δ)</sys:String>
+    <sys:String x:Key="Str.Vis.OpenYD">HỞ Y/Δ</sys:String>
+
+    <!-- Tooltip Chân đấu nối -->
+    <sys:String x:Key="Str.Term.Unpowered">Chưa có điện (0V)</sys:String>
+    <sys:String x:Key="Str.Term.StateFormat">{0} | Pha/Cực: {1} | Điện áp: {2:0.#}V</sys:String>
+    <sys:String x:Key="Str.Term.TooltipFormat">{0} — Chân [{1}]&#x0a;Trạng thái: {2}</sys:String>
+    <sys:String x:Key="Str.Phase.L1">L1 (Pha 1)</sys:String>
+    <sys:String x:Key="Str.Phase.L2">L2 (Pha 2)</sys:String>
+    <sys:String x:Key="Str.Phase.L3">L3 (Pha 3)</sys:String>
+    <sys:String x:Key="Str.Phase.N">N (Trung tính)</sys:String>
+    <sys:String x:Key="Str.Phase.PE">PE (Tiếp địa)</sys:String>
+    <sys:String x:Key="Str.Phase.DCPlus">DC (+)</sys:String>
+    <sys:String x:Key="Str.Phase.DCMinus">DC (-)</sys:String>
+    <sys:String x:Key="Str.Phase.Open">Hở mạch</sys:String>
+
+    <!-- Menu Chuột phải (ContextMenu) -->
+    <sys:String x:Key="Str.Menu.RepairBurnout">🔧 Thay mới / Khắc phục cháy thiết bị</sys:String>
+    <sys:String x:Key="Str.Menu.Rename">✏ Đổi nhãn ký hiệu (VD: KM1, K1, S1...)</sys:String>
+    <sys:String x:Key="Str.Menu.RenameTitle">Đổi nhãn ký hiệu</sys:String>
+    <sys:String x:Key="Str.Menu.RenamePrompt">Nhập nhãn ký hiệu mới cho [{0}]:</sys:String>
+    <sys:String x:Key="Str.Menu.DeleteComp">🗑 Xóa thiết bị (Delete)</sys:String>
+
+    <sys:String x:Key="Str.Menu.WireHeader">🔌 Dây dẫn: {0} ↔ {1}</sys:String>
+    <sys:String x:Key="Str.Menu.WireChangeColor">🎨 Đổi màu dây</sys:String>
+    <sys:String x:Key="Str.Menu.WireAddWp">➕ Thêm điểm bẻ góc tại đây</sys:String>
+    <sys:String x:Key="Str.Menu.WireRemoveWp">➖ Xóa điểm bẻ góc gần nhất</sys:String>
+    <sys:String x:Key="Str.Menu.WireResetAuto">↺ Đặt lại đường dây tự động</sys:String>
+    <sys:String x:Key="Str.Menu.WireDelete">🗑 Xóa dây (Delete)</sys:String>
+
+    <sys:String x:Key="Str.Menu.OutputVoltage">⚡ Điện áp đầu ra ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.SimPhaseLoss">⚠ Giả lập mất pha</sys:String>
+    <sys:String x:Key="Str.Menu.LostL">Giả lập mất pha L</sys:String>
+    <sys:String x:Key="Str.Menu.LostL1">Giả lập mất pha L1</sys:String>
+    <sys:String x:Key="Str.Menu.LostL2">Giả lập mất pha L2</sys:String>
+    <sys:String x:Key="Str.Menu.LostL3">Giả lập mất pha L3</sys:String>
+
+    <sys:String x:Key="Str.Menu.RatedAmps">⚡ Dòng định mức ({0}A)</sys:String>
+    <sys:String x:Key="Str.Menu.CurveType">📈 Đặc tuyến bảo vệ ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.CurveB">Đặc tuyến B (3–5 In • Tải thuần trở)</sys:String>
+    <sys:String x:Key="Str.Menu.CurveC">Đặc tuyến C (5–10 In • Thông dụng)</sys:String>
+    <sys:String x:Key="Str.Menu.CurveD">Đặc tuyến D (10–20 In • Tải động cơ nặng)</sys:String>
+
+    <sys:String x:Key="Str.Menu.ActionMode">🔘 Kiểu tác động</sys:String>
+    <sys:String x:Key="Str.Menu.Momentary">Không nhớ / Tự nhả (Momentary)</sys:String>
+    <sys:String x:Key="Str.Menu.Latching">Có nhớ / Giữ trạng thái (Latching)</sys:String>
+    <sys:String x:Key="Str.Menu.ContactCfg">🔌 Cấu hình tiếp điểm</sys:String>
+    <sys:String x:Key="Str.Menu.Only1NO">Chỉ 1NO (3 - 4)</sys:String>
+    <sys:String x:Key="Str.Menu.Only1NC">Chỉ 1NC (1 - 2)</sys:String>
+    <sys:String x:Key="Str.Menu.Dual1NO1NC">Khối kép 1NO + 1NC (1-2 &amp; 3-4 độc lập)</sys:String>
+
+    <sys:String x:Key="Str.Menu.Color">🎨 Màu sắc</sys:String>
+    <sys:String x:Key="Str.Color.Green">Xanh lá</sys:String>
+    <sys:String x:Key="Str.Color.Red">Đỏ</sys:String>
+    <sys:String x:Key="Str.Color.Yellow">Vàng</sys:String>
+    <sys:String x:Key="Str.Color.White">Trắng</sys:String>
+
+    <sys:String x:Key="Str.Menu.SwitchType">🎛 Loại công tắc</sys:String>
+    <sys:String x:Key="Str.Menu.Sw1Way">Công tắc 1 chiều (1 - 2)</sys:String>
+    <sys:String x:Key="Str.Menu.Sw2Way">Công tắc 2 chiều / cầu thang (COM - L1 - L2)</sys:String>
+    <sys:String x:Key="Str.Menu.SwRotary">Công tắc xoay 3 vị trí (1 - 0 - 2 Man/Off/Auto)</sys:String>
+
+    <sys:String x:Key="Str.Menu.CoilVoltage">⚡ Điện áp định mức ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.AuxContacts">🔌 Tiếp điểm phụ tích hợp</sys:String>
+    <sys:String x:Key="Str.Menu.Aux1NO">1NO (13 - 14)</sys:String>
+    <sys:String x:Key="Str.Menu.Aux1NC">1NC (21 - 22)</sys:String>
+    <sys:String x:Key="Str.Menu.AuxBoth">1NO + 1NC (13-14 &amp; 21-22)</sys:String>
+
+    <sys:String x:Key="Str.Menu.RelayPoles">🔌 Số cặp tiếp điểm chuyển mạch</sys:String>
+    <sys:String x:Key="Str.Menu.Relay8Pin">2 cặp tiếp điểm (DPDT - 8 chân MY2N)</sys:String>
+    <sys:String x:Key="Str.Menu.Relay14Pin">4 cặp tiếp điểm (4PDT - 14 chân MY4N)</sys:String>
+
+    <sys:String x:Key="Str.Menu.ThermalRange">🌡 Dải dòng bảo vệ ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.ResetMode">🔄 Chế độ phục hồi</sys:String>
+    <sys:String x:Key="Str.Menu.ManualReset">Reset tay (Manual Reset)</sys:String>
+    <sys:String x:Key="Str.Menu.AutoReset">Reset tự động (Auto Reset)</sys:String>
+    <sys:String x:Key="Str.Menu.TestTrip">🔥 Giả lập Quá tải (Test Trip: Mở 95-96, Đóng 97-98)</sys:String>
+    <sys:String x:Key="Str.Menu.DoReset">↺ Nhấn Reset phục hồi Rơ-le nhiệt</sys:String>
+
+    <sys:String x:Key="Str.Menu.TimerMode">⏱ Chế độ hoạt động Timer</sys:String>
+    <sys:String x:Key="Str.Menu.OnDelay">ON-Delay (Trễ đóng khi cấp điện)</sys:String>
+    <sys:String x:Key="Str.Menu.OffDelay">OFF-Delay (Trễ ngắt khi ngắt điện)</sys:String>
+    <sys:String x:Key="Str.Menu.StarDelta">Timer Sao - Tam giác (Y → Δ)</sys:String>
+    <sys:String x:Key="Str.Menu.Timer1C">1 cặp định thời (COM - NO - NC)</sys:String>
+    <sys:String x:Key="Str.Menu.Timer8Pin">1 cặp tức thời + 1 cặp định thời (Đế 8 chân)</sys:String>
+    <sys:String x:Key="Str.Menu.DelayTime">⏳ Thời gian trễ ({0:0.#}s)</sys:String>
+    <sys:String x:Key="Str.Menu.SecUnit">{0:0.#} giây</sys:String>
+    <sys:String x:Key="Str.Menu.CustomDelay">⌨ Nhập số giây (0.5s – 60s)...</sys:String>
+    <sys:String x:Key="Str.Menu.CustomDelayTitle">Đặt thời gian trễ Timer</sys:String>
+    <sys:String x:Key="Str.Menu.CustomDelayPrompt">Nhập thời gian trễ bằng giây (0.5 – 60.0):</sys:String>
+
+    <sys:String x:Key="Str.Menu.MotorPower">⚙ Công suất định mức ({0:0.#}kW • {1:0.#}A)</sys:String>
+
+    <sys:String x:Key="Str.Menu.LimitMode">🕹 Chế độ thử nghiệm cần gạt</sys:String>
+    <sys:String x:Key="Str.Menu.LimitHold">Nhấn giữ (Tự nhả khi thả chuột)</sys:String>
+    <sys:String x:Key="Str.Menu.LimitLock">Nhấn khóa (Bấm 1 lần giữ tác động)</sys:String>
+
+    <sys:String x:Key="Str.Menu.SensorOutputType">⚡ Loại ngõ ra bán dẫn ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.SensorPNP">PNP (Xuất dương +V ra chân BK)</sys:String>
+    <sys:String x:Key="Str.Menu.SensorNPN">NPN (Kéo âm 0V ra chân BK)</sys:String>
+    <sys:String x:Key="Str.Menu.SensorWiring">🔌 Trạng thái ngõ ra</sys:String>
+    <sys:String x:Key="Str.Menu.SensNO">3 dây — Thường mở (NO)</sys:String>
+    <sys:String x:Key="Str.Menu.SensNC">3 dây — Thường đóng (NC)</sys:String>
+    <sys:String x:Key="Str.Menu.Sens4Wire">4 dây — NO (BK) + NC (WH)</sys:String>
+    <sys:String x:Key="Str.Menu.SensorTrigger">🎯 Chế độ kích hoạt vật cản</sys:String>
+    <sys:String x:Key="Str.Menu.SensHold">Giữ chuột để có vật</sys:String>
+    <sys:String x:Key="Str.Menu.SensToggle">Click để đặt / lấy vật ra</sys:String>
+
+    <sys:String x:Key="Str.Menu.MeterCurrent">〰 Loại dòng đo ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.MeterAC">AC (Xoay chiều)</sys:String>
+    <sys:String x:Key="Str.Menu.MeterDC">DC (Một chiều)</sys:String>
+    <sys:String x:Key="Str.Menu.MeterRange">📏 Dải đo / Hệ số ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.MeterDisplay">📟 Kiểu mặt hiển thị</sys:String>
+    <sys:String x:Key="Str.Menu.MeterDigital">Đồng hồ số (Digital LED)</sys:String>
+    <sys:String x:Key="Str.Menu.MeterAnalog">Đồng hồ kim (Analog)</sys:String>
+    <sys:String x:Key="Str.Menu.DirectAmps">Trực tiếp {0}</sys:String>
+    <sys:String x:Key="Str.Menu.ViaCt">Qua biến dòng CT ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.CtRatio">🔄 Tỷ số biến dòng CT ({0})</sys:String>
+
+    <!-- Thông báo sự cố (Ngắn mạch, Đấu nhầm Ampe kế, Cháy cuộn hút) -->
+    <sys:String x:Key="Str.Fault.ShortHeader">⚠ CẢNH BÁO NGẮN MẠCH!</sys:String>
+    <sys:String x:Key="Str.Fault.BurnoutHeader">🔥 CẢNH BÁO QUÁ ÁP / CHÁY THIẾT BỊ!</sys:String>
+    <sys:String x:Key="Str.Fault.AmmeterParallelShort">CẢNH BÁO: ĐẤU NHẦM ĐỒNG HỒ AMPE SONG SONG GÂY NGẮN MẠCH!</sys:String>
+    <sys:String x:Key="Str.Fault.PhaseToPhase">Ngắn mạch trực tiếp Pha – Pha ({0} chập {1}) không qua tải</sys:String>
+    <sys:String x:Key="Str.Fault.PhaseToNeutral">Ngắn mạch trực tiếp Pha – Trung tính ({0} chập N) không qua tải</sys:String>
+    <sys:String x:Key="Str.Fault.PhaseToEarth">Chạm chập trực tiếp Pha – Tiếp địa ({0} chạm PE)</sys:String>
+    <sys:String x:Key="Str.Fault.DcShort">Ngắn mạch trực tiếp hai cực nguồn DC (+ và -) không qua tải</sys:String>
+    <sys:String x:Key="Str.Fault.DcDiffVolt">Đấu chập hai cực dương DC khác mức điện áp ({0:0}V và {1:0}V)</sys:String>
+    <sys:String x:Key="Str.Fault.AcDcMix">Đấu chập trực tiếp nguồn {0} và nguồn {1}</sys:String>
+    <sys:String x:Key="Str.Fault.TrippedMcb">Đã tự động nhảy OFF Aptomat: {0}.</sys:String>
+    <sys:String x:Key="Str.Fault.NoMcbLockout">Nhánh chập không có Aptomat bảo vệ — Đã ngắt khẩn cấp nguồn cấp!</sys:String>
+    <sys:String x:Key="Str.Fault.LocationWire">📍 Điểm chập trên dây [{0}:{1} ↔ {2}:{3}] — Tọa độ ({4:0}, {5:0})</sys:String>
+    <sys:String x:Key="Str.Fault.BurnoutCoilMsg">CHÁY CUỘN HÚT [{0}]: Cấp {1:0}V {2} vượt quá định mức {3}!</sys:String>
+    <sys:String x:Key="Str.Fault.BurnoutLampMsg">CHÁY ĐÈN [{0}]: Cấp {1:0}V {2} vượt quá định mức {3}!</sys:String>
+    <sys:String x:Key="Str.Fault.BurnoutSensorMsg">CHÁY CẢM BIẾN [{0}]: Cấp {1:0}V {2} vượt quá dải nguồn 10–30VDC!</sys:String>
+    <sys:String x:Key="Str.Fault.BurnoutHint">💡 Ngắt nguồn, kiểm tra lại điện áp định mức rồi Chuột phải vào thiết bị chọn [Thay mới / Khắc phục cháy thiết bị].</sys:String>
+
+    <!-- 3 Mạch mẫu -->
+    <sys:String x:Key="Str.Preset1.Name">1. Mạch đèn dân dụng 1 công tắc</sys:String>
+    <sys:String x:Key="Str.Preset1.Guide">Chuyển sang [▶ Chạy Mô Phỏng] → Bấm Công tắc S1 để bật/tắt bóng đèn 220V.</sys:String>
+    <sys:String x:Key="Str.Preset2.Name">2. Mạch khởi động động cơ 3 pha tự giữ (có Rơ-le nhiệt)</sys:String>
+    <sys:String x:Key="Str.Preset2.Guide">Chuyển sang [▶ Chạy Mô Phỏng] → Nhấn START để hút KM1 tự giữ &amp; quay động cơ. Thử bấm [TEST] trên Rơ-le nhiệt RN1 để kiểm tra ngắt 95-96 và sáng đèn báo quá tải 97-98!</sys:String>
+    <sys:String x:Key="Str.Preset3.Name">3. Mạch khởi động Sao – Tam giác</sys:String>
+    <sys:String x:Key="Str.Preset3.Guide">Chuyển sang [▶ Chạy Mô Phỏng] → Nhấn START: Động cơ chạy SAO (Y) trong 5 giây, sau đó Timer KT tự động chuyển sang TAM GIÁC (Δ)!</sys:String>
+
+    <!-- Hộp thoại chung, Cài đặt & Kiểm tra cập nhật -->
+    <sys:String x:Key="Str.Dialog.Apply">Áp dụng</sys:String>
+    <sys:String x:Key="Str.Dialog.Cancel">Hủy</sys:String>
+    <sys:String x:Key="Str.Dialog.Close">Đóng</sys:String>
+    <sys:String x:Key="Str.Dialog.ConfirmNew">Tạo bản vẽ mới sẽ xóa sơ đồ hiện tại trên vùng vẽ. Bạn có muốn tiếp tục?</sys:String>
+    <sys:String x:Key="Str.Dialog.ConfirmTitle">Xác nhận</sys:String>
+    <sys:String x:Key="Str.Dialog.SaveTitle">Lưu sơ đồ mạch WiringSim (.json)</sys:String>
+    <sys:String x:Key="Str.Dialog.OpenTitle">Mở sơ đồ mạch WiringSim (.json)</sys:String>
+    <sys:String x:Key="Str.Dialog.FileError">Lỗi đọc/ghi tệp: {0}</sys:String>
+
+    <sys:String x:Key="Str.Settings.Title">Cài đặt hệ thống</sys:String>
+    <sys:String x:Key="Str.Settings.ThemeLabel">Giao diện hiển thị (Theme)</sys:String>
+    <sys:String x:Key="Str.Settings.ThemeDark">Tối (Dark)</sys:String>
+    <sys:String x:Key="Str.Settings.ThemeLight">Sáng (Light)</sys:String>
+    <sys:String x:Key="Str.Settings.ThemeSystem">Theo thiết bị (System)</sys:String>
+    <sys:String x:Key="Str.Settings.LangLabel">Ngôn ngữ giao diện (Language)</sys:String>
+    <sys:String x:Key="Str.Settings.UpdateUrlLabel">URL máy chủ kiểm tra cập nhật (GitHub Releases API)</sys:String>
+
+    <sys:String x:Key="Str.Update.Title">Kiểm tra cập nhật phiên bản</sys:String>
+    <sys:String x:Key="Str.Update.CurrentVer">Phiên bản hiện tại: v{0}</sys:String>
+    <sys:String x:Key="Str.Update.CheckBtn">Kiểm tra ngay</sys:String>
+    <sys:String x:Key="Str.Update.Checking">Đang kiểm tra phiên bản mới từ máy chủ...</sys:String>
+    <sys:String x:Key="Str.Update.UpToDate">✅ Bạn đang sử dụng phiên bản mới nhất (v{0}).</sys:String>
+    <sys:String x:Key="Str.Update.Available">🎉 Có bản cập nhật mới: {0}!</sys:String>
+    <sys:String x:Key="Str.Update.NotesHeader">Ghi chú thay đổi:</sys:String>
+    <sys:String x:Key="Str.Update.DownloadBtn">🌐 Mở trang GitHub Releases</sys:String>
+    <sys:String x:Key="Str.Update.DirectDownloadBtn">📥 Tải trực tiếp ({0})</sys:String>
+    <sys:String x:Key="Str.Update.Downloading">Đang tải xuống bản cập nhật...</sys:String>
+    <sys:String x:Key="Str.Update.DownloadSuccess">✅ Đã tải bản cập nhật về: {0}</sys:String>
+    <sys:String x:Key="Str.Update.OfflineMsg">Không thể kết nối máy chủ cập nhật ({0}). Phiên bản hiện tại {1} vẫn hoạt động bình thường.</sys:String>
+
+    <!-- Xoay / Lật thiết bị, Động cơ 3P/6P, Biến tần VFD & Hỏi lưu trước khi thoát -->
+    <sys:String x:Key="Str.Menu.Transform">🔄 Xoay &amp; Lật thiết bị</sys:String>
+    <sys:String x:Key="Str.Menu.RotateCW">↻ Xoay phải 90° (Phím R)</sys:String>
+    <sys:String x:Key="Str.Menu.RotateCCW">↺ Xoay trái 90°</sys:String>
+    <sys:String x:Key="Str.Menu.FlipH">⇄ Lật ngang (Flip Horizontal)</sys:String>
+    <sys:String x:Key="Str.Menu.FlipV">⇅ Lật dọc (Flip Vertical)</sys:String>
+
+    <sys:String x:Key="Str.Menu.Motor3PinConn">🔌 Đấu nối hộp cực nội bộ ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.MotorStar380">Đấu Sao nội bộ (Star Y — 380V)</sys:String>
+    <sys:String x:Key="Str.Menu.MotorDelta220">Đấu Tam giác nội bộ (Delta Δ — 220V)</sys:String>
+    <sys:String x:Key="Str.Menu.Motor6PinWinding">⚙ Cấu hình cuộn dây 6 đầu ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.MotorStarDelta">Động cơ Sao – Tam giác (Star-Delta 6 đầu dây)</sys:String>
+    <sys:String x:Key="Str.Menu.MotorDahlander">Động cơ 2 cấp tốc độ (2-Speed Dahlander)</sys:String>
+    <sys:String x:Key="Str.Vis.LowSpeed">THẤP (Δ)</sys:String>
+    <sys:String x:Key="Str.Vis.HighSpeed">CAO (YY)</sys:String>
+    <sys:String x:Key="Str.Vis.VfdKeypadBtn">Lập trình / Keypad</sys:String>
+    <sys:String x:Key="Str.Vis.VfdNoPower">NO PWR</sys:String>
+
+    <sys:String x:Key="Str.Menu.VfdOpenKeypad">🎛 Mở bảng Lập trình / Keypad biến tần</sys:String>
+    <sys:String x:Key="Str.Vfd.DialogTitle">Bảng điều khiển &amp; Lập trình Biến tần — {0}</sys:String>
+    <sys:String x:Key="Str.Vfd.StatusRun">ĐANG CHẠY</sys:String>
+    <sys:String x:Key="Str.Vfd.StatusStop">ĐÃ DỪNG</sys:String>
+    <sys:String x:Key="Str.Vfd.StatusNoPower">CHƯA CẤP NGUỒN (R, S, T)</sys:String>
+    <sys:String x:Key="Str.Vfd.PotLabel">Núm chiết áp ảo đặt tần số (P02 = 1):</sys:String>
+    <sys:String x:Key="Str.Vfd.ExtPotLabel">Mức chiết áp ngoài 10V–AI1–GND (P02 = 2):</sys:String>
+    <sys:String x:Key="Str.Vfd.ParamTableTitle">BẢNG THÔNG SỐ CÀI ĐẶT (P01 – P06)</sys:String>
+    <sys:String x:Key="Str.Vfd.P01">P01 • Nguồn lệnh chạy (0: Phím Keypad | 1: Chân ngoài FWD/REV-COM)</sys:String>
+    <sys:String x:Key="Str.Vfd.P02">P02 • Nguồn đặt tần số (0: Phím ▲/▼ | 1: Núm xoay | 2: Chiết áp ngoài AI1)</sys:String>
+    <sys:String x:Key="Str.Vfd.P03">P03 • Tần số tối đa Max Freq (10.0 – 400.0 Hz)</sys:String>
+    <sys:String x:Key="Str.Vfd.P04">P04 • Thời gian tăng tốc ACC (0.5 – 60.0 s)</sys:String>
+    <sys:String x:Key="Str.Vfd.P05">P05 • Thời gian giảm tốc DEC (0.5 – 60.0 s)</sys:String>
+    <sys:String x:Key="Str.Vfd.P06">P06 • Tần số đa cấp DI1 / DI2 (Mặc định 25.0 Hz / 40.0 Hz)</sys:String>
+    <sys:String x:Key="Str.Vfd.ModeBtn">MODE / PRG</sys:String>
+    <sys:String x:Key="Str.Vfd.SetBtn">SET / ENTER</sys:String>
+    <sys:String x:Key="Str.Vfd.DirBtn">Đảo FWD/REV</sys:String>
+    <sys:String x:Key="Str.Vfd.SavedMsg">Đã lưu thông số biến tần.</sys:String>
+
+    <sys:String x:Key="Str.Exit.Title">Chưa lưu thay đổi</sys:String>
+    <sys:String x:Key="Str.Exit.Message">Bạn có muốn lưu những thay đổi vào dự án hiện tại trước khi thoát không?</sys:String>
+    <sys:String x:Key="Str.Exit.Save">💾 Lưu (Save)</sys:String>
+    <sys:String x:Key="Str.Exit.DontSave">Không lưu</sys:String>
+    <sys:String x:Key="Str.Exit.Cancel">Hủy</sys:String>
+
+    <sys:String x:Key="Str.Settings.VersionInfo">Phiên bản ứng dụng: {0}</sys:String>
+    <sys:String x:Key="Str.Tips.Line5">• Phím R: Xoay nhanh thiết bị đang chọn 90°</sys:String>
+
+</ResourceDictionary>

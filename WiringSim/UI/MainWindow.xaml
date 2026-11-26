@@ -1,0 +1,516 @@
+<Window x:Class="WiringSim.UI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:WiringSim.UI.Controls"
+        Title="WiringSim"
+        Icon="pack://application:,,,/Assets/app.ico"
+        Width="1520"
+        Height="900"
+        MinWidth="1160"
+        MinHeight="700"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        AllowsTransparency="False"
+        Background="{DynamicResource AppBgBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="38"
+                      CornerRadius="8"
+                      GlassFrameThickness="0"
+                      ResizeBorderThickness="6"
+                      UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+
+    <Border x:Name="OuterWindowBorder"
+            Background="{DynamicResource AppBgBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
+            BorderThickness="1"
+            CornerRadius="8">
+        <Grid>
+            <Grid.RowDefinitions>
+                <!-- 0. Custom Title Bar -->
+                <RowDefinition Height="38" />
+                <!-- 1. CAD/EDA Top Toolbar -->
+                <RowDefinition Height="Auto" />
+                <!-- 2. Main Workspace (Collapsible Palette + Canvas) -->
+                <RowDefinition Height="*" />
+                <!-- 3. Status Bar -->
+                <RowDefinition Height="30" />
+            </Grid.RowDefinitions>
+
+            <!-- =================================================================== -->
+            <!-- 0. CUSTOM TITLE BAR (TÍCH HỢP WINDOWCHROME + DWM DARK/LIGHT MODE)   -->
+            <!-- =================================================================== -->
+            <Border x:Name="TitleBarBorder"
+                    Grid.Row="0"
+                    Background="{DynamicResource TitleBarBgBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="0,0,0,1"
+                    CornerRadius="7,7,0,0">
+                <DockPanel LastChildFill="True">
+                    <!-- Logo Vector + Tên ứng dụng ngắn gọn "WiringSim" + Tên dự án đang mở -->
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <Border Background="{DynamicResource AccentBlueBrush}" CornerRadius="5" Width="22" Height="22" Margin="0,0,8,0">
+                            <Path Data="M11,2 L4,12 H10 L9,20 L16,10 H10 Z"
+                                  Fill="White"
+                                  Stretch="Uniform"
+                                  Margin="4" />
+                        </Border>
+                        <TextBlock Text="{DynamicResource Str.App.Title}"
+                                   FontSize="13.5"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   VerticalAlignment="Center" />
+                        <Border Background="{DynamicResource SubtleSurfaceBrush}"
+                                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="6,1.5"
+                                Margin="8,0,0,0"
+                                VerticalAlignment="Center">
+                            <TextBlock x:Name="TxtAppVersionBadge"
+                                       Text="v1.0_Release"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AccentCyanBrush}" />
+                        </Border>
+                        <TextBlock Text="•"
+                                   Margin="9,0"
+                                   Foreground="{DynamicResource TextMutedBrush}"
+                                   VerticalAlignment="Center" />
+                        <TextBlock x:Name="TxtProjectName"
+                                   Text="{DynamicResource Str.Project.Untitled}"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Cụm nút Cài đặt + Kiểm tra cập nhật + 3 nút điều khiển cửa sổ -->
+                    <StackPanel DockPanel.Dock="Right"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                WindowChrome.IsHitTestVisibleInChrome="True">
+
+                        <Button Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="9,4"
+                                Margin="0,0,6,0"
+                                Click="OnOpenSettingsClick"
+                                ToolTip="{DynamicResource Str.TitleBar.Settings}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⚙ " />
+                                <TextBlock Text="{DynamicResource Str.TitleBar.Settings}" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="9,4"
+                                Margin="0,0,10,0"
+                                Click="OnOpenUpdatesClick"
+                                ToolTip="{DynamicResource Str.TitleBar.Updates}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="↻ " />
+                                <TextBlock Text="{DynamicResource Str.TitleBar.Updates}" />
+                            </StackPanel>
+                        </Button>
+
+                        <Rectangle Width="1" Height="18" Fill="{DynamicResource DividerBrush}" Margin="0,0,4,0" />
+
+                        <Button Style="{StaticResource CaptionButtonStyle}"
+                                Content="─"
+                                Click="OnMinimizeWindowClick"
+                                ToolTip="{DynamicResource Str.TitleBar.Minimize}" />
+                        <Button x:Name="BtnMaximizeWindow"
+                                Style="{StaticResource CaptionButtonStyle}"
+                                Content="☐"
+                                Click="OnMaximizeRestoreClick"
+                                ToolTip="{DynamicResource Str.TitleBar.Maximize}" />
+                        <Button Style="{StaticResource CloseCaptionButtonStyle}"
+                                Content="✕"
+                                Click="OnCloseWindowClick"
+                                ToolTip="{DynamicResource Str.TitleBar.Close}" />
+                    </StackPanel>
+
+                    <!-- Vùng trống kéo cửa sổ -->
+                    <Grid Background="Transparent" />
+                </DockPanel>
+            </Border>
+
+            <!-- =================================================================== -->
+            <!-- 1. TOP TOOLBAR CHUẨN CAD/EDA (4 NHÓM RÕ RÀNG CÓ VẠCH NGĂN CÁCH)     -->
+            <!-- =================================================================== -->
+            <Border Grid.Row="1"
+                    Background="{DynamicResource ToolbarBgBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="10,7">
+                <WrapPanel VerticalAlignment="Center" ItemHeight="34">
+
+                    <!-- NHÓM 1: TỆP (Mới, Mở, Lưu, Mạch mẫu) -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Style="{StaticResource ToolbarButtonStyle}"
+                                Click="OnNewCircuitClick"
+                                Margin="0,0,5,0"
+                                ToolTip="{DynamicResource Str.Toolbar.NewTip}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📄 " />
+                                <TextBlock Text="{DynamicResource Str.Toolbar.New}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ToolbarButtonStyle}"
+                                Click="OnOpenJsonClick"
+                                Margin="0,0,5,0"
+                                ToolTip="{DynamicResource Str.Toolbar.OpenTip}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📂 " />
+                                <TextBlock Text="{DynamicResource Str.Toolbar.Open}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ToolbarButtonStyle}"
+                                Click="OnSaveJsonClick"
+                                Margin="0,0,5,0"
+                                ToolTip="{DynamicResource Str.Toolbar.SaveTip}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="💾 " />
+                                <TextBlock Text="{DynamicResource Str.Toolbar.Save}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ToolbarButtonStyle}"
+                                BorderBrush="{DynamicResource AccentBlueBrush}"
+                                Click="OnPresetMenuButtonClick"
+                                ToolTip="{DynamicResource Str.Toolbar.PresetsTip}">
+                            <Button.ContextMenu>
+                                <ContextMenu x:Name="PresetContextMenu" />
+                            </Button.ContextMenu>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📐 " />
+                                <TextBlock Text="{DynamicResource Str.Toolbar.Presets}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <Rectangle Width="1" Height="22" Fill="{DynamicResource DividerBrush}" Margin="10,0" />
+
+                    <!-- NHÓM 2: THAO TÁC (Hoàn tác Undo, Làm lại Redo, Xóa) -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="BtnUndo"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                Click="OnUndoClick"
+                                IsEnabled="False"
+                                Margin="0,0,5,0"
+                                ToolTip="{DynamicResource Str.Toolbar.UndoTip}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="↩ " />
+                                <TextBlock Text="{DynamicResource Str.Toolbar.Undo}" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="BtnRedo"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                Click="OnRedoClick"
+                                IsEnabled="False"
+                                Margin="0,0,5,0"
+                                ToolTip="{DynamicResource Str.Toolbar.RedoTip}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="↪ " />
+                                <TextBlock Text="{DynamicResource Str.Toolbar.Redo}" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="BtnDeleteSelected"
+                                Style="{StaticResource DangerToolbarButtonStyle}"
+                                Click="OnDeleteSelectedClick"
+                                IsEnabled="False"
+                                ToolTip="{DynamicResource Str.Toolbar.DeleteTip}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🗑 " />
+                                <TextBlock Text="{DynamicResource Str.Toolbar.Delete}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <Rectangle Width="1" Height="22" Fill="{DynamicResource DividerBrush}" Margin="10,0" />
+
+                    <!-- NHÓM 3: DÂY DẪN (Kiểu dây & 5 màu tiêu chuẩn) -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="BtnWireStyle"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                Click="OnToggleWireStyleClick"
+                                Margin="0,0,6,0"
+                                Content="{DynamicResource Str.Toolbar.WireOrthogonal}"
+                                ToolTip="{DynamicResource Str.Toolbar.WireStyleTip}" />
+
+                        <RadioButton x:Name="RbWireRed" GroupName="WireColorGroup" Style="{StaticResource WireSwatchRadioStyle}" Tag="#EF4444" IsChecked="True" Checked="OnWireColorChecked" Content="{DynamicResource Str.Wire.Red}" />
+                        <RadioButton x:Name="RbWireYellow" GroupName="WireColorGroup" Style="{StaticResource WireSwatchRadioStyle}" Tag="#EAB308" Checked="OnWireColorChecked" Content="{DynamicResource Str.Wire.Yellow}" />
+                        <RadioButton x:Name="RbWireBlue" GroupName="WireColorGroup" Style="{StaticResource WireSwatchRadioStyle}" Tag="#3B82F6" Checked="OnWireColorChecked" Content="{DynamicResource Str.Wire.Blue}" />
+                        <RadioButton x:Name="RbWireBlack" GroupName="WireColorGroup" Style="{StaticResource WireSwatchRadioStyle}" Tag="#475569" Checked="OnWireColorChecked" Content="{DynamicResource Str.Wire.Black}" />
+                        <RadioButton x:Name="RbWireGreen" GroupName="WireColorGroup" Style="{StaticResource WireSwatchRadioStyle}" Tag="#22C55E" Checked="OnWireColorChecked" Content="{DynamicResource Str.Wire.Green}" />
+                    </StackPanel>
+
+                    <Rectangle Width="1" Height="22" Fill="{DynamicResource DividerBrush}" Margin="10,0" />
+
+                    <!-- NHÓM 4: MÔ PHỎNG (Chế độ Thiết kế / Chạy Mô Phỏng) -->
+                    <Border Background="{DynamicResource SubtleSurfaceBrush}"
+                            BorderBrush="{DynamicResource ButtonBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="7"
+                            Padding="3">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="RbDesignMode"
+                                         GroupName="AppModeGroup"
+                                         Style="{StaticResource ModeSwitchRadioStyle}"
+                                         Tag="#0284C7"
+                                         IsChecked="True"
+                                         Checked="OnModeRadioChecked"
+                                         Content="{DynamicResource Str.Mode.Design}" />
+                            <RadioButton x:Name="RbSimulationMode"
+                                         GroupName="AppModeGroup"
+                                         Style="{StaticResource ModeSwitchRadioStyle}"
+                                         Tag="#059669"
+                                         Checked="OnModeRadioChecked"
+                                         Content="{DynamicResource Str.Mode.Simulate}" />
+                        </StackPanel>
+                    </Border>
+                </WrapPanel>
+            </Border>
+
+            <!-- =================================================================== -->
+            <!-- 2. MAIN BODY: THƯ VIỆN CÓ NÚT THU GỌN (◀/▶) + VÙNG VẼ CANVAS       -->
+            <!-- =================================================================== -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="PaletteColumn" Width="290" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 2A. THANH THƯ VIỆN BÊN TRÁI (CÓ NÚT ẨN / HIỆN ◀ ▶) -->
+                <Border Grid.Column="0"
+                        Background="{DynamicResource SurfaceBgBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}"
+                        BorderThickness="0,0,1,0">
+                    <Grid>
+                        <!-- Chế độ Mở rộng đầy đủ -->
+                        <Grid x:Name="PaletteExpandedPanel">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Padding="12,9" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right"
+                                            Style="{StaticResource ToolbarButtonStyle}"
+                                            Content="◀"
+                                            Width="28"
+                                            Height="28"
+                                            Padding="0"
+                                            Click="OnTogglePaletteClick"
+                                            ToolTip="{DynamicResource Str.Palette.CollapseTip}" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{DynamicResource Str.Palette.Header}" FontSize="11.8" FontWeight="Bold" Foreground="{DynamicResource AccentCyanBrush}" />
+                                        <TextBlock Text="{DynamicResource Str.Palette.Subheader}" FontSize="10.5" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="9,7">
+                                <StackPanel x:Name="PaletteContainer" />
+                            </ScrollViewer>
+
+                            <Border Grid.Row="2"
+                                    Background="{DynamicResource SubtleSurfaceBrush}"
+                                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                    BorderThickness="0,1,0,0"
+                                    Padding="11,8">
+                                <StackPanel>
+                                    <TextBlock Text="{DynamicResource Str.Tips.Header}" FontSize="10.2" FontWeight="Bold" Foreground="#F59E0B" Margin="0,0,0,3" />
+                                    <TextBlock Text="{DynamicResource Str.Tips.Line1}" FontSize="10.4" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    <TextBlock Text="{DynamicResource Str.Tips.Line2}" FontSize="10.4" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    <TextBlock Text="{DynamicResource Str.Tips.Line3}" FontSize="10.4" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    <TextBlock Text="{DynamicResource Str.Tips.Line4}" FontSize="10.4" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    <TextBlock Text="{DynamicResource Str.Tips.Line5}" FontSize="10.4" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- Chế độ Thu gọn thành thanh dọc mảnh với nút ▶ -->
+                        <StackPanel x:Name="PaletteCollapsedRail"
+                                    Visibility="Collapsed"
+                                    VerticalAlignment="Top"
+                                    HorizontalAlignment="Center"
+                                    Margin="0,10,0,0">
+                            <Button Style="{StaticResource ToolbarButtonStyle}"
+                                    Content="▶"
+                                    Width="28"
+                                    Height="32"
+                                    Padding="0"
+                                    Click="OnTogglePaletteClick"
+                                    ToolTip="{DynamicResource Str.Palette.ExpandTip}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- 2B. VÙNG LÀM VIỆC TRUNG TÂM -->
+                <Grid Grid.Column="1">
+                    <controls:WiringCanvasControl x:Name="WiringCanvas" />
+
+                    <!-- Hướng dẫn mạch mẫu -->
+                    <Border x:Name="GuideBanner"
+                            VerticalAlignment="Top"
+                            HorizontalAlignment="Center"
+                            Margin="20,12,20,0"
+                            MaxWidth="860"
+                            Background="#E6172554"
+                            BorderBrush="#3B82F6"
+                            BorderThickness="1.2"
+                            CornerRadius="8"
+                            Padding="14,8"
+                            Visibility="Collapsed">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right"
+                                    Content="✕"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Foreground="#93C5FD"
+                                    FontWeight="Bold"
+                                    Cursor="Hand"
+                                    Margin="12,0,0,0"
+                                    Click="OnCloseGuideBannerClick" />
+                            <TextBlock x:Name="TxtGuideBanner"
+                                       TextWrapping="Wrap"
+                                       FontSize="12"
+                                       Foreground="#E0F2FE"
+                                       VerticalAlignment="Center" />
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Cảnh báo Đỏ: Ngắn mạch / Đấu nhầm Ampe kế / Cháy cuộn hút -->
+                    <Border x:Name="ShortCircuitBanner"
+                            VerticalAlignment="Top"
+                            HorizontalAlignment="Center"
+                            Margin="20,14,20,0"
+                            MaxWidth="920"
+                            Background="#F27F1D1D"
+                            BorderBrush="#F87171"
+                            BorderThickness="2"
+                            CornerRadius="10"
+                            Padding="18,12"
+                            Visibility="Collapsed">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Background="#EF4444" CornerRadius="8" Width="42" Height="42" Margin="0,0,14,0" VerticalAlignment="Center">
+                                <TextBlock Text="⚡" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" />
+                            </Border>
+
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock x:Name="TxtAlertBannerTitle"
+                                           FontSize="14"
+                                           FontWeight="Bold"
+                                           Foreground="#FEF2F2" />
+                                <TextBlock x:Name="TxtFaultReason"
+                                           FontSize="12.2"
+                                           Foreground="#FECACA"
+                                           TextWrapping="Wrap"
+                                           Margin="0,3,0,0" />
+                                <TextBlock x:Name="TxtFaultLocation"
+                                           FontSize="11.8"
+                                           FontWeight="SemiBold"
+                                           Foreground="#FDE047"
+                                           TextWrapping="Wrap"
+                                           Margin="0,3,0,0" />
+                            </StackPanel>
+
+                            <Button Grid.Column="2"
+                                    Content="{DynamicResource Str.Banner.Dismiss}"
+                                    Style="{StaticResource ToolbarButtonStyle}"
+                                    Background="#991B1B"
+                                    BorderBrush="#FCA5A5"
+                                    Foreground="White"
+                                    Margin="16,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Click="OnDismissFaultClick" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Cụm nút nổi điều khiển Zoom & Bắt dính lưới -->
+                    <Border HorizontalAlignment="Right"
+                            VerticalAlignment="Bottom"
+                            Margin="0,0,16,14"
+                            Background="{DynamicResource SurfaceBgBrush}"
+                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="6,4">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <CheckBox x:Name="ChkSnapGrid"
+                                      Content="{DynamicResource Str.Canvas.SnapGrid}"
+                                      IsChecked="True"
+                                      Foreground="{DynamicResource TextPrimaryBrush}"
+                                      FontSize="11.5"
+                                      VerticalAlignment="Center"
+                                      Margin="6,0,10,0"
+                                      Checked="OnSnapGridChanged"
+                                      Unchecked="OnSnapGridChanged" />
+                            <Rectangle Width="1" Height="18" Fill="{DynamicResource DividerBrush}" Margin="0,0,6,0" />
+                            <Button Content="−" Width="28" Padding="0,3" Style="{StaticResource ToolbarButtonStyle}" Click="OnZoomOutClick" ToolTip="{DynamicResource Str.Canvas.ZoomOutTip}" />
+                            <Button x:Name="BtnZoomReset"
+                                    Content="100%"
+                                    MinWidth="54"
+                                    Padding="8,3"
+                                    Margin="4,0"
+                                    Style="{StaticResource ToolbarButtonStyle}"
+                                    Click="OnZoomFitClick"
+                                    ToolTip="{DynamicResource Str.Canvas.ZoomFitTip}" />
+                            <Button Content="+" Width="28" Padding="0,3" Style="{StaticResource ToolbarButtonStyle}" Click="OnZoomInClick" ToolTip="{DynamicResource Str.Canvas.ZoomInTip}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!-- =================================================================== -->
+            <!-- 3. BOTTOM STATUS BAR                                                -->
+            <!-- =================================================================== -->
+            <Border x:Name="StatusBarBorder"
+                    Grid.Row="3"
+                    Background="{DynamicResource SubtleSurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="0,1,0,0"
+                    CornerRadius="0,0,7,7"
+                    Padding="12,0">
+                <DockPanel VerticalAlignment="Center">
+                    <Border x:Name="ModeStatusBadge"
+                            DockPanel.Dock="Left"
+                            Background="{DynamicResource AccentBlueBrush}"
+                            CornerRadius="4"
+                            Padding="8,2"
+                            Margin="0,0,10,0">
+                        <TextBlock x:Name="TxtModeBadge"
+                                   Text="{DynamicResource Str.Badge.Design}"
+                                   FontSize="10.2"
+                                   FontWeight="Bold"
+                                   Foreground="White" />
+                    </Border>
+
+                    <TextBlock x:Name="TxtCircuitStats"
+                               DockPanel.Dock="Right"
+                               FontSize="11.5"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" />
+
+                    <TextBlock x:Name="TxtStatusMessage"
+                               Text="{DynamicResource Str.Status.Ready}"
+                               FontSize="11.8"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

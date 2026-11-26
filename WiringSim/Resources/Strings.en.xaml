@@ -1,0 +1,405 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <!-- App & Title Bar -->
+    <sys:String x:Key="Str.App.Title">WiringSim</sys:String>
+    <sys:String x:Key="Str.Project.Untitled">Untitled Project</sys:String>
+    <sys:String x:Key="Str.TitleBar.Settings">Settings</sys:String>
+    <sys:String x:Key="Str.TitleBar.Updates">Updates</sys:String>
+    <sys:String x:Key="Str.TitleBar.Minimize">Minimize</sys:String>
+    <sys:String x:Key="Str.TitleBar.Maximize">Maximize / Restore</sys:String>
+    <sys:String x:Key="Str.TitleBar.Close">Close</sys:String>
+
+    <!-- CAD/EDA Toolbar -->
+    <sys:String x:Key="Str.Toolbar.New">New</sys:String>
+    <sys:String x:Key="Str.Toolbar.NewTip">Create a blank schematic (Ctrl+N)</sys:String>
+    <sys:String x:Key="Str.Toolbar.Open">Open</sys:String>
+    <sys:String x:Key="Str.Toolbar.OpenTip">Open a .json circuit file (Ctrl+O)</sys:String>
+    <sys:String x:Key="Str.Toolbar.Save">Save</sys:String>
+    <sys:String x:Key="Str.Toolbar.SaveTip">Save circuit to .json file (Ctrl+S)</sys:String>
+    <sys:String x:Key="Str.Toolbar.Presets">Sample Circuits ▾</sys:String>
+    <sys:String x:Key="Str.Toolbar.PresetsTip">Load a standard sample circuit</sys:String>
+
+    <sys:String x:Key="Str.Toolbar.Undo">Undo</sys:String>
+    <sys:String x:Key="Str.Toolbar.UndoTip">Undo last action (Ctrl+Z)</sys:String>
+    <sys:String x:Key="Str.Toolbar.Redo">Redo</sys:String>
+    <sys:String x:Key="Str.Toolbar.RedoTip">Redo previously undone action (Ctrl+Y)</sys:String>
+    <sys:String x:Key="Str.Toolbar.Delete">Delete</sys:String>
+    <sys:String x:Key="Str.Toolbar.DeleteTip">Delete selected component or wire (Delete)</sys:String>
+
+    <sys:String x:Key="Str.Toolbar.WireOrthogonal">⮑ Wire: Orthogonal</sys:String>
+    <sys:String x:Key="Str.Toolbar.WireCurved">∿ Wire: Smooth Curve</sys:String>
+    <sys:String x:Key="Str.Toolbar.WireStyleTip">Toggle between orthogonal corners and smooth spline curves</sys:String>
+
+    <sys:String x:Key="Str.Wire.Red">Red (L1/+)</sys:String>
+    <sys:String x:Key="Str.Wire.Yellow">Yellow (L2)</sys:String>
+    <sys:String x:Key="Str.Wire.Blue">Blue (L3)</sys:String>
+    <sys:String x:Key="Str.Wire.Black">Black (N/-)</sys:String>
+    <sys:String x:Key="Str.Wire.Green">PE</sys:String>
+
+    <sys:String x:Key="Str.Wire.FullRed">Red (L1 / DC+)</sys:String>
+    <sys:String x:Key="Str.Wire.FullYellow">Yellow (L2)</sys:String>
+    <sys:String x:Key="Str.Wire.FullBlue">Blue (L3)</sys:String>
+    <sys:String x:Key="Str.Wire.FullBlack">Black (N / DC-)</sys:String>
+    <sys:String x:Key="Str.Wire.FullGreen">Green (PE)</sys:String>
+
+    <sys:String x:Key="Str.Mode.Design">🛠 Design Mode</sys:String>
+    <sys:String x:Key="Str.Mode.Simulate">▶ Simulate</sys:String>
+    <sys:String x:Key="Str.Badge.Design">DESIGN MODE</sys:String>
+    <sys:String x:Key="Str.Badge.Simulate">▶ SIMULATING (50ms BFS)</sys:String>
+
+    <!-- Component Library & Tips -->
+    <sys:String x:Key="Str.Palette.Header">COMPONENT LIBRARY</sys:String>
+    <sys:String x:Key="Str.Palette.Subheader">Drag onto canvas or double-click to place</sys:String>
+    <sys:String x:Key="Str.Palette.CollapseTip">Collapse component library</sys:String>
+    <sys:String x:Key="Str.Palette.ExpandTip">Expand component library</sys:String>
+    <sys:String x:Key="Str.Palette.QuickAddTip">Place into center of canvas</sys:String>
+
+    <sys:String x:Key="Str.Cat.PowerSource">1. POWER SOURCES</sys:String>
+    <sys:String x:Key="Str.Cat.Switching">2. SWITCHGEAR &amp; CONTROLS</sys:String>
+    <sys:String x:Key="Str.Cat.Relay">3. SPECIALIZED RELAYS</sys:String>
+    <sys:String x:Key="Str.Cat.Sensor">4. INDUSTRIAL SENSORS</sys:String>
+    <sys:String x:Key="Str.Cat.Meter">5. MEASURING INSTRUMENTS</sys:String>
+    <sys:String x:Key="Str.Cat.Load">6. ELECTRICAL LOADS</sys:String>
+
+    <sys:String x:Key="Str.Tips.Header">💡 QUICK SHORTCUTS</sys:String>
+    <sys:String x:Key="Str.Tips.Line1">• Pin A → empty space → Pin B: Waypoint wire</sys:String>
+    <sys:String x:Key="Str.Tips.Line2">• Hold Shift while wiring: Free diagonal wire</sys:String>
+    <sys:String x:Key="Str.Tips.Line3">• Select wire: Drag handles / + to reshape</sys:String>
+    <sys:String x:Key="Str.Tips.Line4">• Right-click device/wire: Configure properties</sys:String>
+
+    <!-- Viewport Controls & Status Bar -->
+    <sys:String x:Key="Str.Canvas.SnapGrid">Snap to Grid</sys:String>
+    <sys:String x:Key="Str.Canvas.ZoomInTip">Zoom In</sys:String>
+    <sys:String x:Key="Str.Canvas.ZoomOutTip">Zoom Out</sys:String>
+    <sys:String x:Key="Str.Canvas.ZoomFitTip">Fit circuit to view</sys:String>
+    <sys:String x:Key="Str.Banner.Dismiss">Dismiss Alert</sys:String>
+
+    <sys:String x:Key="Str.Status.Ready">Ready — Drag components from the Library on the left or choose from [Sample Circuits].</sys:String>
+    <sys:String x:Key="Str.Status.StatsFormat">Components: {0} | Wires: {1}</sys:String>
+    <sys:String x:Key="Str.Status.ModeDesign">Design Mode: Drag components, click terminal A → B to wire, right-click for properties.</sys:String>
+    <sys:String x:Key="Str.Status.ModeSim">Simulation Mode: Positions locked. Click MCBs, Switches, Pushbuttons, or Sensors to test!</sys:String>
+    <sys:String x:Key="Str.Status.LockedInSim">Simulation is running (layout locked). Switch to [Design Mode] to edit the circuit!</sys:String>
+    <sys:String x:Key="Str.Status.AddedComp">Placed [{0}] at ({1:0}, {2:0}). Right-click the device to configure specifications.</sys:String>
+    <sys:String x:Key="Str.Status.DeletedComp">Deleted component [{0}] and its connected wires.</sys:String>
+    <sys:String x:Key="Str.Status.DeletedWire">Deleted wire [{0} ↔ {1}].</sys:String>
+    <sys:String x:Key="Str.Status.WireStarted">Wiring from [{0}:{1}] — Click empty space to add bends (hold Shift for diagonal), click terminal B to finish.</sys:String>
+    <sys:String x:Key="Str.Status.WaypointAdded">Added waypoint #{0} at ({1:0}, {2:0}). Backspace to undo point, ESC to cancel.</sys:String>
+    <sys:String x:Key="Str.Status.WireCompleted">Connected wire [{0}:{1}] ↔ [{2}:{3}].</sys:String>
+    <sys:String x:Key="Str.Status.WireCanceled">Canceled wire routing.</sys:String>
+    <sys:String x:Key="Str.Status.WireSelected">Wire selected — Drag control handles to reshape, double-click to add bend, right-click for menu.</sys:String>
+    <sys:String x:Key="Str.Status.CompSelected">Selected [{0}] — Drag to move, press Delete to remove, right-click for properties.</sys:String>
+    <sys:String x:Key="Str.Status.NewCanvas">Created a blank schematic.</sys:String>
+    <sys:String x:Key="Str.Status.SavedFile">Saved schematic to: {0}</sys:String>
+    <sys:String x:Key="Str.Status.LoadedFile">Opened schematic [{0}] ({1} components, {2} wires).</sys:String>
+    <sys:String x:Key="Str.Status.PresetLoaded">Loaded [{0}]. Switch to [▶ Simulate] to test the circuit!</sys:String>
+    <sys:String x:Key="Str.Status.Undone">Undid previous action.</sys:String>
+    <sys:String x:Key="Str.Status.Redone">Redid action.</sys:String>
+    <sys:String x:Key="Str.Status.UpdatedProp">[{0}]: Updated configuration ({1}).</sys:String>
+
+    <!-- Component Titles & Subtitles -->
+    <sys:String x:Key="Str.Comp.DcSource.Title">DC Power Supply (5–48V)</sys:String>
+    <sys:String x:Key="Str.Comp.DcSource.Sub">5V / 12V / 24V / 48VDC</sys:String>
+    <sys:String x:Key="Str.Comp.Ac1P.Title">1-Phase AC Supply</sys:String>
+    <sys:String x:Key="Str.Comp.Ac1P.Sub">220V / 380VAC • Phase-loss test</sys:String>
+    <sys:String x:Key="Str.Comp.Ac3P.Title">3-Phase AC Supply</sys:String>
+    <sys:String x:Key="Str.Comp.Ac3P.Sub">220V / 380V • L1, L2, L3, N, PE</sys:String>
+
+    <sys:String x:Key="Str.Comp.Mcb1P.Title">1-Phase MCB Breaker</sys:String>
+    <sys:String x:Key="Str.Comp.Mcb1P.Sub">6A–63A • Curve B, C, D</sys:String>
+    <sys:String x:Key="Str.Comp.Mcb3P.Title">3-Phase MCB Breaker</sys:String>
+    <sys:String x:Key="Str.Comp.Mcb3P.Sub">6A–63A • 3-Pole Short Protection</sys:String>
+    <sys:String x:Key="Str.Comp.Sw1W.Title">1-Way Switch (1-2)</sys:String>
+    <sys:String x:Key="Str.Comp.Sw1W.Sub">Standard ON/OFF wall switch</sys:String>
+    <sys:String x:Key="Str.Comp.Sw2W.Title">2-Way Staircase Switch</sys:String>
+    <sys:String x:Key="Str.Comp.Sw2W.Sub">Changeover COM - L1 - L2</sys:String>
+    <sys:String x:Key="Str.Comp.SwRot.Title">3-Position Rotary Switch</sys:String>
+    <sys:String x:Key="Str.Comp.SwRot.Sub">1 - 0 - 2 (Man / Off / Auto)</sys:String>
+    <sys:String x:Key="Str.Comp.PbNo.Title">Ø22 Pushbutton NO (Green)</sys:String>
+    <sys:String x:Key="Str.Comp.PbNo.Sub">XB2/LA38 • 1NO / 1NC / 1NO+1NC</sys:String>
+    <sys:String x:Key="Str.Comp.PbNc.Title">Ø22 Pushbutton NC (Red)</sys:String>
+    <sys:String x:Key="Str.Comp.PbNc.Sub">XB2/LA38 • Momentary or Latching</sys:String>
+    <sys:String x:Key="Str.Comp.LimitSw.Title">Limit Switch (Roller)</sys:String>
+    <sys:String x:Key="Str.Comp.LimitSw.Sub">ME-8108 / WLCA2 • 1NO(13-14) + 1NC(21-22)</sys:String>
+    <sys:String x:Key="Str.Comp.Contactor.Title">Contactor (LC1D / MC)</sys:String>
+    <sys:String x:Key="Str.Comp.Contactor.Sub">24V–380V Coil • Aux 1NO / 1NC</sys:String>
+    <sys:String x:Key="Str.Comp.Vfd.Title">VFD / Inverter Drive</sys:String>
+    <sys:String x:Key="Str.Comp.Vfd.Sub">R,S,T → U,V,W • Keypad P01–P06 &amp; ACC/DEC</sys:String>
+
+    <sys:String x:Key="Str.Comp.RelayMy.Title">Intermediate Relay (MY2N/MY4N)</sys:String>
+    <sys:String x:Key="Str.Comp.RelayMy.Sub">12/24VDC, 220VAC • 8-Pin / 14-Pin</sys:String>
+    <sys:String x:Key="Str.Comp.Thermal.Title">Thermal Overload Relay (LRD)</sys:String>
+    <sys:String x:Key="Str.Comp.Thermal.Sub">L1-T1..L3-T3 • 95-96(NC), 97-98(NO)</sys:String>
+    <sys:String x:Key="Str.Comp.Timer.Title">Multi-Mode Timer (Omron H3CR)</sys:String>
+    <sys:String x:Key="Str.Comp.Timer.Sub">ON-Delay / OFF-Delay / Star-Delta</sys:String>
+
+    <sys:String x:Key="Str.Comp.SensInd.Title">Inductive Proximity Sensor</sys:String>
+    <sys:String x:Key="Str.Comp.SensInd.Sub">Metal detection • PNP/NPN 10–30VDC</sys:String>
+    <sys:String x:Key="Str.Comp.SensCap.Title">Capacitive Proximity Sensor</sys:String>
+    <sys:String x:Key="Str.Comp.SensCap.Sub">Non-metal / Liquid • PNP/NPN 10–30VDC</sys:String>
+    <sys:String x:Key="Str.Comp.SensPhoto.Title">Photoelectric Sensor</sys:String>
+    <sys:String x:Key="Str.Comp.SensPhoto.Sub">Optical beam • PNP/NPN 10–30VDC</sys:String>
+    <sys:String x:Key="Str.Comp.SensUltra.Title">Ultrasonic / Level Sensor</sys:String>
+    <sys:String x:Key="Str.Comp.SensUltra.Sub">Distance / Liquid level • PNP/NPN</sys:String>
+
+    <sys:String x:Key="Str.Comp.Voltmeter.Title">Panel Voltmeter (V1-V2)</sys:String>
+    <sys:String x:Key="Str.Comp.Voltmeter.Sub">Parallel V1-V2 • AC/DC • Digital/Analog</sys:String>
+    <sys:String x:Key="Str.Comp.Ammeter.Title">Panel Ammeter (I1-I2)</sys:String>
+    <sys:String x:Key="Str.Comp.Ammeter.Sub">Series I1-I2 or via CT</sys:String>
+    <sys:String x:Key="Str.Comp.Ct.Title">Current Transformer (CT)</sys:String>
+    <sys:String x:Key="Str.Comp.Ct.Sub">Primary P1-P2 • Secondary S1-S2 (/5A)</sys:String>
+
+    <sys:String x:Key="Str.Comp.PilotG.Title">Pilot Indicator Light</sys:String>
+    <sys:String x:Key="Str.Comp.PilotG.Sub">12VDC / 24VDC / 220VAC • 4 Colors</sys:String>
+    <sys:String x:Key="Str.Comp.Lamp.Title">Lighting Lamp</sys:String>
+    <sys:String x:Key="Str.Comp.Lamp.Sub">12VDC / 24VDC / 220VAC</sys:String>
+    <sys:String x:Key="Str.Comp.Motor1P.Title">1-Phase Induction Motor</sys:String>
+    <sys:String x:Key="Str.Comp.Motor1P.Sub">220VAC (L, N, PE) • 60 FPS Rotor</sys:String>
+    <sys:String x:Key="Str.Comp.Motor3P3.Title">3-Phase Motor (3-Terminal)</sys:String>
+    <sys:String x:Key="Str.Comp.Motor3P3.Sub">U1,V1,W1 + PE • Internal Star 380V / Δ 220V</sys:String>
+    <sys:String x:Key="Str.Comp.Motor3P6.Title">3-Phase Motor (6-Terminal)</sys:String>
+    <sys:String x:Key="Str.Comp.Motor3P6.Sub">U1..W1 &amp; U2..W2 • Star-Delta / Dahlander</sys:String>
+
+    <!-- Vector Canvas Device Badges -->
+    <sys:String x:Key="Str.Vis.Pulled">ON</sys:String>
+    <sys:String x:Key="Str.Vis.Released">OFF</sys:String>
+    <sys:String x:Key="Str.Vis.Closed">CLSD</sys:String>
+    <sys:String x:Key="Str.Vis.Open">OPEN</sys:String>
+    <sys:String x:Key="Str.Vis.Latch">LATCH</sys:String>
+    <sys:String x:Key="Str.Vis.SetPrefix">Set:</sys:String>
+    <sys:String x:Key="Str.Vis.PhaseLoss">⚠ PHASE LOSS!</sys:String>
+    <sys:String x:Key="Str.Vis.LostLine">LINE L LOST!</sys:String>
+    <sys:String x:Key="Str.Vis.BurnedCoil">🔥 COIL BURNOUT!</sys:String>
+    <sys:String x:Key="Str.Vis.BurnedLamp">🔥 LAMP BURNED!</sys:String>
+    <sys:String x:Key="Str.Vis.BurnedSensor">🔥 SENSOR BURNED!</sys:String>
+    <sys:String x:Key="Str.Vis.WrongKind">AC≠DC</sys:String>
+    <sys:String x:Key="Str.Vis.LowVolt">LOW V</sys:String>
+    <sys:String x:Key="Str.Vis.OverloadTrip">⚠ OVERLOAD TRIP!</sys:String>
+    <sys:String x:Key="Str.Vis.ShortPoint">⚡ SHORT-CIRCUIT POINT</sys:String>
+    <sys:String x:Key="Str.Vis.ObjectDetected">DETECTED</sys:String>
+    <sys:String x:Key="Str.Vis.NoObject">CLEAR</sys:String>
+    <sys:String x:Key="Str.Vis.Star">STAR (Y)</sys:String>
+    <sys:String x:Key="Str.Vis.Delta">DELTA (Δ)</sys:String>
+    <sys:String x:Key="Str.Vis.OpenYD">OPEN Y/Δ</sys:String>
+
+    <!-- Terminal Tooltips -->
+    <sys:String x:Key="Str.Term.Unpowered">De-energized (0V)</sys:String>
+    <sys:String x:Key="Str.Term.StateFormat">{0} | Phase/Pole: {1} | Voltage: {2:0.#}V</sys:String>
+    <sys:String x:Key="Str.Term.TooltipFormat">{0} — Terminal [{1}]&#x0a;State: {2}</sys:String>
+    <sys:String x:Key="Str.Phase.L1">L1 (Phase 1)</sys:String>
+    <sys:String x:Key="Str.Phase.L2">L2 (Phase 2)</sys:String>
+    <sys:String x:Key="Str.Phase.L3">L3 (Phase 3)</sys:String>
+    <sys:String x:Key="Str.Phase.N">N (Neutral)</sys:String>
+    <sys:String x:Key="Str.Phase.PE">PE (Protective Earth)</sys:String>
+    <sys:String x:Key="Str.Phase.DCPlus">DC (+)</sys:String>
+    <sys:String x:Key="Str.Phase.DCMinus">DC (-)</sys:String>
+    <sys:String x:Key="Str.Phase.Open">Open Circuit</sys:String>
+
+    <!-- Context Menus -->
+    <sys:String x:Key="Str.Menu.RepairBurnout">🔧 Replace / Repair Burned Device</sys:String>
+    <sys:String x:Key="Str.Menu.Rename">✏ Rename Designator (e.g. KM1, K1, S1...)</sys:String>
+    <sys:String x:Key="Str.Menu.RenameTitle">Rename Device Tag</sys:String>
+    <sys:String x:Key="Str.Menu.RenamePrompt">Enter new tag label for [{0}]:</sys:String>
+    <sys:String x:Key="Str.Menu.DeleteComp">🗑 Delete Component (Delete)</sys:String>
+
+    <sys:String x:Key="Str.Menu.WireHeader">🔌 Wire: {0} ↔ {1}</sys:String>
+    <sys:String x:Key="Str.Menu.WireChangeColor">🎨 Change Wire Color</sys:String>
+    <sys:String x:Key="Str.Menu.WireAddWp">➕ Add Waypoint Here</sys:String>
+    <sys:String x:Key="Str.Menu.WireRemoveWp">➖ Remove Nearest Waypoint</sys:String>
+    <sys:String x:Key="Str.Menu.WireResetAuto">↺ Reset to Auto-Route</sys:String>
+    <sys:String x:Key="Str.Menu.WireDelete">🗑 Delete Wire (Delete)</sys:String>
+
+    <sys:String x:Key="Str.Menu.OutputVoltage">⚡ Output Voltage ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.SimPhaseLoss">⚠ Simulate Phase Loss</sys:String>
+    <sys:String x:Key="Str.Menu.LostL">Simulate Phase L Loss</sys:String>
+    <sys:String x:Key="Str.Menu.LostL1">Simulate L1 Phase Loss</sys:String>
+    <sys:String x:Key="Str.Menu.LostL2">Simulate L2 Phase Loss</sys:String>
+    <sys:String x:Key="Str.Menu.LostL3">Simulate L3 Phase Loss</sys:String>
+
+    <sys:String x:Key="Str.Menu.RatedAmps">⚡ Rated Current ({0}A)</sys:String>
+    <sys:String x:Key="Str.Menu.CurveType">📈 Trip Curve ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.CurveB">Curve B (3–5 In • Resistive / Residential)</sys:String>
+    <sys:String x:Key="Str.Menu.CurveC">Curve C (5–10 In • General Purpose)</sys:String>
+    <sys:String x:Key="Str.Menu.CurveD">Curve D (10–20 In • Heavy Motor Inductive)</sys:String>
+
+    <sys:String x:Key="Str.Menu.ActionMode">🔘 Actuation Mode</sys:String>
+    <sys:String x:Key="Str.Menu.Momentary">Momentary (Spring Return)</sys:String>
+    <sys:String x:Key="Str.Menu.Latching">Latching (Push-On / Push-Off)</sys:String>
+    <sys:String x:Key="Str.Menu.ContactCfg">🔌 Contact Block Configuration</sys:String>
+    <sys:String x:Key="Str.Menu.Only1NO">1NO Only (3 - 4)</sys:String>
+    <sys:String x:Key="Str.Menu.Only1NC">1NC Only (1 - 2)</sys:String>
+    <sys:String x:Key="Str.Menu.Dual1NO1NC">Dual Block 1NO + 1NC (1-2 &amp; 3-4)</sys:String>
+
+    <sys:String x:Key="Str.Menu.Color">🎨 Color</sys:String>
+    <sys:String x:Key="Str.Color.Green">Green</sys:String>
+    <sys:String x:Key="Str.Color.Red">Red</sys:String>
+    <sys:String x:Key="Str.Color.Yellow">Yellow</sys:String>
+    <sys:String x:Key="Str.Color.White">White</sys:String>
+
+    <sys:String x:Key="Str.Menu.SwitchType">🎛 Switch Type</sys:String>
+    <sys:String x:Key="Str.Menu.Sw1Way">1-Way Switch (1 - 2)</sys:String>
+    <sys:String x:Key="Str.Menu.Sw2Way">2-Way Staircase Switch (COM - L1 - L2)</sys:String>
+    <sys:String x:Key="Str.Menu.SwRotary">3-Position Rotary Switch (1 - 0 - 2 Man/Off/Auto)</sys:String>
+
+    <sys:String x:Key="Str.Menu.CoilVoltage">⚡ Rated Voltage ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.AuxContacts">🔌 Integrated Auxiliary Contacts</sys:String>
+    <sys:String x:Key="Str.Menu.Aux1NO">1NO (13 - 14)</sys:String>
+    <sys:String x:Key="Str.Menu.Aux1NC">1NC (21 - 22)</sys:String>
+    <sys:String x:Key="Str.Menu.AuxBoth">1NO + 1NC (13-14 &amp; 21-22)</sys:String>
+
+    <sys:String x:Key="Str.Menu.RelayPoles">🔌 Changeover Pole Count</sys:String>
+    <sys:String x:Key="Str.Menu.Relay8Pin">2 Poles (DPDT - 8-Pin MY2N)</sys:String>
+    <sys:String x:Key="Str.Menu.Relay14Pin">4 Poles (4PDT - 14-Pin MY4N)</sys:String>
+
+    <sys:String x:Key="Str.Menu.ThermalRange">🌡 Overload Current Dial ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.ResetMode">🔄 Recovery Mode</sys:String>
+    <sys:String x:Key="Str.Menu.ManualReset">Manual Reset</sys:String>
+    <sys:String x:Key="Str.Menu.AutoReset">Automatic Reset</sys:String>
+    <sys:String x:Key="Str.Menu.TestTrip">🔥 Simulate Overload (Test Trip: Open 95-96, Close 97-98)</sys:String>
+    <sys:String x:Key="Str.Menu.DoReset">↺ Reset Overload Relay</sys:String>
+
+    <sys:String x:Key="Str.Menu.TimerMode">⏱ Timer Operating Mode</sys:String>
+    <sys:String x:Key="Str.Menu.OnDelay">ON-Delay (Delay on Energize)</sys:String>
+    <sys:String x:Key="Str.Menu.OffDelay">OFF-Delay (Delay on De-energize)</sys:String>
+    <sys:String x:Key="Str.Menu.StarDelta">Star-Delta Timer (Y → Δ)</sys:String>
+    <sys:String x:Key="Str.Menu.Timer1C">1 Timed SPDT (COM - NO - NC)</sys:String>
+    <sys:String x:Key="Str.Menu.Timer8Pin">1 Instantaneous + 1 Timed (8-Pin Socket)</sys:String>
+    <sys:String x:Key="Str.Menu.DelayTime">⏳ Time Delay ({0:0.#}s)</sys:String>
+    <sys:String x:Key="Str.Menu.SecUnit">{0:0.#} sec</sys:String>
+    <sys:String x:Key="Str.Menu.CustomDelay">⌨ Custom Delay (0.5s – 60s)...</sys:String>
+    <sys:String x:Key="Str.Menu.CustomDelayTitle">Set Timer Delay</sys:String>
+    <sys:String x:Key="Str.Menu.CustomDelayPrompt">Enter delay in seconds (0.5 – 60.0):</sys:String>
+
+    <sys:String x:Key="Str.Menu.MotorPower">⚙ Rated Power ({0:0.#}kW • {1:0.#}A)</sys:String>
+
+    <sys:String x:Key="Str.Menu.LimitMode">🕹 Roller Lever Test Mode</sys:String>
+    <sys:String x:Key="Str.Menu.LimitHold">Momentary Hold (Spring Return)</sys:String>
+    <sys:String x:Key="Str.Menu.LimitLock">Toggle Lock (Click to Hold/Release)</sys:String>
+
+    <sys:String x:Key="Str.Menu.SensorOutputType">⚡ Output Polarity ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.SensorPNP">PNP (Sourcing +V on BK)</sys:String>
+    <sys:String x:Key="Str.Menu.SensorNPN">NPN (Sinking 0V on BK)</sys:String>
+    <sys:String x:Key="Str.Menu.SensorWiring">🔌 Output Function</sys:String>
+    <sys:String x:Key="Str.Menu.SensNO">3-Wire — Normally Open (NO)</sys:String>
+    <sys:String x:Key="Str.Menu.SensNC">3-Wire — Normally Closed (NC)</sys:String>
+    <sys:String x:Key="Str.Menu.Sens4Wire">4-Wire — NO (BK) + NC (WH)</sys:String>
+    <sys:String x:Key="Str.Menu.SensorTrigger">🎯 Target Trigger Mode</sys:String>
+    <sys:String x:Key="Str.Menu.SensHold">Hold Mouse to Detect Target</sys:String>
+    <sys:String x:Key="Str.Menu.SensToggle">Click to Place / Remove Target</sys:String>
+
+    <sys:String x:Key="Str.Menu.MeterCurrent">〰 Measurement Mode ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.MeterAC">AC (Alternating Current)</sys:String>
+    <sys:String x:Key="Str.Menu.MeterDC">DC (Direct Current)</sys:String>
+    <sys:String x:Key="Str.Menu.MeterRange">📏 Range / CT Ratio ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.MeterDisplay">📟 Dial Display Style</sys:String>
+    <sys:String x:Key="Str.Menu.MeterDigital">Digital LED Readout</sys:String>
+    <sys:String x:Key="Str.Menu.MeterAnalog">Analog Pointer Needle</sys:String>
+    <sys:String x:Key="Str.Menu.DirectAmps">Direct {0}</sys:String>
+    <sys:String x:Key="Str.Menu.ViaCt">Via CT ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.CtRatio">🔄 CT Transformation Ratio ({0})</sys:String>
+
+    <!-- Fault Messages -->
+    <sys:String x:Key="Str.Fault.ShortHeader">⚠ SHORT CIRCUIT WARNING!</sys:String>
+    <sys:String x:Key="Str.Fault.BurnoutHeader">🔥 OVERVOLTAGE / BURNOUT ALERT!</sys:String>
+    <sys:String x:Key="Str.Fault.AmmeterParallelShort">WARNING: AMMETER WIRED IN PARALLEL CAUSED A SHORT CIRCUIT!</sys:String>
+    <sys:String x:Key="Str.Fault.PhaseToPhase">Direct Phase-to-Phase short circuit ({0} to {1}) without load</sys:String>
+    <sys:String x:Key="Str.Fault.PhaseToNeutral">Direct Phase-to-Neutral short circuit ({0} to N) without load</sys:String>
+    <sys:String x:Key="Str.Fault.PhaseToEarth">Direct Phase-to-Earth fault ({0} to PE)</sys:String>
+    <sys:String x:Key="Str.Fault.DcShort">Direct DC short circuit (+ to -) without load</sys:String>
+    <sys:String x:Key="Str.Fault.DcDiffVolt">Shorted two DC+ rails of different voltages ({0:0}V and {1:0}V)</sys:String>
+    <sys:String x:Key="Str.Fault.AcDcMix">Direct short between {0} supply and {1} supply</sys:String>
+    <sys:String x:Key="Str.Fault.TrippedMcb">Automatically tripped MCB breaker(s) to OFF: {0}.</sys:String>
+    <sys:String x:Key="Str.Fault.NoMcbLockout">No MCB breaker on faulted branch — Emergency source cutout activated!</sys:String>
+    <sys:String x:Key="Str.Fault.LocationWire">📍 Fault on wire [{0}:{1} ↔ {2}:{3}] — Coordinates ({4:0}, {5:0})</sys:String>
+    <sys:String x:Key="Str.Fault.BurnoutCoilMsg">COIL BURNOUT [{0}]: Applied {1:0}V {2} exceeds rated {3}!</sys:String>
+    <sys:String x:Key="Str.Fault.BurnoutLampMsg">LAMP BURNED OUT [{0}]: Applied {1:0}V {2} exceeds rated {3}!</sys:String>
+    <sys:String x:Key="Str.Fault.BurnoutSensorMsg">SENSOR BURNED OUT [{0}]: Applied {1:0}V {2} exceeds 10–30VDC rating!</sys:String>
+    <sys:String x:Key="Str.Fault.BurnoutHint">💡 Cut power, verify voltage rating, then Right-Click the device and choose [Replace / Repair Burned Device].</sys:String>
+
+    <!-- Presets -->
+    <sys:String x:Key="Str.Preset1.Name">1. Residential Single-Switch Lamp Circuit</sys:String>
+    <sys:String x:Key="Str.Preset1.Guide">Switch to [▶ Simulate] → Click Switch S1 to turn the 220V lamp ON/OFF.</sys:String>
+    <sys:String x:Key="Str.Preset2.Name">2. 3-Phase Self-Holding Starter (with Overload Relay)</sys:String>
+    <sys:String x:Key="Str.Preset2.Guide">Switch to [▶ Simulate] → Press START to latch KM1 and spin M1. Click [TEST] on Overload Relay RN1 to verify 95-96 trips KM1 and 97-98 lights the fault lamp!</sys:String>
+    <sys:String x:Key="Str.Preset3.Name">3. Automatic Star–Delta Motor Starter</sys:String>
+    <sys:String x:Key="Str.Preset3.Guide">Switch to [▶ Simulate] → Press START: Motor starts in STAR (Y) for 5s, then H3CR Timer KT automatically transitions to DELTA (Δ)!</sys:String>
+
+    <!-- Dialogs, Settings & Updates -->
+    <sys:String x:Key="Str.Dialog.Apply">Apply</sys:String>
+    <sys:String x:Key="Str.Dialog.Cancel">Cancel</sys:String>
+    <sys:String x:Key="Str.Dialog.Close">Close</sys:String>
+    <sys:String x:Key="Str.Dialog.ConfirmNew">Creating a new schematic will clear the current canvas. Continue?</sys:String>
+    <sys:String x:Key="Str.Dialog.ConfirmTitle">Confirmation</sys:String>
+    <sys:String x:Key="Str.Dialog.SaveTitle">Save WiringSim Circuit (.json)</sys:String>
+    <sys:String x:Key="Str.Dialog.OpenTitle">Open WiringSim Circuit (.json)</sys:String>
+    <sys:String x:Key="Str.Dialog.FileError">File I/O error: {0}</sys:String>
+
+    <sys:String x:Key="Str.Settings.Title">Application Settings</sys:String>
+    <sys:String x:Key="Str.Settings.ThemeLabel">Appearance Theme</sys:String>
+    <sys:String x:Key="Str.Settings.ThemeDark">Dark</sys:String>
+    <sys:String x:Key="Str.Settings.ThemeLight">Light</sys:String>
+    <sys:String x:Key="Str.Settings.ThemeSystem">System Default</sys:String>
+    <sys:String x:Key="Str.Settings.LangLabel">Display Language</sys:String>
+    <sys:String x:Key="Str.Settings.UpdateUrlLabel">Update Feed URL (GitHub Releases API)</sys:String>
+
+    <sys:String x:Key="Str.Update.Title">Check for Updates</sys:String>
+    <sys:String x:Key="Str.Update.CurrentVer">Current Version: v{0}</sys:String>
+    <sys:String x:Key="Str.Update.CheckBtn">Check Now</sys:String>
+    <sys:String x:Key="Str.Update.Checking">Checking server for newer releases...</sys:String>
+    <sys:String x:Key="Str.Update.UpToDate">✅ You are running the latest version (v{0}).</sys:String>
+    <sys:String x:Key="Str.Update.Available">🎉 New version available: {0}!</sys:String>
+    <sys:String x:Key="Str.Update.NotesHeader">Release Notes:</sys:String>
+    <sys:String x:Key="Str.Update.DownloadBtn">🌐 Open GitHub Releases</sys:String>
+    <sys:String x:Key="Str.Update.DirectDownloadBtn">📥 Direct Download ({0})</sys:String>
+    <sys:String x:Key="Str.Update.Downloading">Downloading update package...</sys:String>
+    <sys:String x:Key="Str.Update.DownloadSuccess">✅ Update downloaded to: {0}</sys:String>
+    <sys:String x:Key="Str.Update.OfflineMsg">Unable to reach update server ({0}). Current version {1} is ready to use.</sys:String>
+
+    <!-- Rotate / Flip, 3-Pin/6-Pin Motors, VFD Keypad & Unsaved Exit Prompt -->
+    <sys:String x:Key="Str.Menu.Transform">🔄 Rotate &amp; Flip</sys:String>
+    <sys:String x:Key="Str.Menu.RotateCW">↻ Rotate 90° CW (Key R)</sys:String>
+    <sys:String x:Key="Str.Menu.RotateCCW">↺ Rotate 90° CCW</sys:String>
+    <sys:String x:Key="Str.Menu.FlipH">⇄ Flip Horizontal</sys:String>
+    <sys:String x:Key="Str.Menu.FlipV">⇅ Flip Vertical</sys:String>
+
+    <sys:String x:Key="Str.Menu.Motor3PinConn">🔌 Internal Terminal Connection ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.MotorStar380">Internal Star (Y — 380V)</sys:String>
+    <sys:String x:Key="Str.Menu.MotorDelta220">Internal Delta (Δ — 220V)</sys:String>
+    <sys:String x:Key="Str.Menu.Motor6PinWinding">⚙ 6-Terminal Winding Type ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.MotorStarDelta">Star-Delta 6-Lead Motor</sys:String>
+    <sys:String x:Key="Str.Menu.MotorDahlander">2-Speed Dahlander Motor (Low Δ / High YY)</sys:String>
+    <sys:String x:Key="Str.Vis.LowSpeed">LOW (Δ)</sys:String>
+    <sys:String x:Key="Str.Vis.HighSpeed">HIGH (YY)</sys:String>
+    <sys:String x:Key="Str.Vis.VfdKeypadBtn">Program / Keypad</sys:String>
+    <sys:String x:Key="Str.Vis.VfdNoPower">NO PWR</sys:String>
+
+    <sys:String x:Key="Str.Menu.VfdOpenKeypad">🎛 Open VFD Keypad / Programming</sys:String>
+    <sys:String x:Key="Str.Vfd.DialogTitle">VFD Inverter Keypad &amp; Programming — {0}</sys:String>
+    <sys:String x:Key="Str.Vfd.StatusRun">RUNNING</sys:String>
+    <sys:String x:Key="Str.Vfd.StatusStop">STOPPED</sys:String>
+    <sys:String x:Key="Str.Vfd.StatusNoPower">NO INPUT POWER (R, S, T)</sys:String>
+    <sys:String x:Key="Str.Vfd.PotLabel">Virtual Frequency Dial (P02 = 1):</sys:String>
+    <sys:String x:Key="Str.Vfd.ExtPotLabel">External Potentiometer 10V–AI1–GND (P02 = 2):</sys:String>
+    <sys:String x:Key="Str.Vfd.ParamTableTitle">DRIVE PARAMETERS (P01 – P06)</sys:String>
+    <sys:String x:Key="Str.Vfd.P01">P01 • Run Command Source (0: Keypad | 1: External FWD/REV-COM)</sys:String>
+    <sys:String x:Key="Str.Vfd.P02">P02 • Frequency Source (0: ▲/▼ Keys | 1: Dial | 2: External AI1)</sys:String>
+    <sys:String x:Key="Str.Vfd.P03">P03 • Maximum Frequency Max Freq (10.0 – 400.0 Hz)</sys:String>
+    <sys:String x:Key="Str.Vfd.P04">P04 • Acceleration Time ACC (0.5 – 60.0 s)</sys:String>
+    <sys:String x:Key="Str.Vfd.P05">P05 • Deceleration Time DEC (0.5 – 60.0 s)</sys:String>
+    <sys:String x:Key="Str.Vfd.P06">P06 • Multi-Speed Presets DI1 / DI2 (Default 25.0 Hz / 40.0 Hz)</sys:String>
+    <sys:String x:Key="Str.Vfd.ModeBtn">MODE / PRG</sys:String>
+    <sys:String x:Key="Str.Vfd.SetBtn">SET / ENTER</sys:String>
+    <sys:String x:Key="Str.Vfd.DirBtn">Toggle FWD/REV</sys:String>
+    <sys:String x:Key="Str.Vfd.SavedMsg">Drive parameter saved.</sys:String>
+
+    <sys:String x:Key="Str.Exit.Title">Unsaved Changes</sys:String>
+    <sys:String x:Key="Str.Exit.Message">Do you want to save changes to the current project before exiting?</sys:String>
+    <sys:String x:Key="Str.Exit.Save">💾 Save</sys:String>
+    <sys:String x:Key="Str.Exit.DontSave">Don't Save</sys:String>
+    <sys:String x:Key="Str.Exit.Cancel">Cancel</sys:String>
+
+    <sys:String x:Key="Str.Settings.VersionInfo">Application Version: {0}</sys:String>
+    <sys:String x:Key="Str.Tips.Line5">• Key R: Quick rotate selected component 90°</sys:String>
+
+</ResourceDictionary>

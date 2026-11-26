@@ -1,0 +1,35 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Bảng màu Light Mode chuẩn kỹ thuật CAD/EDA -->
+    <SolidColorBrush x:Key="AppBgBrush" Color="#F1F5F9" />
+    <SolidColorBrush x:Key="TitleBarBgBrush" Color="#E2E8F0" />
+    <SolidColorBrush x:Key="ToolbarBgBrush" Color="#F8FAFC" />
+    <SolidColorBrush x:Key="SurfaceBgBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="SubtleSurfaceBrush" Color="#F1F5F9" />
+    <SolidColorBrush x:Key="CardBgBrush" Color="#F8FAFC" />
+    <SolidColorBrush x:Key="CardHoverBrush" Color="#E0F2FE" />
+    <SolidColorBrush x:Key="BorderSubtleBrush" Color="#CBD5E1" />
+    <SolidColorBrush x:Key="DividerBrush" Color="#CBD5E1" />
+
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#0F172A" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#475569" />
+    <SolidColorBrush x:Key="TextMutedBrush" Color="#64748B" />
+
+    <SolidColorBrush x:Key="MenuBgBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="MenuHoverBrush" Color="#E0F2FE" />
+    <SolidColorBrush x:Key="MenuBorderBrush" Color="#0284C7" />
+    <SolidColorBrush x:Key="InputBgBrush" Color="#FFFFFF" />
+
+    <SolidColorBrush x:Key="ButtonBgBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ButtonHoverBrush" Color="#E2E8F0" />
+    <SolidColorBrush x:Key="ButtonPressedBrush" Color="#CBD5E1" />
+    <SolidColorBrush x:Key="ButtonBorderBrush" Color="#94A3B8" />
+
+    <SolidColorBrush x:Key="AccentBlueBrush" Color="#0284C7" />
+    <SolidColorBrush x:Key="AccentCyanBrush" Color="#0284C7" />
+    <SolidColorBrush x:Key="AccentGreenBrush" Color="#059669" />
+    <SolidColorBrush x:Key="DangerRedBrush" Color="#DC2626" />
+    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#94A3B8" />
+
+</ResourceDictionary>
