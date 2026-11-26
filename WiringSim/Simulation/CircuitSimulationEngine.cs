@@ -116,14 +116,17 @@ public sealed class CircuitSimulationEngine
             return;
         }
 
-        var adj = BuildConductiveGraph();
-        var nets = FindConnectedNetsBfs(adj);
-
         var allSources = new List<(Terminal Terminal, PotentialToken Token)>();
         foreach (var comp in _components)
         {
             allSources.AddRange(comp.GetSourceOutputs());
         }
+
+        // Tiền kiểm tra Cảm biến / Công tắc 2 dây (AC/DC, phân cực DC, mức điện áp) trước khi xây đồ thị dẫn điện chính
+        EvaluateTwoWireSensorStates(allSources);
+
+        var adj = BuildConductiveGraph();
+        var nets = FindConnectedNetsBfs(adj);
 
         foreach (var net in nets)
         {
@@ -134,6 +137,10 @@ public sealed class CircuitSimulationEngine
 
                 if (!_unprotectedFaultLockout)
                 {
+                    foreach (var comp in _components)
+                        foreach (var term in comp.Terminals)
+                            term.NetId = -1;
+
                     adj = BuildConductiveGraph();
                     nets = FindConnectedNetsBfs(adj);
                     if (ActiveFault is not null)
@@ -163,7 +170,7 @@ public sealed class CircuitSimulationEngine
             }
         }
 
-        // Truyền thế điện áp cho mọi chân và dây trong từng Net hợp lệ
+        // Truyền thế điện áp cho mọi chân và dây trong từng Net hợp lệ (tính kèm sụt áp nối tiếp của cảm biến 2 dây!)
         foreach (var net in nets)
         {
             var netSources = allSources.Where(s => s.Terminal.NetId == net.NetId).ToList();
@@ -172,15 +179,28 @@ public sealed class CircuitSimulationEngine
             var distinctTokens = netSources.Select(s => s.Token).Distinct().ToList();
             var primary = PickPrimaryDisplayToken(distinctTokens);
             bool isHotPotential = distinctTokens.Any(IsHotPhase);
+            double baseDisplayVolts = termVoltageDisplay(primary, distinctTokens, isHotPotential);
+
+            var dropMap = ComputeTwoWireVoltageDrops(net, netSources, adj, primary.CurrentKind);
 
             foreach (var term in net.Terminals)
             {
-                term.ActivePotentials.AddRange(distinctTokens);
+                double drop = dropMap.GetValueOrDefault(term, 0.0);
+                if (drop > 0.001)
+                {
+                    foreach (var tok in distinctTokens)
+                        term.ActivePotentials.Add(tok with { SeriesVoltageDrop = tok.SeriesVoltageDrop + drop });
+                }
+                else
+                {
+                    term.ActivePotentials.AddRange(distinctTokens);
+                }
+
                 term.CurrentKind = primary.CurrentKind;
                 term.Phase = primary.Phase;
-                term.Voltage = primary.CurrentKind == CurrentKind.AC && isHotPotential && distinctTokens.Any(t => t.Phase is PhaseType.L2 or PhaseType.L3)
-                    ? Math.Round(primary.Voltage * Math.Sqrt(3.0), 0)
-                    : primary.Voltage;
+                term.Voltage = isHotPotential
+                    ? Math.Round(Math.Max(0.0, baseDisplayVolts - drop), 1)
+                    : baseDisplayVolts;
                 term.IsEnergized = isHotPotential;
             }
 
@@ -188,8 +208,13 @@ public sealed class CircuitSimulationEngine
             {
                 if (wire.TerminalA.NetId == net.NetId)
                 {
+                    double wireDrop = Math.Max(
+                        dropMap.GetValueOrDefault(wire.TerminalA, 0.0),
+                        dropMap.GetValueOrDefault(wire.TerminalB, 0.0));
                     wire.CarriedPhase = primary.Phase;
-                    wire.CarriedVoltage = termVoltageDisplay(primary, distinctTokens, isHotPotential);
+                    wire.CarriedVoltage = isHotPotential
+                        ? Math.Round(Math.Max(0.0, baseDisplayVolts - wireDrop), 1)
+                        : baseDisplayVolts;
                     wire.IsEnergized = isHotPotential;
                 }
             }
@@ -233,6 +258,176 @@ public sealed class CircuitSimulationEngine
         primary.CurrentKind == CurrentKind.AC && isHot && tokens.Any(t => t.Phase is PhaseType.L2 or PhaseType.L3)
             ? Math.Round(primary.Voltage * Math.Sqrt(3.0), 0)
             : primary.Voltage;
+
+    /// <summary>
+    /// Đánh giá trước điều kiện dẫn điện của các Cảm biến / Công tắc 2 dây:
+    /// - Cảm biến 2 dây DC (10–30VDC): kiểm tra đúng phân cực (BN về phía +, BU về phía tải/-); nếu ngược cực thì không dẫn!
+    /// - Cảm biến 2 dây AC (90–250VAC): chỉ dẫn với nguồn AC hợp lệ (trừ trường hợp đấu trực tiếp 2 đầu nguồn gây ngắn mạch).
+    /// - Công tắc từ xi-lanh (SMC D-A93), Công tắc nhiệt (KSD301), Phao nước 2 dây: hỗ trợ AC/DC không phân cực.
+    /// </summary>
+    private void EvaluateTwoWireSensorStates(List<(Terminal Terminal, PotentialToken Token)> allSources)
+    {
+        var activeTwoWire = _components
+            .OfType<ITwoWireSensorDevice>()
+            .Where(d => d.IsTwoWireActiveMode)
+            .ToList();
+
+        if (activeTwoWire.Count == 0) return;
+
+        foreach (var dev in activeTwoWire)
+        {
+            dev.IsConductingNow = false;
+            dev.IsReversePolarity = false;
+        }
+
+        var preAdj = BuildConductiveGraph();
+        _ = FindConnectedNetsBfs(preAdj);
+
+        var tokensByNet = new Dictionary<int, List<PotentialToken>>();
+        foreach (var (term, tok) in allSources)
+        {
+            if (term.NetId < 0) continue;
+            if (!tokensByNet.TryGetValue(term.NetId, out var list))
+            {
+                list = new List<PotentialToken>();
+                tokensByNet[term.NetId] = list;
+            }
+            list.Add(tok);
+        }
+
+        foreach (var dev in activeTwoWire)
+        {
+            if (dev.IsDamaged || !dev.WantsToConduct)
+                continue;
+
+            var tokensA = tokensByNet.GetValueOrDefault(dev.PinPositiveOrLine.NetId) ?? [];
+            var tokensB = tokensByNet.GetValueOrDefault(dev.PinNegativeOrLoad.NetId) ?? [];
+
+            bool aHasPlus = tokensA.Any(t => t.CurrentKind == CurrentKind.DC && t.Phase == PhaseType.DC_Plus);
+            bool aHasMinus = tokensA.Any(t => t.CurrentKind == CurrentKind.DC && t.Phase == PhaseType.DC_Minus);
+            bool bHasPlus = tokensB.Any(t => t.CurrentKind == CurrentKind.DC && t.Phase == PhaseType.DC_Plus);
+            bool bHasMinus = tokensB.Any(t => t.CurrentKind == CurrentKind.DC && t.Phase == PhaseType.DC_Minus);
+
+            bool aHasAc = tokensA.Any(t => t.CurrentKind == CurrentKind.AC);
+            bool bHasAc = tokensB.Any(t => t.CurrentKind == CurrentKind.AC);
+            bool anyAc = aHasAc || bHasAc;
+            bool anyDc = aHasPlus || aHasMinus || bHasPlus || bHasMinus;
+
+            if (dev.RequiresDcPolarity)
+            {
+                // Cảm biến 2 dây DC: bắt buộc + vào BN, tải/- ra BU
+                if (bHasPlus || aHasMinus)
+                {
+                    dev.IsReversePolarity = true;
+                    dev.IsConductingNow = false;
+                    continue;
+                }
+
+                if (anyAc && !anyDc)
+                {
+                    // Nếu đấu thẳng 2 dây vào nguồn AC không qua tải vẫn cho đóng để kích hoạt bảo vệ ngắn mạch/cháy
+                    dev.IsConductingNow = aHasAc && bHasAc;
+                    continue;
+                }
+
+                if (aHasPlus)
+                {
+                    double maxDcV = tokensA.Where(t => t.CurrentKind == CurrentKind.DC).Max(t => t.Voltage);
+                    if (maxDcV < 9.5 && !bHasMinus)
+                    {
+                        dev.IsConductingNow = false;
+                        continue;
+                    }
+                }
+
+                dev.IsConductingNow = true;
+            }
+            else if (!dev.AcceptsDc && dev.AcceptsAc)
+            {
+                // Cảm biến 2 dây AC (90–250VAC)
+                if (anyDc && !anyAc)
+                {
+                    dev.IsConductingNow = (aHasPlus || aHasMinus) && (bHasPlus || bHasMinus);
+                    continue;
+                }
+
+                if (anyAc && !(aHasAc && bHasAc))
+                {
+                    double maxAcV = tokensA.Concat(tokensB)
+                        .Where(t => t.CurrentKind == CurrentKind.AC)
+                        .Select(t => t.Voltage)
+                        .DefaultIfEmpty(0.0)
+                        .Max();
+                    if (maxAcV > 0.1 && maxAcV < 80.0)
+                    {
+                        dev.IsConductingNow = false;
+                        continue;
+                    }
+                }
+
+                dev.IsConductingNow = true;
+            }
+            else
+            {
+                // Công tắc từ xi-lanh (AC/DC 5-240V), Công tắc nhiệt KSD301, Phao mức nước 2 dây: không phân cực
+                dev.IsConductingNow = true;
+            }
+        }
+
+        // Xóa NetId tạm trước khi chạy FindConnectedNetsBfs chính thức
+        foreach (var comp in _components)
+            foreach (var term in comp.Terminals)
+                term.NetId = -1;
+    }
+
+    /// <summary>
+    /// Tính sụt áp nhỏ nhất (Dijkstra) từ các chân nguồn tới mọi chân trong Net khi dòng đi qua Cảm biến 2 dây
+    /// (2.5V cho DC và 3.5V cho AC).
+    /// </summary>
+    private static Dictionary<Terminal, double> ComputeTwoWireVoltageDrops(
+        ConnectedNet net,
+        List<(Terminal Terminal, PotentialToken Token)> netSources,
+        Dictionary<Terminal, List<GraphEdge>> adj,
+        CurrentKind netKind)
+    {
+        var dist = new Dictionary<Terminal, double>(net.Terminals.Count);
+        var pq = new PriorityQueue<Terminal, double>();
+
+        foreach (var src in netSources)
+        {
+            if (!dist.ContainsKey(src.Terminal))
+            {
+                dist[src.Terminal] = 0.0;
+                pq.Enqueue(src.Terminal, 0.0);
+            }
+        }
+
+        while (pq.Count > 0)
+        {
+            pq.TryDequeue(out var u, out double dU);
+            if (u is null || dU > dist.GetValueOrDefault(u, double.MaxValue) + 1e-6)
+                continue;
+
+            if (!adj.TryGetValue(u, out var edges)) continue;
+            foreach (var edge in edges)
+            {
+                double edgeDrop = 0.0;
+                if (edge.InternalComponent is ITwoWireSensorDevice dev && dev.IsTwoWireActiveMode)
+                {
+                    edgeDrop = netKind == CurrentKind.DC ? dev.VoltageDropDc : dev.VoltageDropAc;
+                }
+
+                double nd = dU + edgeDrop;
+                if (!dist.TryGetValue(edge.To, out double curD) || nd < curD - 1e-6)
+                {
+                    dist[edge.To] = nd;
+                    pq.Enqueue(edge.To, nd);
+                }
+            }
+        }
+
+        return dist;
+    }
 
     /// <summary>
     /// Tính toán dòng điện thực tế đi qua Biến dòng CT (P1-P2 -> quy đổi sang thứ cấp S1-S2 /5A)
@@ -696,6 +891,7 @@ public sealed class CircuitSimulationEngine
         var breakersToTrip = new HashSet<ICircuitBreaker>();
         var fusesToBlow = new HashSet<FuseComponent>();
         AmmeterComponent? shortedAmmeter = null;
+        ITwoWireSensorDevice? shortedTwoWire = null;
 
         foreach (var step in pathEdges)
         {
@@ -716,6 +912,10 @@ public sealed class CircuitSimulationEngine
             {
                 shortedAmmeter = am;
             }
+            if (step.Edge.InternalComponent is ITwoWireSensorDevice tw && tw.IsTwoWireActiveMode)
+            {
+                shortedTwoWire = tw;
+            }
         }
 
         if (breakersToTrip.Count == 0 && fusesToBlow.Count == 0)
@@ -733,6 +933,11 @@ public sealed class CircuitSimulationEngine
             }
         }
 
+        if (shortedTwoWire is not null)
+        {
+            shortedTwoWire.DamageByNoLoadShort(LocalizationManager.Get("Str.Fault.TwoWireNoLoadShort"));
+        }
+
         var trippedNames = new List<string>();
         var blownFuseNames = new List<string>();
         foreach (var fuse in fusesToBlow)
@@ -747,11 +952,21 @@ public sealed class CircuitSimulationEngine
                 trippedNames.Add(comp.DisplayName);
         }
 
-        Point faultPoint = shortedAmmeter is not null
-            ? new Point(shortedAmmeter.X + shortedAmmeter.Width / 2.0, shortedAmmeter.Y + shortedAmmeter.Height / 2.0)
-            : new Point(
+        Point faultPoint;
+        if (shortedTwoWire is ElectricalComponent twComp)
+        {
+            faultPoint = new Point(twComp.X + twComp.Width / 2.0, twComp.Y + twComp.Height / 2.0);
+        }
+        else if (shortedAmmeter is not null)
+        {
+            faultPoint = new Point(shortedAmmeter.X + shortedAmmeter.Width / 2.0, shortedAmmeter.Y + shortedAmmeter.Height / 2.0);
+        }
+        else
+        {
+            faultPoint = new Point(
                 (srcA.Terminal.CanvasX + srcB.Terminal.CanvasX) / 2.0,
                 (srcA.Terminal.CanvasY + srcB.Terminal.CanvasY) / 2.0);
+        }
 
         string locationDesc = $"{srcA.Terminal.Owner.DisplayName}:{srcA.Terminal.Name} ↔ {srcB.Terminal.Owner.DisplayName}:{srcB.Terminal.Name}";
 
@@ -760,7 +975,7 @@ public sealed class CircuitSimulationEngine
         {
             var focalStep = wireSteps[wireSteps.Count / 2];
             var w = focalStep.Edge.Wire!;
-            if (shortedAmmeter is null)
+            if (shortedAmmeter is null && shortedTwoWire is null)
             {
                 if (w.RoutedPoints.Count >= 2)
                 {
@@ -787,12 +1002,14 @@ public sealed class CircuitSimulationEngine
                 faultPoint.Y);
         }
 
-        _unprotectedFaultLockout = trippedNames.Count == 0 && blownFuseNames.Count == 0;
+        _unprotectedFaultLockout = trippedNames.Count == 0 && blownFuseNames.Count == 0 && shortedTwoWire is null;
 
-        // Nếu ngắn mạch đi xuyên qua Đồng hồ Ampe (đấu nhầm song song vào nguồn), phát cảnh báo chuyên biệt!
-        string headerTitle = shortedAmmeter is not null
-            ? LocalizationManager.Get("Str.Fault.AmmeterParallelShort")
-            : LocalizationManager.Get("Str.Fault.ShortHeader");
+        // Cảnh báo chuyên biệt nếu ngắn mạch qua cảm biến 2 dây không có tải hoặc đấu nhầm đồng hồ Ampe song song!
+        string headerTitle = shortedTwoWire is not null
+            ? LocalizationManager.Get("Str.Fault.TwoWireNoLoadShort")
+            : (shortedAmmeter is not null
+                ? LocalizationManager.Get("Str.Fault.AmmeterParallelShort")
+                : LocalizationManager.Get("Str.Fault.ShortHeader"));
 
         string actionText;
         if (blownFuseNames.Count > 0 && trippedNames.Count > 0)

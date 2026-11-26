@@ -34,9 +34,15 @@ public static class ContextMenuBuilder
 
         if (comp.IsBurnedOut)
         {
-            menu.Items.Add(CreateActionItem(LocalizationManager.Get("Str.Menu.RepairBurnout"), () =>
+            string repairKey = comp is ITwoWireSensorDevice { IsTwoWireActiveMode: true }
+                ? "Str.Menu.RepairSensor"
+                : "Str.Menu.RepairBurnout";
+            menu.Items.Add(CreateActionItem(LocalizationManager.Get(repairKey), () =>
             {
-                comp.RepairBurnout();
+                if (comp is ITwoWireSensorDevice tw)
+                    tw.RepairDevice();
+                else
+                    comp.RepairBurnout();
                 onChangedMessage(LocalizationManager.Format("Str.Status.UpdatedProp", comp.DisplayName, "OK"));
             }, "#22C55E"));
             menu.Items.Add(new Separator());
@@ -103,6 +109,15 @@ public static class ContextMenuBuilder
                 break;
             case IndustrialSensorComponent sensor:
                 BuildSensorItems(menu, sensor, isDesign, onChangedMessage);
+                break;
+            case CylinderReedSwitchComponent reed:
+                BuildReedSwitchItems(menu, reed, onChangedMessage);
+                break;
+            case ThermalSwitchComponent thermSw:
+                BuildThermalSwitchItems(menu, thermSw, onChangedMessage);
+                break;
+            case FloatSwitchComponent floatSw:
+                BuildFloatSwitchItems(menu, floatSw, onChangedMessage);
                 break;
             case VoltmeterComponent vm:
                 BuildVoltmeterItems(menu, vm, onChangedMessage);
@@ -879,37 +894,97 @@ public static class ContextMenuBuilder
 
     private static void BuildSensorItems(ContextMenu menu, IndustrialSensorComponent sens, bool isDesign, Action<string> notify)
     {
-        var polSub = CreateSubMenu(LocalizationManager.Format("Str.Menu.SensorOutputType", sens.Polarity));
-        polSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.SensorPNP"), sens.Polarity == SensorPolarity.PNP, () =>
+        string modeShort = sens.WiringMode switch
         {
-            sens.Polarity = SensorPolarity.PNP;
-            notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "PNP"));
-        }));
-        polSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.SensorNPN"), sens.Polarity == SensorPolarity.NPN, () =>
-        {
-            sens.Polarity = SensorPolarity.NPN;
-            notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "NPN"));
-        }));
-        menu.Items.Add(polSub);
+            SensorWiringMode.ThreeWire_NPN => "3W NPN",
+            SensorWiringMode.FourWire_NO_NC => "4W NO+NC",
+            SensorWiringMode.TwoWire_AC => "2W AC",
+            SensorWiringMode.TwoWire_DC => "2W DC",
+            _ => "3W PNP"
+        };
 
-        var outSub = CreateSubMenu(LocalizationManager.Get("Str.Menu.SensorWiring"));
-        outSub.IsEnabled = isDesign;
-        outSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.SensNO"), sens.OutputConfig == SensorOutputConfig.NO_3Wire, () =>
+        var wiringSub = CreateSubMenu(LocalizationManager.Format("Str.Menu.SensorWiringType", modeShort));
+        wiringSub.IsEnabled = isDesign;
+        wiringSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.Sens3Pnp"), sens.WiringMode == SensorWiringMode.ThreeWire_PNP, () =>
         {
-            sens.SetOutputConfig(SensorOutputConfig.NO_3Wire);
-            notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "NO 3W"));
+            sens.SetWiringMode(SensorWiringMode.ThreeWire_PNP);
+            notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "3W PNP"));
         }));
-        outSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.SensNC"), sens.OutputConfig == SensorOutputConfig.NC_3Wire, () =>
+        wiringSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.Sens3Npn"), sens.WiringMode == SensorWiringMode.ThreeWire_NPN, () =>
         {
-            sens.SetOutputConfig(SensorOutputConfig.NC_3Wire);
-            notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "NC 3W"));
+            sens.SetWiringMode(SensorWiringMode.ThreeWire_NPN);
+            notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "3W NPN"));
         }));
-        outSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.Sens4Wire"), sens.OutputConfig == SensorOutputConfig.FourWire_NO_NC, () =>
+        wiringSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.Sens4NoNc"), sens.WiringMode == SensorWiringMode.FourWire_NO_NC, () =>
         {
-            sens.SetOutputConfig(SensorOutputConfig.FourWire_NO_NC);
-            notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "NO+NC 4W"));
+            sens.SetWiringMode(SensorWiringMode.FourWire_NO_NC);
+            notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "4W NO+NC"));
         }));
-        menu.Items.Add(outSub);
+        if (sens.SupportsTwoWire)
+        {
+            wiringSub.Items.Add(new Separator());
+            wiringSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.Sens2Ac"), sens.WiringMode == SensorWiringMode.TwoWire_AC, () =>
+            {
+                sens.SetWiringMode(SensorWiringMode.TwoWire_AC);
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "2W AC (90-250V)"));
+            }));
+            wiringSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.Sens2Dc"), sens.WiringMode == SensorWiringMode.TwoWire_DC, () =>
+            {
+                sens.SetWiringMode(SensorWiringMode.TwoWire_DC);
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "2W DC (10-30V)"));
+            }));
+        }
+        menu.Items.Add(wiringSub);
+
+        if (sens.IsTwoWireMode)
+        {
+            var stateSub = CreateSubMenu(LocalizationManager.Format("Str.Menu.TwoWireState", sens.TwoWireNormallyClosed ? "NC" : "NO"));
+            stateSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.ContactNO"), !sens.TwoWireNormallyClosed, () =>
+            {
+                sens.TwoWireNormallyClosed = false;
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "2W NO"));
+            }));
+            stateSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.ContactNC"), sens.TwoWireNormallyClosed, () =>
+            {
+                sens.TwoWireNormallyClosed = true;
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "2W NC"));
+            }));
+            menu.Items.Add(stateSub);
+        }
+        else
+        {
+            var polSub = CreateSubMenu(LocalizationManager.Format("Str.Menu.SensorOutputType", sens.Polarity));
+            polSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.SensorPNP"), sens.Polarity == SensorPolarity.PNP, () =>
+            {
+                sens.Polarity = SensorPolarity.PNP;
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "PNP"));
+            }));
+            polSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.SensorNPN"), sens.Polarity == SensorPolarity.NPN, () =>
+            {
+                sens.Polarity = SensorPolarity.NPN;
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "NPN"));
+            }));
+            menu.Items.Add(polSub);
+
+            var outSub = CreateSubMenu(LocalizationManager.Get("Str.Menu.SensorWiring"));
+            outSub.IsEnabled = isDesign;
+            outSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.SensNO"), sens.OutputConfig == SensorOutputConfig.NO_3Wire, () =>
+            {
+                sens.SetOutputConfig(SensorOutputConfig.NO_3Wire);
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "NO 3W"));
+            }));
+            outSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.SensNC"), sens.OutputConfig == SensorOutputConfig.NC_3Wire, () =>
+            {
+                sens.SetOutputConfig(SensorOutputConfig.NC_3Wire);
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "NC 3W"));
+            }));
+            outSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.Sens4Wire"), sens.OutputConfig == SensorOutputConfig.FourWire_NO_NC, () =>
+            {
+                sens.SetOutputConfig(SensorOutputConfig.FourWire_NO_NC);
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "NO+NC 4W"));
+            }));
+            menu.Items.Add(outSub);
+        }
 
         var trigSub = CreateSubMenu(LocalizationManager.Get("Str.Menu.SensorTrigger"));
         trigSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.SensHold"), sens.TriggerMode == PushButtonActionMode.Momentary, () =>
@@ -924,6 +999,69 @@ public static class ContextMenuBuilder
             notify(LocalizationManager.Format("Str.Status.UpdatedProp", sens.DisplayName, "Toggle"));
         }));
         menu.Items.Add(trigSub);
+    }
+
+    private static void BuildReedSwitchItems(ContextMenu menu, CylinderReedSwitchComponent reed, Action<string> notify)
+    {
+        var stateSub = CreateSubMenu(LocalizationManager.Format("Str.Menu.TwoWireState", reed.IsNormallyClosed ? "NC" : "NO"));
+        stateSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.ContactNO"), !reed.IsNormallyClosed, () =>
+        {
+            reed.IsNormallyClosed = false;
+            notify(LocalizationManager.Format("Str.Status.UpdatedProp", reed.DisplayName, "NO"));
+        }));
+        stateSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.ContactNC"), reed.IsNormallyClosed, () =>
+        {
+            reed.IsNormallyClosed = true;
+            notify(LocalizationManager.Format("Str.Status.UpdatedProp", reed.DisplayName, "NC"));
+        }));
+        menu.Items.Add(stateSub);
+
+        var trigSub = CreateSubMenu(LocalizationManager.Get("Str.Menu.ReedTrigger"));
+        trigSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.ReedHold"), reed.TriggerMode == PushButtonActionMode.Momentary, () =>
+        {
+            reed.TriggerMode = PushButtonActionMode.Momentary;
+            reed.IsMagnetDetected = false;
+            notify(LocalizationManager.Format("Str.Status.UpdatedProp", reed.DisplayName, "Momentary"));
+        }));
+        trigSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.ReedToggle"), reed.TriggerMode == PushButtonActionMode.Latching, () =>
+        {
+            reed.TriggerMode = PushButtonActionMode.Latching;
+            notify(LocalizationManager.Format("Str.Status.UpdatedProp", reed.DisplayName, "Toggle"));
+        }));
+        menu.Items.Add(trigSub);
+    }
+
+    private static void BuildThermalSwitchItems(ContextMenu menu, ThermalSwitchComponent ts, Action<string> notify)
+    {
+        var cSub = CreateSubMenu(LocalizationManager.Format("Str.Menu.ThermContact", ts.IsNormallyClosed ? "NC" : "NO"));
+        cSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.ThermNC"), ts.IsNormallyClosed, () =>
+        {
+            ts.IsNormallyClosed = true;
+            notify(LocalizationManager.Format("Str.Status.UpdatedProp", ts.DisplayName, "NC"));
+        }));
+        cSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.ThermNO"), !ts.IsNormallyClosed, () =>
+        {
+            ts.IsNormallyClosed = false;
+            notify(LocalizationManager.Format("Str.Status.UpdatedProp", ts.DisplayName, "NO"));
+        }));
+        menu.Items.Add(cSub);
+    }
+
+    private static void BuildFloatSwitchItems(ContextMenu menu, FloatSwitchComponent fs, Action<string> notify)
+    {
+        string modeLbl = fs.OperatingMode == FloatSwitchMode.WaterSupply ? "SUPPLY" : "DRAIN";
+        var mSub = CreateSubMenu(LocalizationManager.Format("Str.Menu.FloatMode", modeLbl));
+        mSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.FloatSupply"), fs.OperatingMode == FloatSwitchMode.WaterSupply, () =>
+        {
+            fs.OperatingMode = FloatSwitchMode.WaterSupply;
+            notify(LocalizationManager.Format("Str.Status.UpdatedProp", fs.DisplayName, "WaterSupply"));
+        }));
+        mSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.FloatDrain"), fs.OperatingMode == FloatSwitchMode.Drainage, () =>
+        {
+            fs.OperatingMode = FloatSwitchMode.Drainage;
+            notify(LocalizationManager.Format("Str.Status.UpdatedProp", fs.DisplayName, "Drainage"));
+        }));
+        menu.Items.Add(mSub);
     }
 
     private static void BuildVoltmeterItems(ContextMenu menu, VoltmeterComponent vm, Action<string> notify)

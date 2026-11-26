@@ -39,7 +39,13 @@ public static class PresetCircuitFactory
             "PRESET_STAR_DELTA",
             "Str.Preset3.Name",
             "Str.Preset3.Guide",
-            BuildStarDeltaMotorCircuit)
+            BuildStarDeltaMotorCircuit),
+
+        new PresetCircuitDefinition(
+            "PRESET_2WIRE_AC_RELAY",
+            "Str.Preset4.Name",
+            "Str.Preset4.Guide",
+            BuildTwoWireAcSensorRelayCircuit)
     ];
 
     private static (List<ElectricalComponent>, List<WireModel>) BuildResidentialLampCircuit()
@@ -196,6 +202,44 @@ public static class PresetCircuitFactory
         Connect(wires, ky.CoilA2, timer.CoilA2, WireColorPreset.Black_N_DCMinus);
         Connect(wires, timer.CoilA2, lampStar.X2, WireColorPreset.Black_N_DCMinus);
         Connect(wires, lampStar.X2, lampDelta.X2, WireColorPreset.Black_N_DCMinus);
+
+        return (comps, wires);
+    }
+
+    private static (List<ElectricalComponent>, List<WireModel>) BuildTwoWireAcSensorRelayCircuit()
+    {
+        var comps = new List<ElectricalComponent>();
+        var wires = new List<WireModel>();
+
+        var src = new Ac1PhaseSourceComponent { DisplayName = "AC 220V", X = 120, Y = 60 };
+        var qf1 = new Mcb1PhaseComponent { DisplayName = "QF1", X = 120, Y = 220, IsOn = true, RatedAmps = 6 };
+        var sensor = new IndustrialSensorComponent(SensorKind.Inductive) { DisplayName = "B1", X = 320, Y = 180 };
+        sensor.SetWiringMode(SensorWiringMode.TwoWire_AC);
+
+        var relay = new IntermediateRelayComponent { DisplayName = "K1", X = 520, Y = 220, CoilRating = CoilVoltageRating.AC_220V };
+        var vm = new VoltmeterComponent { DisplayName = "PV1", X = 520, Y = 40, MeasureKind = CurrentKind.AC, Range = VoltmeterRange.Range_300V };
+        var lamp = new PilotLightComponent(PilotLightColor.Green) { DisplayName = "H1", X = 760, Y = 220, VoltageRating = CoilVoltageRating.AC_220V };
+
+        comps.AddRange([src, qf1, sensor, relay, vm, lamp]);
+
+        // Nguồn -> MCB 1P
+        Connect(wires, src.LineTerminal, qf1.In1, WireColorPreset.Red_L1_DCPlus);
+        Connect(wires, src.NeutralTerminal, qf1.In3, WireColorPreset.Black_N_DCMinus);
+
+        // Đấu nối tiếp CHUẨN cho cảm biến 2 dây AC 220V: L -> BN -> BU -> Cuộn hút K1 (A1-A2) -> N
+        Connect(wires, qf1.Out2, sensor.BnPlus, WireColorPreset.Red_L1_DCPlus);
+        Connect(wires, sensor.BuMinus, relay.CoilA1, WireColorPreset.Red_L1_DCPlus);
+        Connect(wires, relay.CoilA2, qf1.Out4, WireColorPreset.Black_N_DCMinus);
+
+        // Đồng hồ Volt đo song song 2 đầu cuộn hút K1 để thấy rõ sụt áp ~3.5V (216.5V)!
+        Connect(wires, relay.CoilA1, vm.V1, WireColorPreset.Red_L1_DCPlus);
+        Connect(wires, relay.CoilA2, vm.V2, WireColorPreset.Black_N_DCMinus);
+
+        // Tiếp điểm thường mở (NO) của K1 bật đèn báo H1
+        var pole1 = relay.Poles[0];
+        Connect(wires, qf1.Out2, pole1.Com, WireColorPreset.Red_L1_DCPlus);
+        Connect(wires, pole1.No, lamp.X1, WireColorPreset.Red_L1_DCPlus);
+        Connect(wires, lamp.X2, qf1.Out4, WireColorPreset.Black_N_DCMinus);
 
         return (comps, wires);
     }

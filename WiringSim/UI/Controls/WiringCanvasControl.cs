@@ -74,6 +74,7 @@ public sealed class WiringCanvasControl : FrameworkElement
     private IlluminatedPushButtonComponent? _heldIllumPushButton;
     private LimitSwitchComponent? _heldLimitSwitch;
     private IndustrialSensorComponent? _heldSensor;
+    private CylinderReedSwitchComponent? _heldReedSwitch;
     private RotaryTimerAh3Component? _draggingAh3Dial;
     private ShortCircuitFaultInfo? _activeFault;
 
@@ -689,6 +690,34 @@ public sealed class WiringCanvasControl : FrameworkElement
                 InvalidateVisual();
                 return;
             }
+            if (comp is CylinderReedSwitchComponent reed)
+            {
+                if (reed.TriggerMode == PushButtonActionMode.Latching)
+                    reed.IsMagnetDetected = !reed.IsMagnetDetected;
+                else
+                {
+                    _heldReedSwitch = reed;
+                    reed.IsMagnetDetected = true;
+                    CaptureMouse();
+                }
+                UserInteractedInSimulation?.Invoke();
+                InvalidateVisual();
+                return;
+            }
+            if (comp is ThermalSwitchComponent thermSw)
+            {
+                thermSw.ToggleOverheat();
+                UserInteractedInSimulation?.Invoke();
+                InvalidateVisual();
+                return;
+            }
+            if (comp is FloatSwitchComponent floatSw)
+            {
+                floatSw.ToggleWaterLevel();
+                UserInteractedInSimulation?.Invoke();
+                InvalidateVisual();
+                return;
+            }
             if (comp is IlluminatedPushButtonComponent ipb)
             {
                 if (ipb.ActionMode == PushButtonActionMode.Latching)
@@ -1060,6 +1089,20 @@ public sealed class WiringCanvasControl : FrameworkElement
                 sens.IsTargetDetected = true;
                 CaptureMouse();
                 break;
+            case "REED_TOGGLE" when zone.Component is CylinderReedSwitchComponent reed:
+                reed.IsMagnetDetected = !reed.IsMagnetDetected;
+                break;
+            case "REED_HOLD" when zone.Component is CylinderReedSwitchComponent reed:
+                _heldReedSwitch = reed;
+                reed.IsMagnetDetected = true;
+                CaptureMouse();
+                break;
+            case "THERMAL_SW_TOGGLE" when zone.Component is ThermalSwitchComponent thermSw:
+                thermSw.ToggleOverheat();
+                break;
+            case "FLOAT_SW_TOGGLE" when zone.Component is FloatSwitchComponent floatSw:
+                floatSw.ToggleWaterLevel();
+                break;
             case "VFD_KEYPAD" when zone.Component is VfdComponent vfd:
                 OpenVfdKeypadRequested?.Invoke(vfd);
                 return;
@@ -1261,7 +1304,7 @@ public sealed class WiringCanvasControl : FrameworkElement
                 InvalidateVisual();
             }
 
-            if (_heldPushButton is not null || _heldIllumPushButton is not null || _heldLimitSwitch is not null || _heldSensor is not null)
+            if (_heldPushButton is not null || _heldIllumPushButton is not null || _heldLimitSwitch is not null || _heldSensor is not null || _heldReedSwitch is not null)
             {
                 ReleaseHeldControls();
                 ReleaseMouseCapture();
@@ -1374,6 +1417,15 @@ public sealed class WiringCanvasControl : FrameworkElement
             }
             _heldSensor = null;
         }
+        if (_heldReedSwitch is not null)
+        {
+            if (_heldReedSwitch.TriggerMode == PushButtonActionMode.Momentary)
+            {
+                _heldReedSwitch.IsMagnetDetected = false;
+                changed = true;
+            }
+            _heldReedSwitch = null;
+        }
 
         if (changed)
         {
@@ -1423,7 +1475,7 @@ public sealed class WiringCanvasControl : FrameworkElement
             Cursor = Cursors.Hand;
             return;
         }
-        if (CurrentMode == AppMode.Simulation && _hoveredComponent is ICircuitBreaker or SwitchComponent or PushButtonComponent or IlluminatedPushButtonComponent or EmergencyStopComponent or KnifeSwitchComponent or CamSwitchComponent or RotaryTimerAh3Component or LimitSwitchComponent or IndustrialSensorComponent)
+        if (CurrentMode == AppMode.Simulation && _hoveredComponent is ICircuitBreaker or SwitchComponent or PushButtonComponent or IlluminatedPushButtonComponent or EmergencyStopComponent or KnifeSwitchComponent or CamSwitchComponent or RotaryTimerAh3Component or LimitSwitchComponent or IndustrialSensorComponent or CylinderReedSwitchComponent or ThermalSwitchComponent or FloatSwitchComponent)
         {
             Cursor = Cursors.Hand;
             return;

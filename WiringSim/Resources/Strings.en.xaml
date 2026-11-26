@@ -145,13 +145,19 @@
     <sys:String x:Key="Str.Comp.TimerAh3.Sub">8-Pin (2-7, 1-3-4, 8-5-6) • Interactive Dial</sys:String>
 
     <sys:String x:Key="Str.Comp.SensInd.Title">Inductive Proximity Sensor</sys:String>
-    <sys:String x:Key="Str.Comp.SensInd.Sub">Metal detection • PNP/NPN 10–30VDC</sys:String>
+    <sys:String x:Key="Str.Comp.SensInd.Sub">2-Wire AC/DC &amp; 3/4-Wire PNP/NPN</sys:String>
     <sys:String x:Key="Str.Comp.SensCap.Title">Capacitive Proximity Sensor</sys:String>
-    <sys:String x:Key="Str.Comp.SensCap.Sub">Non-metal / Liquid • PNP/NPN 10–30VDC</sys:String>
+    <sys:String x:Key="Str.Comp.SensCap.Sub">2-Wire AC/DC &amp; 3/4-Wire PNP/NPN</sys:String>
     <sys:String x:Key="Str.Comp.SensPhoto.Title">Photoelectric Sensor</sys:String>
-    <sys:String x:Key="Str.Comp.SensPhoto.Sub">Optical beam • PNP/NPN 10–30VDC</sys:String>
+    <sys:String x:Key="Str.Comp.SensPhoto.Sub">2-Wire AC/DC &amp; 3/4-Wire PNP/NPN</sys:String>
     <sys:String x:Key="Str.Comp.SensUltra.Title">Ultrasonic / Level Sensor</sys:String>
     <sys:String x:Key="Str.Comp.SensUltra.Sub">Distance / Liquid level • PNP/NPN</sys:String>
+    <sys:String x:Key="Str.Comp.ReedCyl.Title">Cylinder Reed Switch (SMC D-A93)</sys:String>
+    <sys:String x:Key="Str.Comp.ReedCyl.Sub">2-Wire BN-BU • AC/DC 5–240V • Red LED</sys:String>
+    <sys:String x:Key="Str.Comp.ThermSw.Title">Thermal Switch (KSD301)</sys:String>
+    <sys:String x:Key="Str.Comp.ThermSw.Sub">2-Wire Bimetal (1-2) • Overheat NC/NO</sys:String>
+    <sys:String x:Key="Str.Comp.FloatSw.Title">2-Wire Float Level Switch</sys:String>
+    <sys:String x:Key="Str.Comp.FloatSw.Sub">COM - OUT • Water Supply / Drainage</sys:String>
 
     <sys:String x:Key="Str.Comp.Voltmeter.Title">Panel Voltmeter (V1-V2)</sys:String>
     <sys:String x:Key="Str.Comp.Voltmeter.Sub">Parallel V1-V2 • AC/DC • Digital/Analog</sys:String>
@@ -475,5 +481,41 @@
     <sys:String x:Key="Str.Update.NoDirectAsset">No downloadable installer asset found in this release. Please open the manual download page.</sys:String>
     <sys:String x:Key="Str.Update.InstallCanceled">Update installation canceled while saving current project.</sys:String>
     <sys:String x:Key="Str.Update.DownloadFailed">Update download failed ({0}). You can use the Manual Download Page button instead.</sys:String>
+
+    <!-- v1.2: 2-Wire AC/DC Sensors, Cylinder Reed D-A93, KSD301 Thermal, Float Switch & No-Load Fault -->
+    <sys:String x:Key="Str.Menu.SensorWiringType">🔌 Wiring Type ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.Sens3Pnp">3-Wire PNP (10–30VDC)</sys:String>
+    <sys:String x:Key="Str.Menu.Sens3Npn">3-Wire NPN (10–30VDC)</sys:String>
+    <sys:String x:Key="Str.Menu.Sens4NoNc">4-Wire NO + NC (10–30VDC)</sys:String>
+    <sys:String x:Key="Str.Menu.Sens2Ac">2-Wire AC (90–250VAC)</sys:String>
+    <sys:String x:Key="Str.Menu.Sens2Dc">2-Wire DC (10–30VDC)</sys:String>
+    <sys:String x:Key="Str.Menu.TwoWireState">🔘 Default Contact State ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.ContactNO">Normally Open (NO)</sys:String>
+    <sys:String x:Key="Str.Menu.ContactNC">Normally Closed (NC)</sys:String>
+    <sys:String x:Key="Str.Menu.RepairSensor">🔧 Replace Sensor (Reset Damaged)</sys:String>
+
+    <sys:String x:Key="Str.Menu.ReedTrigger">🧲 Magnetic Field Trigger Mode</sys:String>
+    <sys:String x:Key="Str.Menu.ReedHold">Hold mouse for magnetic field</sys:String>
+    <sys:String x:Key="Str.Menu.ReedToggle">Click to latch / release</sys:String>
+
+    <sys:String x:Key="Str.Menu.ThermContact">🌡 Thermal Contact Type ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.ThermNC">NC (Normally Closed — opens on overheat)</sys:String>
+    <sys:String x:Key="Str.Menu.ThermNO">NO (Normally Open — closes on overheat)</sys:String>
+    <sys:String x:Key="Str.Vis.ThermNormal">NORMAL</sys:String>
+    <sys:String x:Key="Str.Vis.ThermOverheat">🔥 OVERHEAT</sys:String>
+
+    <sys:String x:Key="Str.Menu.FloatMode">💧 Float Operating Mode ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.FloatSupply">Water Supply (Closes on Low, opens on Full)</sys:String>
+    <sys:String x:Key="Str.Menu.FloatDrain">Drainage (Closes on Full, opens on Low)</sys:String>
+    <sys:String x:Key="Str.Vis.WaterLow">LOW</sys:String>
+    <sys:String x:Key="Str.Vis.WaterFull">FULL</sys:String>
+
+    <sys:String x:Key="Str.Vis.Damaged">🔥 DAMAGED!</sys:String>
+    <sys:String x:Key="Str.Vis.RevPolarity">REV POL!</sys:String>
+    <sys:String x:Key="Str.Vis.ReedActive">MAGNET</sys:String>
+    <sys:String x:Key="Str.Fault.TwoWireNoLoadShort">WARNING: 2-WIRE SENSOR WIRED DIRECTLY WITHOUT LOAD — SHORT CIRCUIT / SENSOR DAMAGED!</sys:String>
+
+    <sys:String x:Key="Str.Preset4.Name">4. Intermediate Relay Control via 2-Wire AC 220V Proximity Sensor</sys:String>
+    <sys:String x:Key="Str.Preset4.Guide">Switch to [▶ Simulate] → Click the 2-wire AC sensor (B1): current flows in series L → BN → BU → Relay K1 coil (~3.5V drop, Voltmeter reads ~216.5V) energizing K1 and lighting H1!</sys:String>
 
 </ResourceDictionary>

@@ -72,7 +72,7 @@
                                 Margin="8,0,0,0"
                                 VerticalAlignment="Center">
                             <TextBlock x:Name="TxtAppVersionBadge"
-                                       Text="v1.1.1_Release"
+                                       Text="v1.2_Release"
                                        FontSize="10"
                                        FontWeight="SemiBold"
                                        Foreground="{DynamicResource AccentCyanBrush}" />

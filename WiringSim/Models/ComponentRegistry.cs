@@ -57,11 +57,14 @@ public static class ComponentRegistry
         Register(new(TimerOnDelayComponent.TypeId, "Str.Comp.Timer.Title", "Str.Comp.Timer.Sub", "H3CR", "KT", "#D946EF", ComponentCategory.Relay, () => new TimerOnDelayComponent { DisplayName = "KT1" }));
         Register(new(RotaryTimerAh3Component.TypeId, "Str.Comp.TimerAh3.Title", "Str.Comp.TimerAh3.Sub", "AH3-3", "KT", "#EAB308", ComponentCategory.Relay, () => new RotaryTimerAh3Component { DisplayName = "KT1" }));
 
-        // 4. CẢM BIẾN CÔNG NGHIỆP (10–30VDC, PNP/NPN)
+        // 4. CẢM BIẾN & CÔNG TẮC CHUYÊN DỤNG (2 DÂY AC/DC & 3/4 DÂY PNP/NPN)
         Register(new(IndustrialSensorComponent.TypeIdInductive, "Str.Comp.SensInd.Title", "Str.Comp.SensInd.Sub", "IND", "B", "#06B6D4", ComponentCategory.Sensor, () => new IndustrialSensorComponent(SensorKind.Inductive) { DisplayName = "B1" }));
         Register(new(IndustrialSensorComponent.TypeIdCapacitive, "Str.Comp.SensCap.Title", "Str.Comp.SensCap.Sub", "CAP", "B", "#0EA5E9", ComponentCategory.Sensor, () => new IndustrialSensorComponent(SensorKind.Capacitive) { DisplayName = "B1" }));
         Register(new(IndustrialSensorComponent.TypeIdPhoto, "Str.Comp.SensPhoto.Title", "Str.Comp.SensPhoto.Sub", "PHOTO", "B", "#F59E0B", ComponentCategory.Sensor, () => new IndustrialSensorComponent(SensorKind.Photoelectric) { DisplayName = "B1" }));
         Register(new(IndustrialSensorComponent.TypeIdUltrasonic, "Str.Comp.SensUltra.Title", "Str.Comp.SensUltra.Sub", "ULTRA", "B", "#8B5CF6", ComponentCategory.Sensor, () => new IndustrialSensorComponent(SensorKind.Ultrasonic) { DisplayName = "B1" }));
+        Register(new(CylinderReedSwitchComponent.TypeId, "Str.Comp.ReedCyl.Title", "Str.Comp.ReedCyl.Sub", "D-A93", "RS", "#EF4444", ComponentCategory.Sensor, () => new CylinderReedSwitchComponent { DisplayName = "RS1" }));
+        Register(new(ThermalSwitchComponent.TypeId, "Str.Comp.ThermSw.Title", "Str.Comp.ThermSw.Sub", "KSD301", "TS", "#F97316", ComponentCategory.Sensor, () => new ThermalSwitchComponent { DisplayName = "TS1" }));
+        Register(new(FloatSwitchComponent.TypeId, "Str.Comp.FloatSw.Title", "Str.Comp.FloatSw.Sub", "FLOAT", "FS", "#0284C7", ComponentCategory.Sensor, () => new FloatSwitchComponent { DisplayName = "FS1" }));
 
         // 5. THIẾT BỊ ĐO LƯỜNG GẮN TỦ (VOLT / AMPE / CT / CHUYỂN MẠCH KDE)
         Register(new(VoltmeterComponent.TypeId, "Str.Comp.Voltmeter.Title", "Str.Comp.Voltmeter.Sub", "VOLT", "PV", "#3B82F6", ComponentCategory.Meter, () => new VoltmeterComponent { DisplayName = "PV1" }));

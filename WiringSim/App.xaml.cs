@@ -59,22 +59,22 @@ public partial class App : Application
                 }
             }
 
-            // 2. Kiểm tra Metadata phiên bản v1.1.1_Release, UpdateService.NormalizeVersion, SkipVersion & Asset Selection
+            // 2. Kiểm tra Metadata phiên bản v1.2_Release, UpdateService.NormalizeVersion, SkipVersion & Asset Selection
             string infoVer = UpdateService.GetCurrentInformationalVersion();
-            Assert(string.Equals(infoVer, "v1.1.1_Release", StringComparison.Ordinal),
-                $"Suite 2: InformationalVersion phải là 'v1.1.1_Release' (thực tế: '{infoVer}').");
-            Assert(UpdateService.NormalizeVersion("v1.1.1_Release") == new Version(1, 1, 1),
-                "Suite 2: NormalizeVersion('v1.1.1_Release') phải trả về 1.1.1.");
-            Assert(UpdateService.IsVersionSkipped("v1.2.0_Release", "v1.2.0"),
+            Assert(string.Equals(infoVer, "v1.2_Release", StringComparison.Ordinal),
+                $"Suite 2: InformationalVersion phải là 'v1.2_Release' (thực tế: '{infoVer}').");
+            Assert(UpdateService.NormalizeVersion("v1.2_Release") == new Version(1, 2, 0),
+                "Suite 2: NormalizeVersion('v1.2_Release') phải trả về 1.2.0.");
+            Assert(UpdateService.IsVersionSkipped("v1.3.0_Release", "v1.3.0"),
                 "Suite 2: IsVersionSkipped phải nhận diện trùng phiên bản đã bỏ qua.");
             var mockRelease = new UpdateCheckResult(
                 UpdateCheckStatus.UpdateAvailable,
                 infoVer,
-                LatestTagName: "v1.2.0_Release",
-                SetupAssetUrl: "https://example.com/WiringSim_Setup_v1.2.0.exe",
-                SetupAssetFileName: "WiringSim_Setup_v1.2.0.exe",
-                PortableZipUrl: "https://example.com/WiringSim_v1.2.0_win-x64.zip",
-                PortableZipFileName: "WiringSim_v1.2.0_win-x64.zip");
+                LatestTagName: "v1.3.0_Release",
+                SetupAssetUrl: "https://example.com/WiringSim_Setup_v1.3.0.exe",
+                SetupAssetFileName: "WiringSim_Setup_v1.3.0.exe",
+                PortableZipUrl: "https://example.com/WiringSim_v1.3.0_win-x64.zip",
+                PortableZipFileName: "WiringSim_v1.3.0_win-x64.zip");
             var preferred = UpdateService.SelectPreferredAsset(mockRelease);
             Assert(!string.IsNullOrWhiteSpace(preferred.Url) && !string.IsNullOrWhiteSpace(preferred.FileName),
                 "Suite 2: SelectPreferredAsset phải chọn được gói cập nhật phù hợp (Setup/Portable).");
@@ -251,18 +251,133 @@ public partial class App : Application
                 $"Suite 7: Xóa nhánh T-Junction phải tự động gộp liền lại sợi dây gốc và xóa Junction Dot (J={testWin.WiringCanvas.Components.OfType<WireJunctionComponent>().Count()}, W={testWin.WiringCanvas.Wires.Count}).");
             testWin.Close();
 
-            // 8. Kết xuất ảnh trực quan v1.1_Release (Dark VI & Light EN) trình diễn đầy đủ thiết bị mới + T-Junction!
+            // 8. Kiểm tra toàn diện v1.2: Cảm biến 2 dây AC/DC (sụt áp 3.5V AC / 2.5V DC, phân cực DC), Xi-lanh D-A93, KSD301, Phao nước, Preset 4 & Lỗi đấu 2 dây không qua tải!
+            // 8A. Preset 4: Cảm biến tiệm cận 2 dây AC 220V -> Rơ-le K1 + Voltmeter (216.5V) + Đèn H1
+            var p4Def = PresetCircuitFactory.Presets.Single(p => p.Key == "PRESET_2WIRE_AC_RELAY");
+            var (p4Comps, p4Wires) = p4Def.Builder();
+            var p4Sensor = p4Comps.OfType<IndustrialSensorComponent>().Single();
+            var p4Relay = p4Comps.OfType<IntermediateRelayComponent>().Single();
+            var p4Vm = p4Comps.OfType<VoltmeterComponent>().Single();
+            var p4Lamp = p4Comps.OfType<PilotLightComponent>().Single();
+            Assert(p4Sensor.WiringMode == SensorWiringMode.TwoWire_AC && p4Sensor.Terminals.Count == 2 && p4Sensor.BkOut1 is null,
+                "Suite 8A: Cảm biến 2 dây AC trong Preset 4 phải chỉ có đúng 2 chân BN và BU.");
+            engine.BindCircuit(p4Comps, p4Wires);
+            engine.Start();
+            engine.StepSimulation(0.05);
+            Assert(!p4Relay.IsCoilEnergized && p4Vm.MeasuredVoltage < 1.0 && !p4Lamp.IsLit,
+                "Suite 8A: Khi chưa có vật trước cảm biến 2 dây AC, Rơ-le K1 và Đèn H1 phải tắt.");
+            p4Sensor.IsTargetDetected = true;
+            engine.StepSimulation(0.05);
+            engine.StepSimulation(0.05); // Tick kế để tiếp điểm K1 đóng cấp đèn H1
+            Assert(p4Relay.IsCoilEnergized && p4Lamp.IsLit && Math.Abs(p4Vm.MeasuredVoltage - 216.5) <= 0.2,
+                $"Suite 8A: Cảm biến 2 dây AC tác động phải hút K1, sáng H1 và sụt áp 3.5V -> Voltmeter đo ~216.5V (thực tế: {p4Vm.MeasuredVoltage:0.0}V).");
+            engine.Stop();
+
+            // 8B. Cảm biến 2 dây DC 24V: Đúng cực (+ vào BN, tải ra BU -> 21.5V) vs Ngược cực (không dẫn, IsReversePolarity=true)
+            var dc24 = new DcSourceComponent();
+            dc24.SetVoltage(24.0);
+            var sens2Dc = new IndustrialSensorComponent(SensorKind.Capacitive) { IsTargetDetected = true };
+            sens2Dc.SetWiringMode(SensorWiringMode.TwoWire_DC);
+            var lamp24 = new PilotLightComponent(PilotLightColor.Green) { VoltageRating = CoilVoltageRating.DC_24V };
+            var vmDc = new VoltmeterComponent { MeasureKind = CurrentKind.DC, Range = VoltmeterRange.Range_50V };
+            var dcFwdWires = new List<WireModel>
+            {
+                new(dc24.PlusTerminal, sens2Dc.BnPlus, WireColorPreset.Red_L1_DCPlus),
+                new(sens2Dc.BuMinus, lamp24.X1, WireColorPreset.Yellow_L2),
+                new(lamp24.X2, dc24.MinusTerminal, WireColorPreset.Black_N_DCMinus),
+                new(sens2Dc.BuMinus, vmDc.V1, WireColorPreset.Red_L1_DCPlus),
+                new(dc24.MinusTerminal, vmDc.V2, WireColorPreset.Black_N_DCMinus)
+            };
+            engine.BindCircuit([dc24, sens2Dc, lamp24, vmDc], dcFwdWires);
+            engine.Start();
+            engine.StepSimulation(0.05);
+            Assert(lamp24.IsLit && !sens2Dc.IsReversePolarity && Math.Abs(vmDc.MeasuredVoltage - 21.5) <= 0.2,
+                $"Suite 8B (Đúng cực DC): Cảm biến 2 dây DC 24V phải sáng tải và sụt áp 2.5V -> đo ~21.5V (thực tế: {vmDc.MeasuredVoltage:0.0}V).");
+            engine.Stop();
+
+            // Đấu ngược cực DC (+ vào BU, BN ra tải) -> Không dẫn & báo ngược cực!
+            var dcRevWires = new List<WireModel>
+            {
+                new(dc24.PlusTerminal, sens2Dc.BuMinus, WireColorPreset.Red_L1_DCPlus),
+                new(sens2Dc.BnPlus, lamp24.X1, WireColorPreset.Yellow_L2),
+                new(lamp24.X2, dc24.MinusTerminal, WireColorPreset.Black_N_DCMinus),
+                new(sens2Dc.BnPlus, vmDc.V1, WireColorPreset.Red_L1_DCPlus),
+                new(dc24.MinusTerminal, vmDc.V2, WireColorPreset.Black_N_DCMinus)
+            };
+            engine.BindCircuit([dc24, sens2Dc, lamp24, vmDc], dcRevWires);
+            engine.Start();
+            engine.StepSimulation(0.05);
+            Assert(!lamp24.IsLit && sens2Dc.IsReversePolarity && vmDc.MeasuredVoltage < 0.5,
+                $"Suite 8B (Ngược cực DC): Đấu ngược cực cảm biến 2 dây DC phải chặn dẫn điện (Rev={sens2Dc.IsReversePolarity}, V={vmDc.MeasuredVoltage:0.0}V).");
+            engine.Stop();
+
+            // 8C. Kiểm tra 3 thiết bị 2 dây mới: Cảm biến xi-lanh SMC D-A93, Công tắc nhiệt KSD301 & Phao mức nước 2 dây
+            var reed = new CylinderReedSwitchComponent();
+            var ksd = new ThermalSwitchComponent { IsNormallyClosed = true };
+            var flt = new FloatSwitchComponent { OperatingMode = FloatSwitchMode.WaterSupply, IsWaterFull = false };
+            var hReed = new PilotLightComponent(PilotLightColor.Green);
+            var hKsd = new PilotLightComponent(PilotLightColor.Yellow);
+            var hFlt = new PilotLightComponent(PilotLightColor.Red);
+            var new2Wires = new List<WireModel>
+            {
+                new(ac1.LineTerminal, reed.PinBn, WireColorPreset.Red_L1_DCPlus),
+                new(reed.PinBu, hReed.X1, WireColorPreset.Red_L1_DCPlus),
+                new(ac1.NeutralTerminal, hReed.X2, WireColorPreset.Black_N_DCMinus),
+
+                new(ac1.LineTerminal, ksd.Pin1, WireColorPreset.Red_L1_DCPlus),
+                new(ksd.Pin2, hKsd.X1, WireColorPreset.Red_L1_DCPlus),
+                new(ac1.NeutralTerminal, hKsd.X2, WireColorPreset.Black_N_DCMinus),
+
+                new(ac1.LineTerminal, flt.PinCom, WireColorPreset.Red_L1_DCPlus),
+                new(flt.PinOut, hFlt.X1, WireColorPreset.Red_L1_DCPlus),
+                new(ac1.NeutralTerminal, hFlt.X2, WireColorPreset.Black_N_DCMinus)
+            };
+            engine.BindCircuit([ac1, reed, ksd, flt, hReed, hKsd, hFlt], new2Wires);
+            engine.Start();
+            engine.StepSimulation(0.05);
+            Assert(!hReed.IsLit && hKsd.IsLit && hFlt.IsLit,
+                "Suite 8C: Ban đầu D-A93(NO) tắt, KSD301(NC bình thường) sáng, Phao(Cấp nước - Cạn) sáng.");
+            reed.IsMagnetDetected = true;
+            ksd.ToggleOverheat();
+            flt.ToggleWaterLevel(); // Đầy nước -> ngắt bơm cấp
+            engine.StepSimulation(0.05);
+            Assert(hReed.IsLit && !hKsd.IsLit && !hFlt.IsLit,
+                "Suite 8C: Sau khi kích từ D-A93, quá nhiệt KSD301 và đầy nước Phao phải đảo trạng thái tương ứng!");
+            engine.Stop();
+
+            // 8D. Phát hiện lỗi đấu cảm biến 2 dây trực tiếp vào nguồn KHÔNG QUA TẢI -> Cảnh báo đỏ, đánh dấu DAMAGED! và nhảy MCB!
+            var mcbProt = new Mcb1PhaseComponent { IsOn = true };
+            var badSens = new IndustrialSensorComponent(SensorKind.Inductive) { IsTargetDetected = true };
+            badSens.SetWiringMode(SensorWiringMode.TwoWire_AC);
+            var shortWires = new List<WireModel>
+            {
+                new(ac1.LineTerminal, mcbProt.In1, WireColorPreset.Red_L1_DCPlus),
+                new(mcbProt.Out2, badSens.BnPlus, WireColorPreset.Red_L1_DCPlus),
+                new(badSens.BuMinus, ac1.NeutralTerminal, WireColorPreset.Black_N_DCMinus)
+            };
+            engine.BindCircuit([ac1, mcbProt, badSens], shortWires);
+            engine.Start();
+            engine.StepSimulation(0.05);
+            Assert(engine.ActiveFault is not null &&
+                   engine.ActiveFault.Title == LocalizationManager.Get("Str.Fault.TwoWireNoLoadShort") &&
+                   badSens.IsDamaged && mcbProt.IsTripped,
+                $"Suite 8D: Đấu cảm biến 2 dây trực tiếp L-N không qua tải phải phát cảnh báo lỗi 2 dây, hỏng cảm biến (DAMAGED={badSens.IsDamaged}) và nhảy MCB (Trip={mcbProt.IsTripped})!");
+            badSens.RepairDevice();
+            Assert(!badSens.IsDamaged, "Suite 8D: Thay cảm biến mới phải xóa trạng thái DAMAGED.");
+            engine.Stop();
+
+            // 9. Kết xuất ảnh trực quan v1.2_Release (Dark VI & Light EN) trình diễn Preset 4 + 3 Cảm biến/Công tắc 2 dây mới!
             int previewIdx = Array.FindIndex(Environment.GetCommandLineArgs(), a => a == "--save-preview-dir");
             if (previewIdx >= 0 && previewIdx + 1 < Environment.GetCommandLineArgs().Length)
             {
                 string outDir = Environment.GetCommandLineArgs()[previewIdx + 1];
                 Directory.CreateDirectory(outDir);
 
-                RenderV11Showcase(Path.Combine(outDir, "preview_v11_dark_vi.png"), useLight: false, lang: "vi");
-                RenderV11Showcase(Path.Combine(outDir, "preview_v11_light_en.png"), useLight: true, lang: "en");
+                RenderV12Showcase(Path.Combine(outDir, "preview_v12_dark_vi.png"), useLight: false, lang: "vi");
+                RenderV12Showcase(Path.Combine(outDir, "preview_v12_light_en.png"), useLight: true, lang: "en");
             }
 
-            Console.WriteLine("SELF_VERIFY_PASSED: All v1.1_Release suites (Localization Parity, Version 1.1_Release, AH3-3 Rotary Timer, LA38 Dual PB + Illuminated PB + E-Stop, Fuse Overload/Short + KDE Cam Switch, Motor Linear Track LS1/LS2, Wire T-Junction Split/Sim/JSON/Cleanup, Visual Render) passed!");
+            Console.WriteLine("SELF_VERIFY_PASSED: All v1.2_Release suites (Localization Parity, Version v1.2_Release, AH3-3, LA38+E-Stop, Fuse+KDE, Linear Track, Wire T-Junction, 2-Wire AC/DC Sensors + Voltage Drop + Polarity + D-A93 + KSD301 + Float Switch + No-Load Fault Detection) passed!");
             return 0;
         }
         catch (Exception ex)
@@ -272,7 +387,7 @@ public partial class App : Application
         }
     }
 
-    private static void RenderV11Showcase(string pngPath, bool useLight, string lang)
+    private static void RenderV12Showcase(string pngPath, bool useLight, string lang)
     {
         var win = new MainWindow();
         LocalizationManager.SetLanguage(lang);
@@ -286,51 +401,37 @@ public partial class App : Application
         root.Arrange(new Rect(0, 0, 1520, 900));
         root.UpdateLayout();
 
-        var src3 = new Ac3PhaseSourceComponent { DisplayName = "3P 380V", X = 60, Y = 40 };
-        var knife = new KnifeSwitchComponent(KnifeSwitchKind.ThreePhase3Pole) { DisplayName = "CD1", X = 60, Y = 180, Position = 1 };
-        var fuse = new FuseComponent { DisplayName = "FU1", X = 260, Y = 180, RatedAmps = 10 };
-        var ah3 = new RotaryTimerAh3Component { DisplayName = "KT1", X = 380, Y = 120 };
-        ah3.SetDelaySeconds(6.0);
-        var cam = new CamSwitchComponent { DisplayName = "SA1", X = 600, Y = 120, PositionIndex = 1 };
-        var vm = new VoltmeterComponent { DisplayName = "PV1", X = 820, Y = 140, Range = VoltmeterRange.Range_500V };
+        // Preset 4 đang chạy thực tế (Cảm biến 2 dây AC 220V -> K1 + Voltmeter 216.5V + H1) + 3 thiết bị 2 dây mới!
+        var (p4Comps, p4Wires) = PresetCircuitFactory.Presets.Single(p => p.Key == "PRESET_2WIRE_AC_RELAY").Builder();
+        var comps = new List<ElectricalComponent>(p4Comps);
+        var wires = new List<WireModel>(p4Wires);
+        var p4Ac = comps.OfType<Ac1PhaseSourceComponent>().Single();
+        var p4Sens = comps.OfType<IndustrialSensorComponent>().Single();
+        p4Sens.IsTargetDetected = true;
 
-        var pbGreen = new PushButtonComponent(false) { DisplayName = "SB1", X = 60, Y = 380 };
-        var pbIllum = new IlluminatedPushButtonComponent { DisplayName = "SB2", X = 200, Y = 380, ButtonColor = PilotLightColor.Green };
-        var estop = new EmergencyStopComponent { DisplayName = "ES1", X = 380, Y = 380 };
-        var ls = new LimitSwitchComponent { DisplayName = "SQ1", X = 520, Y = 380, IsActuated = true };
-        var track = new MotorLinearTrackComponent { DisplayName = "MT1", X = 660, Y = 360, InitialPosition = TrackInitialPosition.Center };
-        track.ApplyInitialPosition();
+        var reed = new CylinderReedSwitchComponent { DisplayName = "RS1", X = 120, Y = 500, IsMagnetDetected = true };
+        var ksd = new ThermalSwitchComponent { DisplayName = "TS1", X = 320, Y = 490, IsNormallyClosed = true, IsOverheated = true };
+        var flt = new FloatSwitchComponent { DisplayName = "FS1", X = 500, Y = 480, OperatingMode = FloatSwitchMode.WaterSupply, IsWaterFull = false };
+        var sens2Dc = new IndustrialSensorComponent(SensorKind.Photoelectric) { DisplayName = "B2", X = 680, Y = 480, IsTargetDetected = true };
+        sens2Dc.SetWiringMode(SensorWiringMode.TwoWire_DC);
 
-        var junc = new WireJunctionComponent { CenterPoint = new Point(290, 140), DotColorPreset = WireColorPreset.Red_L1_DCPlus };
+        var hReed = new PilotLightComponent(PilotLightColor.Green) { DisplayName = "H2", X = 135, Y = 640 };
+        var hFlt = new PilotLightComponent(PilotLightColor.Yellow) { DisplayName = "H3", X = 515, Y = 640 };
 
-        var wires = new List<WireModel>
-        {
-            new(src3.L1Terminal, knife.TopInputs[0], WireColorPreset.Red_L1_DCPlus),
-            new(src3.L2Terminal, knife.TopInputs[1], WireColorPreset.Yellow_L2),
-            new(src3.L3Terminal, knife.TopInputs[2], WireColorPreset.Blue_L3),
-            new(src3.L1Terminal, junc.NodeTerminal, WireColorPreset.Red_L1_DCPlus),
-            new(junc.NodeTerminal, fuse.In1, WireColorPreset.Red_L1_DCPlus),
-            new(junc.NodeTerminal, cam.InR, WireColorPreset.Red_L1_DCPlus),
-            new(src3.L2Terminal, cam.InS, WireColorPreset.Yellow_L2),
-            new(src3.L3Terminal, cam.InT, WireColorPreset.Blue_L3),
-            new(src3.NeutralTerminal, cam.InNOrCom!, WireColorPreset.Black_N_DCMinus),
-            new(cam.Out1, vm.V1, WireColorPreset.Red_L1_DCPlus),
-            new(cam.Out2, vm.V2, WireColorPreset.Black_N_DCMinus),
-            new(fuse.Out2, pbIllum.LampX1, WireColorPreset.Red_L1_DCPlus),
-            new(src3.NeutralTerminal, pbIllum.LampX2, WireColorPreset.Black_N_DCMinus),
-            new(fuse.Out2, ah3.Power2, WireColorPreset.Red_L1_DCPlus),
-            new(src3.NeutralTerminal, ah3.Power7, WireColorPreset.Black_N_DCMinus),
-            new(knife.BottomTerminals[0], track.U1, WireColorPreset.Red_L1_DCPlus),
-            new(knife.BottomTerminals[1], track.V1, WireColorPreset.Yellow_L2),
-            new(knife.BottomTerminals[2], track.W1, WireColorPreset.Blue_L3)
-        };
+        comps.AddRange([reed, ksd, flt, sens2Dc, hReed, hFlt]);
+        wires.AddRange([
+            new(p4Ac.LineTerminal, reed.PinBn, WireColorPreset.Red_L1_DCPlus),
+            new(reed.PinBu, hReed.X1, WireColorPreset.Yellow_L2),
+            new(p4Ac.NeutralTerminal, hReed.X2, WireColorPreset.Black_N_DCMinus),
+            new(p4Ac.LineTerminal, flt.PinCom, WireColorPreset.Red_L1_DCPlus),
+            new(flt.PinOut, hFlt.X1, WireColorPreset.Yellow_L2),
+            new(p4Ac.NeutralTerminal, hFlt.X2, WireColorPreset.Black_N_DCMinus)
+        ]);
 
-        var comps = new List<ElectricalComponent> { src3, knife, fuse, ah3, cam, vm, pbGreen, pbIllum, estop, ls, track, junc };
         var sim = new CircuitSimulationEngine();
         sim.BindCircuit(comps, wires);
         sim.Start();
-        for (int i = 0; i < 30; i++) sim.StepSimulation(0.05);
-        track.UpdateVisualAnimation(0.5, true);
+        for (int i = 0; i < 6; i++) sim.StepSimulation(0.05);
 
         win.WiringCanvas.LoadCircuit(comps, wires, autoFit: true, raiseModified: false);
         win.WiringCanvas.SetMode(AppMode.Simulation);

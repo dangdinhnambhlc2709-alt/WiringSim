@@ -145,13 +145,19 @@
     <sys:String x:Key="Str.Comp.TimerAh3.Sub">8 chân (2-7, 1-3-4, 8-5-6) • Xoay núm cơ</sys:String>
 
     <sys:String x:Key="Str.Comp.SensInd.Title">Cảm biến từ (Inductive)</sys:String>
-    <sys:String x:Key="Str.Comp.SensInd.Sub">Phát hiện kim loại • PNP/NPN 10–30VDC</sys:String>
+    <sys:String x:Key="Str.Comp.SensInd.Sub">2 dây AC/DC &amp; 3/4 dây PNP/NPN</sys:String>
     <sys:String x:Key="Str.Comp.SensCap.Title">Cảm biến điện dung (Capacitive)</sys:String>
-    <sys:String x:Key="Str.Comp.SensCap.Sub">Phi kim / Chất lỏng • PNP/NPN 10–30VDC</sys:String>
+    <sys:String x:Key="Str.Comp.SensCap.Sub">2 dây AC/DC &amp; 3/4 dây PNP/NPN</sys:String>
     <sys:String x:Key="Str.Comp.SensPhoto.Title">Cảm biến quang (Photoelectric)</sys:String>
-    <sys:String x:Key="Str.Comp.SensPhoto.Sub">Thu phát / Phản xạ • PNP/NPN 10–30VDC</sys:String>
+    <sys:String x:Key="Str.Comp.SensPhoto.Sub">2 dây AC/DC &amp; 3/4 dây PNP/NPN</sys:String>
     <sys:String x:Key="Str.Comp.SensUltra.Title">Cảm biến siêu âm / Báo mức</sys:String>
     <sys:String x:Key="Str.Comp.SensUltra.Sub">Khoảng cách / Mức nước • PNP/NPN</sys:String>
+    <sys:String x:Key="Str.Comp.ReedCyl.Title">Cảm biến từ xi-lanh (SMC D-A93)</sys:String>
+    <sys:String x:Key="Str.Comp.ReedCyl.Sub">2 dây BN-BU • AC/DC 5–240V • LED đỏ</sys:String>
+    <sys:String x:Key="Str.Comp.ThermSw.Title">Công tắc nhiệt độ (KSD301)</sys:String>
+    <sys:String x:Key="Str.Comp.ThermSw.Sub">Lưỡng kim 2 dây (1-2) • Quá nhiệt NC/NO</sys:String>
+    <sys:String x:Key="Str.Comp.FloatSw.Title">Phao báo mức nước 2 dây</sys:String>
+    <sys:String x:Key="Str.Comp.FloatSw.Sub">COM - OUT • Cấp nước / Thoát nước</sys:String>
 
     <sys:String x:Key="Str.Comp.Voltmeter.Title">Đồng hồ đo Volt (Voltmeter)</sys:String>
     <sys:String x:Key="Str.Comp.Voltmeter.Sub">Đấu song song V1-V2 • AC/DC • Số/Kim</sys:String>
@@ -475,5 +481,41 @@
     <sys:String x:Key="Str.Update.NoDirectAsset">Không tìm thấy tệp cài đặt đính kèm trong bản phát hành này. Vui lòng dùng nút mở trang tải thủ công.</sys:String>
     <sys:String x:Key="Str.Update.InstallCanceled">Đã hủy cài đặt cập nhật theo yêu cầu lưu dự án.</sys:String>
     <sys:String x:Key="Str.Update.DownloadFailed">Tải bản cập nhật thất bại ({0}). Bạn có thể dùng nút Mở trang tải thủ công.</sys:String>
+
+    <!-- v1.2: Cảm biến 2 dây AC/DC, Xi-lanh D-A93, KSD301, Phao mức nước & Bắt lỗi không qua tải -->
+    <sys:String x:Key="Str.Menu.SensorWiringType">🔌 Loại đấu dây ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.Sens3Pnp">3 dây PNP (10–30VDC)</sys:String>
+    <sys:String x:Key="Str.Menu.Sens3Npn">3 dây NPN (10–30VDC)</sys:String>
+    <sys:String x:Key="Str.Menu.Sens4NoNc">4 dây NO + NC (10–30VDC)</sys:String>
+    <sys:String x:Key="Str.Menu.Sens2Ac">2 dây AC (90–250VAC)</sys:String>
+    <sys:String x:Key="Str.Menu.Sens2Dc">2 dây DC (10–30VDC)</sys:String>
+    <sys:String x:Key="Str.Menu.TwoWireState">🔘 Trạng thái tiếp điểm mặc định ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.ContactNO">Thường mở (NO)</sys:String>
+    <sys:String x:Key="Str.Menu.ContactNC">Thường đóng (NC)</sys:String>
+    <sys:String x:Key="Str.Menu.RepairSensor">🔧 Thay cảm biến mới (Khắc phục hỏng)</sys:String>
+
+    <sys:String x:Key="Str.Menu.ReedTrigger">🧲 Chế độ kích hoạt từ trường</sys:String>
+    <sys:String x:Key="Str.Menu.ReedHold">Giữ chuột để có từ trường</sys:String>
+    <sys:String x:Key="Str.Menu.ReedToggle">Click để giữ / nhả trạng thái</sys:String>
+
+    <sys:String x:Key="Str.Menu.ThermContact">🌡 Loại tiếp điểm nhiệt ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.ThermNC">NC (Thường đóng — quá nhiệt ngắt mạch bảo vệ)</sys:String>
+    <sys:String x:Key="Str.Menu.ThermNO">NO (Thường mở — quá nhiệt đóng bật quạt/còi)</sys:String>
+    <sys:String x:Key="Str.Vis.ThermNormal">BÌNH THƯỜNG</sys:String>
+    <sys:String x:Key="Str.Vis.ThermOverheat">🔥 QUÁ NHIỆT</sys:String>
+
+    <sys:String x:Key="Str.Menu.FloatMode">💧 Chế độ vận hành phao ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.FloatSupply">Cấp nước / Chống cạn (Đóng khi cạn, ngắt khi đầy)</sys:String>
+    <sys:String x:Key="Str.Menu.FloatDrain">Thoát nước / Chống tràn (Đóng khi đầy, ngắt khi cạn)</sys:String>
+    <sys:String x:Key="Str.Vis.WaterLow">CẠN (LOW)</sys:String>
+    <sys:String x:Key="Str.Vis.WaterFull">ĐẦY (FULL)</sys:String>
+
+    <sys:String x:Key="Str.Vis.Damaged">🔥 DAMAGED!</sys:String>
+    <sys:String x:Key="Str.Vis.RevPolarity">NGƯỢC CỰC!</sys:String>
+    <sys:String x:Key="Str.Vis.ReedActive">CÓ TỪ</sys:String>
+    <sys:String x:Key="Str.Fault.TwoWireNoLoadShort">CẢNH BÁO: ĐẤU CẢM BIẾN 2 DÂY KHÔNG QUA TẢI GÂY NGẮN MẠCH / HỎNG CẢM BIẾN!</sys:String>
+
+    <sys:String x:Key="Str.Preset4.Name">4. Mạch điều khiển Rơ-le trung gian bằng cảm biến tiệm cận 2 dây AC 220V</sys:String>
+    <sys:String x:Key="Str.Preset4.Guide">Chuyển sang [▶ Chạy Mô Phỏng] → Bấm vào đầu cảm biến 2 dây AC (B1): dòng điện đi nối tiếp L → BN → BU → cuộn hút K1 (sụt áp ~3.5V, đo Volt ~216.5V) để hút rơ-le và bật đèn báo H1!</sys:String>
 
 </ResourceDictionary>

@@ -13,7 +13,8 @@ public readonly record struct PotentialToken(
     CurrentKind CurrentKind,
     PhaseType Phase,
     double Voltage,
-    double FrequencyHz = 50.0);
+    double FrequencyHz = 50.0,
+    double SeriesVoltageDrop = 0.0);
 
 /// <summary>
 /// Chân đấu nối (Terminal) gắn trên thiết bị điện — tự động đồng bộ tọa độ &amp; hướng thoát dây khi thiết bị Xoay / Lật.

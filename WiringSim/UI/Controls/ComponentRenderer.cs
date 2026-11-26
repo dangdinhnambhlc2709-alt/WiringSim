@@ -166,6 +166,15 @@ public static class ComponentRenderer
             case IndustrialSensorComponent sensor:
                 DrawIndustrialSensor(dc, sensor, bodyRect, theme, dpiScale, targetHitZones);
                 break;
+            case CylinderReedSwitchComponent reed:
+                DrawCylinderReedSwitch(dc, reed, bodyRect, theme, dpiScale, targetHitZones);
+                break;
+            case ThermalSwitchComponent thermSw:
+                DrawThermalSwitch(dc, thermSw, bodyRect, theme, dpiScale, targetHitZones);
+                break;
+            case FloatSwitchComponent floatSw:
+                DrawFloatSwitch(dc, floatSw, bodyRect, theme, dpiScale, targetHitZones);
+                break;
             case VoltmeterComponent vm:
                 DrawPanelMeter(dc, bodyRect, "V", vm.MeasureKind, vm.GetRangeSpec().Label, vm.DisplayStyle,
                     vm.MeasuredVoltage, vm.GetRangeSpec().MaxVolts, vm.IsOverRange, vm.NeedleRatio, "#38BDF8", theme, dpiScale);
@@ -217,6 +226,7 @@ public static class ComponentRenderer
         {
             string burnKey = comp switch
             {
+                ITwoWireSensorDevice { IsTwoWireActiveMode: true, IsDamaged: true } => "Str.Vis.Damaged",
                 PilotLightComponent or ResidentialLampComponent or IlluminatedPushButtonComponent => "Str.Vis.BurnedLamp",
                 IndustrialSensorComponent => "Str.Vis.BurnedSensor",
                 _ => "Str.Vis.BurnedCoil"
@@ -1068,54 +1078,223 @@ public static class ComponentRenderer
             _ => ("#06B6D4", "IND", "⚙")
         };
 
+        bool is2W = sens.IsTwoWireMode;
+        bool is2WAc = sens.WiringMode == SensorWiringMode.TwoWire_AC;
+
         // Đầu vùng nhạy cảm biến (Sensing Head) phía trên
-        Rect headZone = new(body.X + 10, body.Y + 6, body.Width - 20, 32);
-        Brush headFill = sens.IsTargetDetected && sens.IsPowered
+        Rect headZone = new(body.X + 8, body.Y + 6, body.Width - 16, 32);
+        bool headActive = sens.IsTargetDetected && (is2W ? !sens.IsBurnedOut : sens.IsPowered);
+        Brush headFill = headActive
             ? CreateVerticalGradient(accentHex, "#0F172A")
             : CreateSolid(theme.InsetPanelHex);
         dc.DrawRoundedRectangle(headFill, CreatePen(accentHex, sens.IsTargetDetected ? 2.2 : 1.3), headZone, 6, 6);
 
         string targetTxt = sens.IsTargetDetected
             ? $"{iconChar} {LocalizationManager.Get("Str.Vis.ObjectDetected")}"
-            : $"{iconChar} {typeBadge} • {sens.Polarity}";
-        var headFt = FormatText(targetTxt, 9.2, BoldTypeface, CreateSolid(sens.IsTargetDetected ? "#FEF08A" : "#7DD3FC"), dpiScale);
+            : (is2W ? $"{iconChar} {typeBadge} • {(is2WAc ? "2W AC" : "2W DC")}" : $"{iconChar} {typeBadge} • {sens.Polarity}");
+        var headFt = FormatText(targetTxt, is2W ? 8.4 : 9.2, BoldTypeface, CreateSolid(sens.IsTargetDetected ? "#FEF08A" : "#7DD3FC"), dpiScale);
         dc.DrawText(headFt, new Point(headZone.X + (headZone.Width - headFt.Width) / 2, headZone.Y + 8));
 
         // Đèn báo nguồn (Xanh) & Đèn báo ngõ ra OUT (Cam chuẩn cảm biến công nghiệp)
-        Rect infoPanel = new(body.X + 10, body.Y + 43, body.Width - 20, 34);
-        dc.DrawRoundedRectangle(CreateSolid(theme.InsetPanelHex), CreatePen("#334155", 1.0), infoPanel, 4, 4);
+        Rect infoPanel = new(body.X + 8, body.Y + 43, body.Width - 16, 36);
+        dc.DrawRoundedRectangle(CreateSolid(theme.InsetPanelHex), CreatePen(sens.IsReversePolarity ? "#EF4444" : "#334155", sens.IsReversePolarity ? 1.4 : 1.0), infoPanel, 4, 4);
 
-        Point pwrLed = new(infoPanel.X + 12, infoPanel.Y + 11);
-        Point outLed = new(infoPanel.Right - 12, infoPanel.Y + 11);
-        dc.DrawEllipse(CreateSolid(sens.IsPowered ? "#22C55E" : "#334155"), null, pwrLed, 4.0, 4.0);
-        if (sens.IsPowered && sens.IsOut1Closed)
+        Point pwrLed = new(infoPanel.X + 10, infoPanel.Y + 11);
+        Point outLed = new(infoPanel.Right - 10, infoPanel.Y + 11);
+        bool pwrOn = is2W ? (sens.IsPowered && !sens.IsReversePolarity && !sens.IsBurnedOut) : sens.IsPowered;
+        bool outOn = is2W ? (sens.IsConductingNow && !sens.IsReversePolarity && !sens.IsBurnedOut) : (sens.IsPowered && sens.IsOut1Closed);
+
+        dc.DrawEllipse(CreateSolid(pwrOn ? "#22C55E" : "#334155"), null, pwrLed, 3.8, 3.8);
+        if (outOn)
         {
             dc.DrawEllipse(CreateRadialGlow("#AAF97316", "#00F97316"), null, outLed, 10, 10);
-            dc.DrawEllipse(CreateSolid("#F97316"), CreatePen("#FEF08A", 0.8), outLed, 4.5, 4.5);
+            dc.DrawEllipse(CreateSolid("#F97316"), CreatePen("#FEF08A", 0.8), outLed, 4.3, 4.3);
         }
         else
         {
-            dc.DrawEllipse(CreateSolid("#334155"), null, outLed, 4.0, 4.0);
+            dc.DrawEllipse(CreateSolid("#334155"), null, outLed, 3.8, 3.8);
         }
 
-        string cfgTag = sens.OutputConfig switch
+        if (is2W)
         {
-            SensorOutputConfig.NC_3Wire => $"{sens.Polarity} • NC",
-            SensorOutputConfig.FourWire_NO_NC => $"{sens.Polarity} • NO+NC",
-            _ => $"{sens.Polarity} • NO"
-        };
-        var cfgFt = FormatText(cfgTag, 8.8, BoldTypeface, CreateSolid("#E2E8F0"), dpiScale);
-        dc.DrawText(cfgFt, new Point(infoPanel.X + (infoPanel.Width - cfgFt.Width) / 2, infoPanel.Y + 17));
+            string voltText = is2WAc ? "90-250VAC" : "10-30VDC";
+            string contactTag = sens.TwoWireNormallyClosed ? "NC" : "NO";
+            var vFt = FormatText(voltText, 7.6, MonoTypeface, CreateSolid(is2WAc ? "#FDE047" : "#38BDF8"), dpiScale);
+            dc.DrawText(vFt, new Point(infoPanel.X + (infoPanel.Width - vFt.Width) / 2, infoPanel.Y + 4));
 
-        // Vạch màu chuẩn quốc tế cho các chân BN (Nâu), BU (Xanh dương), BK (Đen), WH (Trắng)
-        DrawSensorPinTag(dc, sens.X + sens.BnPlus.RelX, body.Bottom - 17, "BN+", "#B45309", dpiScale);
-        DrawSensorPinTag(dc, sens.X + sens.BuMinus.RelX, body.Bottom - 17, "BU-", "#3B82F6", dpiScale);
-        DrawSensorPinTag(dc, sens.X + sens.BkOut1.RelX, body.Bottom - 17, "BK", "#CBD5E1", dpiScale);
-        if (sens.WhOut2 is not null)
-            DrawSensorPinTag(dc, sens.X + sens.WhOut2.RelX, body.Bottom - 17, "WH", "#F8FAFC", dpiScale);
+            string subLine = sens.IsReversePolarity
+                ? LocalizationManager.Get("Str.Vis.RevPolarity")
+                : $"2W • {contactTag}";
+            var cfgFt = FormatText(subLine, 8.0, BoldTypeface, CreateSolid(sens.IsReversePolarity ? "#FCA5A5" : "#E2E8F0"), dpiScale);
+            dc.DrawText(cfgFt, new Point(infoPanel.X + (infoPanel.Width - cfgFt.Width) / 2, infoPanel.Y + 19));
+
+            DrawSensorPinTag(dc, sens.X + sens.BnPlus.RelX, body.Bottom - 16, is2WAc ? "BN" : "BN+", "#D97706", dpiScale);
+            DrawSensorPinTag(dc, sens.X + sens.BuMinus.RelX, body.Bottom - 16, is2WAc ? "BU" : "BU-", "#3B82F6", dpiScale);
+        }
+        else
+        {
+            string cfgTag = sens.OutputConfig switch
+            {
+                SensorOutputConfig.NC_3Wire => $"{sens.Polarity} • NC",
+                SensorOutputConfig.FourWire_NO_NC => $"{sens.Polarity} • NO+NC",
+                _ => $"{sens.Polarity} • NO"
+            };
+            var cfgFt = FormatText(cfgTag, 8.8, BoldTypeface, CreateSolid("#E2E8F0"), dpiScale);
+            dc.DrawText(cfgFt, new Point(infoPanel.X + (infoPanel.Width - cfgFt.Width) / 2, infoPanel.Y + 17));
+
+            // Vạch màu chuẩn quốc tế cho các chân BN (Nâu), BU (Xanh dương), BK (Đen), WH (Trắng)
+            DrawSensorPinTag(dc, sens.X + sens.BnPlus.RelX, body.Bottom - 17, "BN+", "#B45309", dpiScale);
+            DrawSensorPinTag(dc, sens.X + sens.BuMinus.RelX, body.Bottom - 17, "BU-", "#3B82F6", dpiScale);
+            if (sens.BkOut1 is not null)
+                DrawSensorPinTag(dc, sens.X + sens.BkOut1.RelX, body.Bottom - 17, "BK", "#CBD5E1", dpiScale);
+            if (sens.WhOut2 is not null)
+                DrawSensorPinTag(dc, sens.X + sens.WhOut2.RelX, body.Bottom - 17, "WH", "#F8FAFC", dpiScale);
+        }
 
         string act = sens.TriggerMode == PushButtonActionMode.Latching ? "SENSOR_TOGGLE" : "SENSOR_HOLD";
         hitZones.Add(new ComponentHitZone(sens, headZone, act, AllowedInDesignMode: false));
+    }
+
+    private static void DrawCylinderReedSwitch(DrawingContext dc, CylinderReedSwitchComponent reed, Rect body, CanvasThemeColors theme, double dpiScale, List<ComponentHitZone> hitZones)
+    {
+        // Rãnh xi-lanh khí nén màu xám kim loại phía trên
+        Rect rail = new(body.X + 6, body.Y + 6, body.Width - 12, 16);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#64748B", "#334155"), CreatePen("#94A3B8", 1.0), rail, 3, 3);
+
+        // Thanh nam châm piston trượt trên rãnh
+        double magX = reed.IsMagnetDetected ? body.X + body.Width / 2.0 - 16 : body.X + 10;
+        Rect magnet = new(magX, rail.Y + 2, 32, 12);
+        dc.DrawRoundedRectangle(CreateSolid(reed.IsMagnetDetected ? "#DC2626" : "#475569"), CreatePen("#FCA5A5", 0.9), magnet, 2.5, 2.5);
+        var magFt = FormatText(reed.IsMagnetDetected ? LocalizationManager.Get("Str.Vis.ReedActive") : "MAG", 6.8, BoldTypeface, Brushes.White, dpiScale);
+        dc.DrawText(magFt, new Point(magnet.X + (magnet.Width - magFt.Width) / 2.0, magnet.Y + 1.5));
+
+        // Thân dẹt SMC D-A93 gắn rãnh xi-lanh
+        Rect module = new(body.X + 8, body.Y + 26, body.Width - 16, 34);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#1E293B", "#0F172A"), CreatePen(reed.IsConductingNow ? "#EF4444" : "#475569", 1.4), module, 4, 4);
+
+        // Vít siết cố định bên trái
+        Point screwPt = new(module.X + 10, module.Y + module.Height / 2.0);
+        dc.DrawEllipse(CreateSolid("#94A3B8"), CreatePen("#334155", 1.0), screwPt, 4.0, 4.0);
+        dc.DrawLine(CreatePen("#1E293B", 1.2), new Point(screwPt.X - 2.5, screwPt.Y), new Point(screwPt.X + 2.5, screwPt.Y));
+
+        // Đèn LED ĐỎ nổi bật sáng rõ khi tác động
+        Point ledPt = new(module.X + 26, module.Y + module.Height / 2.0);
+        bool ledOn = !reed.IsBurnedOut && (reed.IsConductingNow || reed.IsMagnetDetected);
+        if (ledOn)
+        {
+            dc.DrawEllipse(CreateRadialGlow("#CCEF4444", "#00EF4444"), null, ledPt, 11, 11);
+            dc.DrawEllipse(CreateSolid("#EF4444"), CreatePen("#FEE2E2", 1.1), ledPt, 4.6, 4.6);
+        }
+        else
+        {
+            dc.DrawEllipse(CreateSolid("#334155"), CreatePen("#64748B", 0.9), ledPt, 4.0, 4.0);
+        }
+
+        // Nhãn mã SMC D-A93 & dải áp AC/DC 5-240V
+        var modelFt = FormatText($"D-A93 • {(reed.IsNormallyClosed ? "NC" : "NO")}", 8.0, BoldTypeface, CreateSolid("#F8FAFC"), dpiScale);
+        dc.DrawText(modelFt, new Point(module.X + 38, module.Y + 4));
+        var specFt = FormatText("AC/DC 5-240V", 7.2, MonoTypeface, CreateSolid("#38BDF8"), dpiScale);
+        dc.DrawText(specFt, new Point(module.X + 38, module.Y + 18));
+
+        DrawSensorPinTag(dc, reed.X + reed.PinBn.RelX, body.Bottom - 16, "BN", "#D97706", dpiScale);
+        DrawSensorPinTag(dc, reed.X + reed.PinBu.RelX, body.Bottom - 16, "BU", "#3B82F6", dpiScale);
+
+        string act = reed.TriggerMode == PushButtonActionMode.Latching ? "REED_TOGGLE" : "REED_HOLD";
+        hitZones.Add(new ComponentHitZone(reed, new Rect(body.X + 4, body.Y + 4, body.Width - 8, 58), act, AllowedInDesignMode: false));
+    }
+
+    private static void DrawThermalSwitch(DrawingContext dc, ThermalSwitchComponent ts, Rect body, CanvasThemeColors theme, double dpiScale, List<ComponentHitZone> hitZones)
+    {
+        Point center = new(body.X + body.Width / 2.0, body.Y + 42);
+
+        // Tai bắt vít 2 bên kiểu đĩa nhiệt KSD301
+        Rect flange = new(body.X + 8, center.Y - 9, body.Width - 16, 18);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#CBD5E1", "#94A3B8"), CreatePen("#475569", 1.1), flange, 6, 6);
+        dc.DrawEllipse(CreateSolid(theme.InsetPanelHex), CreatePen("#334155", 1.0), new Point(flange.Left + 7, center.Y), 3.0, 3.0);
+        dc.DrawEllipse(CreateSolid(theme.InsetPanelHex), CreatePen("#334155", 1.0), new Point(flange.Right - 7, center.Y), 3.0, 3.0);
+
+        // Vầng hào quang cảnh báo đỏ cam khi Quá nhiệt (Overheat)
+        if (ts.IsOverheated && !ts.IsBurnedOut)
+        {
+            dc.DrawEllipse(CreateRadialGlow("#AAF97316", "#00F97316"), null, center, 34, 34);
+        }
+
+        // Đĩa cảm biến lưỡng kim tròn ở giữa
+        Brush discFill = ts.IsOverheated
+            ? CreateVerticalGradient("#EA580C", "#9A3412")
+            : CreateVerticalGradient("#E2E8F0", "#94A3B8");
+        Pen discPen = CreatePen(ts.IsOverheated ? "#FDE047" : "#475569", ts.IsOverheated ? 2.0 : 1.5);
+        dc.DrawEllipse(discFill, discPen, center, 24, 24);
+        dc.DrawEllipse(CreateSolid(ts.IsOverheated ? "#7C2D12" : "#1E293B"), CreatePen("#64748B", 1.0), center, 18, 18);
+
+        // Biểu tượng nhiệt kế & ký hiệu NC/NO
+        var thermGlyph = FormatText("🌡", 11.5, UiTypeface, CreateSolid(ts.IsOverheated ? "#FDE047" : "#38BDF8"), dpiScale);
+        dc.DrawText(thermGlyph, new Point(center.X - thermGlyph.Width / 2.0, center.Y - 14));
+        var modeFt = FormatText(ts.IsNormallyClosed ? "NC" : "NO", 8.0, BoldTypeface, Brushes.White, dpiScale);
+        dc.DrawText(modeFt, new Point(center.X - modeFt.Width / 2.0, center.Y + 2));
+
+        // Nhãn trạng thái Nhiệt độ (BÌNH THƯỜNG / QUÁ NHIỆT)
+        string stText = ts.IsOverheated
+            ? LocalizationManager.Get("Str.Vis.ThermOverheat")
+            : LocalizationManager.Get("Str.Vis.ThermNormal");
+        var stFt = FormatText(stText, 7.2, BoldTypeface, CreateSolid(ts.IsOverheated ? "#FEF08A" : "#94A3B8"), dpiScale);
+        Rect pill = new(body.X + 8, body.Bottom - 31, body.Width - 16, 14);
+        dc.DrawRoundedRectangle(CreateSolid(ts.IsOverheated ? "#C2410C" : theme.InsetPanelHex), CreatePen(ts.IsOverheated ? "#FDBA74" : "#334155", 0.9), pill, 3, 3);
+        dc.DrawText(stFt, new Point(pill.X + (pill.Width - stFt.Width) / 2.0, pill.Y + 1.5));
+
+        DrawSensorPinTag(dc, ts.X + ts.Pin1.RelX, body.Bottom - 15, "1", "#F59E0B", dpiScale);
+        DrawSensorPinTag(dc, ts.X + ts.Pin2.RelX, body.Bottom - 15, "2", "#38BDF8", dpiScale);
+
+        hitZones.Add(new ComponentHitZone(ts, new Rect(body.X + 6, body.Y + 6, body.Width - 12, 68), "THERMAL_SW_TOGGLE", AllowedInDesignMode: false));
+    }
+
+    private static void DrawFloatSwitch(DrawingContext dc, FloatSwitchComponent fs, Rect body, CanvasThemeColors theme, double dpiScale, List<ComponentHitZone> hitZones)
+    {
+        // Bể chứa nước mini trong suốt
+        Rect tank = new(body.X + 10, body.Y + 8, body.Width - 20, 66);
+        dc.DrawRoundedRectangle(CreateSolid("#0B1324"), CreatePen("#475569", 1.4), tank, 5, 5);
+
+        // Mực nước xanh (Cạn ~26% vs Đầy ~76%)
+        double waterRatio = fs.IsWaterFull ? 0.74 : 0.25;
+        double waterH = (tank.Height - 4) * waterRatio;
+        Rect waterRect = new(tank.X + 2, tank.Bottom - 2 - waterH, tank.Width - 4, waterH);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#0EA5E9", "#0369A1"), null, waterRect, 3, 3);
+        dc.DrawLine(CreatePen("#7DD3FC", 1.6), new Point(waterRect.Left + 2, waterRect.Top), new Point(waterRect.Right - 2, waterRect.Top));
+
+        // Dây cáp & trái phao nghiêng theo mực nước
+        Point anchorPt = new(tank.X + 14, tank.Y + 14);
+        Point ballCenter = fs.IsWaterFull
+            ? new Point(tank.Right - 22, waterRect.Top + 4)
+            : new Point(tank.Right - 22, tank.Bottom - 14);
+
+        dc.DrawLine(CreatePen("#CBD5E1", 2.0), anchorPt, ballCenter);
+        dc.DrawEllipse(CreateSolid("#64748B"), null, anchorPt, 3.0, 3.0);
+
+        double ballAngle = fs.IsWaterFull ? -22.0 : 28.0;
+        dc.PushTransform(new RotateTransform(ballAngle, ballCenter.X, ballCenter.Y));
+        Rect floatBody = new(ballCenter.X - 13, ballCenter.Y - 8, 26, 16);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#FACC15", "#EA580C"), CreatePen("#FEF08A", 1.2), floatBody, 7, 7);
+        dc.Pop();
+
+        // Đèn báo tiếp điểm đang đóng dẫn điện
+        Point ledPt = new(tank.Right - 9, tank.Top + 9);
+        bool closed = fs.WantsToConduct && !fs.IsBurnedOut;
+        dc.DrawEllipse(CreateSolid(closed ? "#22C55E" : "#334155"), CreatePen("#E2E8F0", 0.7), ledPt, 3.5, 3.5);
+
+        // Nhãn trạng thái Mực nước & chế độ Cấp/Thoát
+        string lvlText = fs.IsWaterFull
+            ? LocalizationManager.Get("Str.Vis.WaterFull")
+            : LocalizationManager.Get("Str.Vis.WaterLow");
+        string modeShort = fs.OperatingMode == FloatSwitchMode.WaterSupply ? "SUPPLY" : "DRAIN";
+        var lvlFt = FormatText($"{lvlText} • {modeShort}", 7.0, BoldTypeface, CreateSolid(fs.IsWaterFull ? "#7DD3FC" : "#FDE047"), dpiScale);
+        Rect stPill = new(body.X + 8, tank.Bottom + 5, body.Width - 16, 16);
+        dc.DrawRoundedRectangle(CreateSolid(theme.InsetPanelHex), CreatePen("#334155", 0.9), stPill, 3, 3);
+        dc.DrawText(lvlFt, new Point(stPill.X + (stPill.Width - lvlFt.Width) / 2.0, stPill.Y + 2.5));
+
+        DrawSensorPinTag(dc, fs.X + fs.PinCom.RelX, body.Bottom - 16, "COM", "#F59E0B", dpiScale);
+        DrawSensorPinTag(dc, fs.X + fs.PinOut.RelX, body.Bottom - 16, "OUT", "#38BDF8", dpiScale);
+
+        hitZones.Add(new ComponentHitZone(fs, tank, "FLOAT_SW_TOGGLE", AllowedInDesignMode: false));
     }
 
     private static void DrawSensorPinTag(DrawingContext dc, double cx, double y, string label, string hex, double dpiScale)
@@ -1157,7 +1336,7 @@ public static class ComponentRenderer
 
             string valStr = isOverload
                 ? "OL"
-                : (value >= 100.0 ? $"{value:0}{unitSymbol}" : $"{value:0.0}{unitSymbol}");
+                : (value >= 100.0 ? $"{value:0.#}{unitSymbol}" : $"{value:0.0}{unitSymbol}");
             string digitColor = isOverload ? "#EF4444" : accentHex;
             var valFt = FormatText(valStr, 15.5, MonoTypeface, CreateSolid(digitColor), dpiScale);
             dc.DrawText(valFt, new Point(ledBox.X + (ledBox.Width - valFt.Width) / 2, ledBox.Y + 6));

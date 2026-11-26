@@ -236,3 +236,18 @@ public enum TrackInitialPosition
     Center,
     RightAtLS2
 }
+
+public enum SensorWiringMode
+{
+    ThreeWire_PNP,
+    ThreeWire_NPN,
+    FourWire_NO_NC,
+    TwoWire_AC,
+    TwoWire_DC
+}
+
+public enum FloatSwitchMode
+{
+    WaterSupply,
+    Drainage
+}

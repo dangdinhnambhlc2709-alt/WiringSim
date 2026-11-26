@@ -81,12 +81,12 @@ public static class ElectricalAnalysisHelper
                 if (pa.Phase == PhaseType.DC_Plus && pb.Phase == PhaseType.DC_Minus)
                 {
                     kind = CurrentKind.DC;
-                    return pa.Voltage;
+                    return Math.Max(0.0, Math.Round(pa.Voltage - pa.SeriesVoltageDrop - pb.SeriesVoltageDrop, 1));
                 }
                 if (pa.Phase == PhaseType.DC_Minus && pb.Phase == PhaseType.DC_Plus)
                 {
                     kind = CurrentKind.DC;
-                    return pb.Voltage;
+                    return Math.Max(0.0, Math.Round(pb.Voltage - pa.SeriesVoltageDrop - pb.SeriesVoltageDrop, 1));
                 }
             }
         }
@@ -108,7 +108,8 @@ public static class ElectricalAnalysisHelper
                 if (diff > 5.0)
                 {
                     kind = CurrentKind.AC;
-                    return Math.Round(diff, 0);
+                    double netVolts = Math.Max(0.0, diff - pa.SeriesVoltageDrop - pb.SeriesVoltageDrop);
+                    return Math.Round(netVolts, 1);
                 }
             }
         }
