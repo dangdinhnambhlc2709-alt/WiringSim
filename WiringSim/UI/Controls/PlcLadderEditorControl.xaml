@@ -3,10 +3,13 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Background="{DynamicResource SurfaceBgBrush}"
              Foreground="{DynamicResource TextPrimaryBrush}"
+             UseLayoutRounding="True"
+             SnapsToDevicePixels="True"
              Focusable="True"
              PreviewKeyDown="OnEditorPreviewKeyDown">
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -14,29 +17,22 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 0. HEADER BAR -->
-        <Border Grid.Row="0"
+        <!-- 0. EMBEDDED HEADER BAR (ẩn khi chạy trong cửa sổ nổi PlcLadderWindow) -->
+        <Border x:Name="EmbeddedHeaderBar"
+                Grid.Row="0"
                 Background="{DynamicResource TitleBarBgBrush}"
                 BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,0,0,1"
                 Padding="10,6">
             <DockPanel LastChildFill="True">
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="BtnToggleInstructions"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            Padding="8,3"
-                            Margin="0,0,6,0"
-                            FontSize="11"
-                            Click="OnToggleInstructionsClick"
-                            Content="{DynamicResource Str.Plc.ToggleInstructions}" />
-                    <Button x:Name="BtnHideEditor"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            Padding="8,3"
-                            FontSize="11"
-                            Content="✕"
-                            Click="OnHideEditorClick"
-                            ToolTip="{DynamicResource Str.Plc.HideEditorTip}" />
-                </StackPanel>
+                <Button x:Name="BtnHideEditor"
+                        DockPanel.Dock="Right"
+                        Style="{StaticResource ToolbarButtonStyle}"
+                        Padding="8,3"
+                        FontSize="11"
+                        Content="✕"
+                        Click="OnHideEditorClick"
+                        ToolTip="{DynamicResource Str.Plc.HideEditorTip}" />
 
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Border Background="#009999" CornerRadius="4" Padding="6,2" Margin="0,0,8,0">
@@ -47,13 +43,25 @@
                                FontSize="12"
                                FontWeight="Bold"
                                Foreground="{DynamicResource TextPrimaryBrush}"
-                               VerticalAlignment="Center"
-                               Margin="0,0,8,0" />
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- 1. PRIMARY RESPONSIVE TOOLBAR (COMPILE, DOWNLOAD, CPU, THƯ VIỆN LỆNH LUÔN HIỂN THỊ) -->
+        <Border Grid.Row="1"
+                Background="{DynamicResource ToolbarBgBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="8,5">
+            <DockPanel LastChildFill="True">
+                <!-- Luôn cố định bên phải: Trạng thái CPU + ONLINE + Nút Ẩn/Hiện Thư viện lệnh -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
                     <Border x:Name="CpuStatePill"
                             Background="#059669"
                             CornerRadius="4"
-                            Padding="6,1.5"
-                            Margin="0,0,8,0"
+                            Padding="7,2.5"
+                            Margin="0,0,6,0"
                             VerticalAlignment="Center">
                         <TextBlock x:Name="TxtCpuState" Text="RUN" FontSize="9.8" FontWeight="Bold" Foreground="White" />
                     </Border>
@@ -62,133 +70,150 @@
                             BorderBrush="#4ADE80"
                             BorderThickness="1"
                             CornerRadius="4"
-                            Padding="6,1"
+                            Padding="6,2"
+                            Margin="0,0,6,0"
                             Visibility="Collapsed"
                             VerticalAlignment="Center">
                         <TextBlock Text="● ONLINE" FontSize="9.5" FontWeight="Bold" Foreground="#DCFCE7" />
                     </Border>
+                    <Button x:Name="BtnToggleInstructions"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            BorderBrush="{DynamicResource AccentCyanBrush}"
+                            Padding="9,4"
+                            FontSize="11"
+                            Click="OnToggleInstructionsClick"
+                            Content="{DynamicResource Str.Plc.ToggleInstructions}" />
                 </StackPanel>
+
+                <!-- Cụm chính bên trái (cuộn ngang mượt nếu cửa sổ rất hẹp, không bao giờ che mất nút phải) -->
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled"
+                              VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <RadioButton x:Name="RbTabLadder"
+                                     GroupName="PlcEditorTabs"
+                                     Style="{StaticResource ModeSwitchRadioStyle}"
+                                     Tag="#0284C7"
+                                     IsChecked="True"
+                                     Checked="OnTabChanged"
+                                     Content="{DynamicResource Str.Plc.TabLadder}"
+                                     Margin="0,0,3,0" />
+                        <RadioButton x:Name="RbTabTags"
+                                     GroupName="PlcEditorTabs"
+                                     Style="{StaticResource ModeSwitchRadioStyle}"
+                                     Tag="#009999"
+                                     Checked="OnTabChanged"
+                                     Content="{DynamicResource Str.Plc.TabTags}"
+                                     Margin="0,0,8,0" />
+
+                        <Rectangle Width="1" Height="18" Fill="{DynamicResource DividerBrush}" Margin="2,0,8,0" />
+
+                        <Button x:Name="BtnCompile"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                BorderBrush="#F59E0B"
+                                Padding="7,3.5"
+                                Margin="0,0,4,0"
+                                FontSize="11"
+                                Click="OnCompileClick"
+                                ToolTip="{DynamicResource Str.Plc.CompileTip}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⚙ " Foreground="#F59E0B" />
+                                <TextBlock Text="{DynamicResource Str.Plc.Compile}" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="BtnDownload"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                BorderBrush="#10B981"
+                                Padding="7,3.5"
+                                Margin="0,0,5,0"
+                                FontSize="11"
+                                Click="OnDownloadClick"
+                                ToolTip="{DynamicResource Str.Plc.DownloadTip}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⬇ " Foreground="#10B981" />
+                                <TextBlock Text="{DynamicResource Str.Plc.Download}" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="BtnCpuRun"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="6,3.5"
+                                Margin="0,0,3,0"
+                                FontSize="11"
+                                Content="▶"
+                                ToolTip="RUN"
+                                Foreground="#22C55E"
+                                Click="OnCpuRunClick" />
+                        <Button x:Name="BtnCpuStop"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="6,3.5"
+                                FontSize="11"
+                                Content="⏹"
+                                ToolTip="STOP"
+                                Foreground="#F59E0B"
+                                Click="OnCpuStopClick" />
+                    </StackPanel>
+                </ScrollViewer>
             </DockPanel>
         </Border>
 
-        <!-- 1. LADDER TOOLBAR (TABS + COMPILE/DOWNLOAD + GENERAL QUICK ACTIONS) -->
-        <Border Grid.Row="1"
-                Background="{DynamicResource ToolbarBgBrush}"
+        <!-- 2. GENERAL QUICK ACTION BAR (CUỘN NGANG THÔNG MINH KHI THU HẸP) -->
+        <Border Grid.Row="2"
+                Background="{DynamicResource SubtleSurfaceBrush}"
                 BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,0,0,1"
-                Padding="8,5">
-            <WrapPanel VerticalAlignment="Center" ItemHeight="30">
-                <RadioButton x:Name="RbTabLadder"
-                             GroupName="PlcEditorTabs"
-                             Style="{StaticResource ModeSwitchRadioStyle}"
-                             Tag="#0284C7"
-                             IsChecked="True"
-                             Checked="OnTabChanged"
-                             Content="{DynamicResource Str.Plc.TabLadder}"
-                             Margin="0,0,3,0" />
-                <RadioButton x:Name="RbTabTags"
-                             GroupName="PlcEditorTabs"
-                             Style="{StaticResource ModeSwitchRadioStyle}"
-                             Tag="#009999"
-                             Checked="OnTabChanged"
-                             Content="{DynamicResource Str.Plc.TabTags}"
-                             Margin="0,0,8,0" />
-
-                <Rectangle Width="1" Height="18" Fill="{DynamicResource DividerBrush}" Margin="2,0,8,0" />
-
-                <Button x:Name="BtnCompile"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        BorderBrush="#F59E0B"
-                        Padding="9,3"
-                        Margin="0,0,5,0"
-                        Click="OnCompileClick"
-                        ToolTip="{DynamicResource Str.Plc.CompileTip}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⚙ " Foreground="#F59E0B" />
-                        <TextBlock Text="{DynamicResource Str.Plc.Compile}" />
-                    </StackPanel>
-                </Button>
-                <Button x:Name="BtnDownload"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        BorderBrush="#10B981"
-                        Padding="9,3"
-                        Margin="0,0,6,0"
-                        Click="OnDownloadClick"
-                        ToolTip="{DynamicResource Str.Plc.DownloadTip}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⬇ " Foreground="#10B981" />
-                        <TextBlock Text="{DynamicResource Str.Plc.Download}" />
-                    </StackPanel>
-                </Button>
-                <Button x:Name="BtnCpuRun"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        Padding="7,3"
-                        Margin="0,0,3,0"
-                        FontSize="11"
-                        Content="▶ RUN"
-                        Foreground="#22C55E"
-                        Click="OnCpuRunClick" />
-                <Button x:Name="BtnCpuStop"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        Padding="7,3"
-                        Margin="0,0,8,0"
-                        FontSize="11"
-                        Content="⏹ STOP"
-                        Foreground="#F59E0B"
-                        Click="OnCpuStopClick" />
-
-                <Rectangle Width="1" Height="18" Fill="{DynamicResource DividerBrush}" Margin="2,0,8,0" />
-
-                <!-- General Quick Bar: Insert network, Empty box [F8], Open branch [Shift+F8], Close branch [Shift+F9], Insert input -->
-                <Button x:Name="BtnAddNetwork"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        Padding="7,3"
-                        Margin="0,0,4,0"
-                        FontSize="10.8"
-                        Content="{DynamicResource Str.Plc.AddNetwork}"
-                        Click="OnAddNetworkClick" />
-                <Button x:Name="BtnEmptyBox"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        BorderBrush="#38BDF8"
-                        Padding="7,3"
-                        Margin="0,0,4,0"
-                        FontSize="10.8"
-                        Content="{DynamicResource Str.Plc.EmptyBoxBtn}"
-                        Click="OnInsertEmptyBoxClick" />
-                <Button x:Name="BtnInsertInput"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        Padding="7,3"
-                        Margin="0,0,4,0"
-                        FontSize="10.8"
-                        Content="{DynamicResource Str.Plc.InsertInputBtn}"
-                        Click="OnInsertInputClick" />
-                <Button x:Name="BtnOpenBranch"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        Padding="7,3"
-                        Margin="0,0,4,0"
-                        FontSize="10.8"
-                        Content="{DynamicResource Str.Plc.OpenBranch}"
-                        ToolTip="Shift+F8"
-                        Click="OnOpenParallelBranchClick" />
-                <Button x:Name="BtnCloseBranch"
-                        Style="{StaticResource ToolbarButtonStyle}"
-                        Padding="7,3"
-                        Margin="0,0,4,0"
-                        FontSize="10.8"
-                        Content="{DynamicResource Str.Plc.CloseBranch}"
-                        ToolTip="Shift+F9"
-                        Click="OnCloseParallelBranchClick" />
-                <Button x:Name="BtnDeleteNode"
-                        Style="{StaticResource DangerToolbarButtonStyle}"
-                        Padding="7,3"
-                        FontSize="10.8"
-                        Content="{DynamicResource Str.Plc.DelNode}"
-                        Click="OnDeleteSelectedNodeClick" />
-            </WrapPanel>
+                Padding="8,4">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="BtnAddNetwork"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            Padding="8,3"
+                            Margin="0,0,4,0"
+                            FontSize="10.8"
+                            Content="{DynamicResource Str.Plc.AddNetwork}"
+                            Click="OnAddNetworkClick" />
+                    <Button x:Name="BtnEmptyBox"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            BorderBrush="#38BDF8"
+                            Padding="8,3"
+                            Margin="0,0,4,0"
+                            FontSize="10.8"
+                            Content="{DynamicResource Str.Plc.EmptyBoxBtn}"
+                            Click="OnInsertEmptyBoxClick" />
+                    <Button x:Name="BtnInsertInput"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            Padding="8,3"
+                            Margin="0,0,4,0"
+                            FontSize="10.8"
+                            Content="{DynamicResource Str.Plc.InsertInputBtn}"
+                            Click="OnInsertInputClick" />
+                    <Button x:Name="BtnOpenBranch"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            Padding="8,3"
+                            Margin="0,0,4,0"
+                            FontSize="10.8"
+                            Content="{DynamicResource Str.Plc.OpenBranch}"
+                            ToolTip="Shift+F8"
+                            Click="OnOpenParallelBranchClick" />
+                    <Button x:Name="BtnCloseBranch"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            Padding="8,3"
+                            Margin="0,0,4,0"
+                            FontSize="10.8"
+                            Content="{DynamicResource Str.Plc.CloseBranch}"
+                            ToolTip="Shift+F9"
+                            Click="OnCloseParallelBranchClick" />
+                    <Button x:Name="BtnDeleteNode"
+                            Style="{StaticResource DangerToolbarButtonStyle}"
+                            Padding="8,3"
+                            FontSize="10.8"
+                            Content="{DynamicResource Str.Plc.DelNode}"
+                            Click="OnDeleteSelectedNodeClick" />
+                </StackPanel>
+            </ScrollViewer>
         </Border>
 
-        <!-- 2. MAIN WORKSPACE: 10-GROUP SEARCHABLE INSTRUCTION TREE + LADDER / TAG TABLE -->
-        <Grid Grid.Row="2">
+        <!-- 3. MAIN WORKSPACE: 10-GROUP SEARCHABLE INSTRUCTION TREE + LADDER / TAG TABLE -->
+        <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="InstructionsColumn" Width="264" />
                 <ColumnDefinition Width="*" />
@@ -291,9 +316,9 @@
             </Grid>
         </Grid>
 
-        <!-- 3. THANH CHỈNH SỬA NHANH THAM SỐ PHẦN TỬ ĐANG CHỌN -->
+        <!-- 4. THANH CHỈNH SỬA NHANH THAM SỐ PHẦN TỬ ĐANG CHỌN -->
         <Border x:Name="PropertyEditBar"
-                Grid.Row="3"
+                Grid.Row="4"
                 Background="{DynamicResource SubtleSurfaceBrush}"
                 BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,1,0,1"
@@ -348,8 +373,8 @@
             </WrapPanel>
         </Border>
 
-        <!-- 4. COMPILER OUTPUT + DOWNLOAD PROGRESS + ZOOM CONTROLS (50%-200%) -->
-        <Border Grid.Row="4"
+        <!-- 5. COMPILER OUTPUT + DOWNLOAD PROGRESS + ZOOM CONTROLS (50%-200%) -->
+        <Border Grid.Row="5"
                 Background="{DynamicResource ToolbarBgBrush}"
                 Padding="8,6">
             <Grid>

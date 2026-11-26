@@ -60,12 +60,12 @@ public partial class App : Application
                 }
             }
 
-            // 2. Kiểm tra Metadata phiên bản v1.3_Release, UpdateService.NormalizeVersion, SkipVersion & Asset Selection
+            // 2. Kiểm tra Metadata phiên bản v1.3.1_Release, UpdateService.NormalizeVersion, SkipVersion & Asset Selection
             string infoVer = UpdateService.GetCurrentInformationalVersion();
-            Assert(string.Equals(infoVer, "v1.3_Release", StringComparison.Ordinal),
-                $"Suite 2: InformationalVersion phải là 'v1.3_Release' (thực tế: '{infoVer}').");
-            Assert(UpdateService.NormalizeVersion("v1.3_Release") == new Version(1, 3, 0),
-                "Suite 2: NormalizeVersion('v1.3_Release') phải trả về 1.3.0.");
+            Assert(string.Equals(infoVer, "v1.3.1_Release", StringComparison.Ordinal),
+                $"Suite 2: InformationalVersion phải là 'v1.3.1_Release' (thực tế: '{infoVer}').");
+            Assert(UpdateService.NormalizeVersion("v1.3.1_Release") == new Version(1, 3, 1),
+                "Suite 2: NormalizeVersion('v1.3.1_Release') phải trả về 1.3.1.");
             Assert(UpdateService.IsVersionSkipped("v1.4.0_Release", "v1.4.0"),
                 "Suite 2: IsVersionSkipped phải nhận diện trùng phiên bản đã bỏ qua.");
             var mockRelease = new UpdateCheckResult(
@@ -540,18 +540,25 @@ public partial class App : Application
                    rtEngine.ReadWordOrConstant("%MW26") == 77,
                 $"Suite 9F: Kết quả thực thi 10 nhóm lệnh sai (MW10={rtEngine.ReadWordOrConstant("%MW10")}, MD14={rtEngine.ReadNumber("%MD14")}, MW12={rtEngine.ReadWordOrConstant("%MW12")}, MW24={rtEngine.ReadWordOrConstant("%MW24")}, MW26={rtEngine.ReadWordOrConstant("%MW26")}).");
 
-            // 10. Kết xuất ảnh trực quan v1.3_Release (Dark VI & Light EN) trình diễn PLC S7-1200 Preset 5 + Cửa sổ Ladder Online Monitoring!
+            // 10. Kiểm tra cửa sổ nổi PlcLadderWindow (MinWidth 680, MinHeight 460, ShowInTaskbar) & Kết xuất ảnh QA v1.3.1_Release!
+            var ladderWinCheck = new WiringSim.UI.Dialogs.PlcLadderWindow();
+            Assert(ladderWinCheck.MinWidth == 680 && ladderWinCheck.MinHeight == 460 && ladderWinCheck.ShowInTaskbar && !ladderWinCheck.LadderEditor.ShowEmbeddedHeader,
+                "Suite 10: PlcLadderWindow phải là cửa sổ nổi MinWidth=680, MinHeight=460, ShowInTaskbar=true và ẩn header trùng lặp.");
+            ladderWinCheck.ForceClose();
+
             int previewIdx = Array.FindIndex(Environment.GetCommandLineArgs(), a => a == "--save-preview-dir");
             if (previewIdx >= 0 && previewIdx + 1 < Environment.GetCommandLineArgs().Length)
             {
                 string outDir = Environment.GetCommandLineArgs()[previewIdx + 1];
                 Directory.CreateDirectory(outDir);
 
-                RenderV13Showcase(Path.Combine(outDir, "preview_v13_dark_vi.png"), useLight: false, lang: "vi");
-                RenderV13Showcase(Path.Combine(outDir, "preview_v13_light_en.png"), useLight: true, lang: "en");
+                RenderV131MainShowcase(Path.Combine(outDir, "preview_v131_main_dark_vi.png"), 1280, 800, useLight: false, lang: "vi");
+                RenderV131MainShowcase(Path.Combine(outDir, "preview_v131_main_light_en.png"), 1160, 720, useLight: true, lang: "en");
+                RenderV131LadderShowcase(Path.Combine(outDir, "preview_v131_ladder_dark_vi.png"), 1020, 680, useLight: false, lang: "vi");
+                RenderV131LadderShowcase(Path.Combine(outDir, "preview_v131_ladder_narrow_en.png"), 680, 480, useLight: true, lang: "en");
             }
 
-            Console.WriteLine("SELF_VERIFY_PASSED: All v1.3_Release suites (Localization Parity, Version v1.3_Release, AH3-3, LA38+E-Stop, Fuse+KDE, Linear Track, Wire T-Junction, 2-Wire AC/DC Sensors, PLC S7-1200 CPU 1214C + Ladder Compiler + PNP/NPN + Preset 5 TON/%MW Sequential Lights + JSON Persistence) passed!");
+            Console.WriteLine("SELF_VERIFY_PASSED: All v1.3.1_Release suites (Localization Parity, Version v1.3.1_Release, Floating PlcLadderWindow, Single-Row Responsive Toolbar, Full 10-Group PLC S7-1200 + Ladder Compiler + Preset 5 + JSON Persistence) passed!");
             return 0;
         }
         catch (Exception ex)
@@ -561,9 +568,49 @@ public partial class App : Application
         }
     }
 
-    private static void RenderV13Showcase(string pngPath, bool useLight, string lang)
+    private static void RenderV131MainShowcase(string pngPath, int width, int height, bool useLight, string lang)
     {
-        var win = new MainWindow();
+        var win = new MainWindow { Width = width, Height = height };
+        LocalizationManager.SetLanguage(lang);
+        ThemeManager.ApplyTheme(useLight ? AppThemePreference.Light : AppThemePreference.Dark);
+
+        var (p5Comps, p5Wires) = PresetCircuitFactory.Presets.Single(p => p.Key == "PRESET_PLC_S71200_SEQ").Builder();
+        var btnStart = p5Comps.OfType<PushButtonComponent>().Single(b => b.DisplayName == "START");
+
+        var sim = new CircuitSimulationEngine();
+        sim.BindCircuit(p5Comps, p5Wires);
+        sim.Start();
+        btnStart.IsPressed = true;
+        sim.StepSimulation(0.05);
+        btnStart.IsPressed = false;
+        for (int i = 0; i < 28; i++) sim.StepSimulation(0.05);
+
+        win.WiringCanvas.LoadCircuit(p5Comps, p5Wires, autoFit: false, raiseModified: false);
+        win.WiringCanvas.SetMode(AppMode.Simulation);
+
+        var root = (FrameworkElement)win.Content;
+        win.Content = null;
+        root.Width = width;
+        root.Height = height;
+        root.Measure(new Size(width, height));
+        root.Arrange(new Rect(0, 0, width, height));
+        root.UpdateLayout();
+
+        win.WiringCanvas.ResetOrFitView();
+        root.UpdateLayout();
+
+        var rtb = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(root);
+
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(rtb));
+        using var fs = File.Create(pngPath);
+        encoder.Save(fs);
+        win.Close();
+    }
+
+    private static void RenderV131LadderShowcase(string pngPath, int width, int height, bool useLight, string lang)
+    {
         LocalizationManager.SetLanguage(lang);
         ThemeManager.ApplyTheme(useLight ? AppThemePreference.Light : AppThemePreference.Dark);
 
@@ -577,35 +624,31 @@ public partial class App : Application
         btnStart.IsPressed = true;
         sim.StepSimulation(0.05);
         btnStart.IsPressed = false;
-        // Chạy tới 1.4s ở Bước 1 (Đèn H1 sáng, Timer TON %DB1 đang đếm ~1.4s/3s -> Online Monitoring xanh lá sống động!)
         for (int i = 0; i < 28; i++) sim.StepSimulation(0.05);
 
-        win.WiringCanvas.LoadCircuit(p5Comps, p5Wires, autoFit: false, raiseModified: false);
-        win.WiringCanvas.SetMode(AppMode.Simulation);
-        win.OpenPlcLadderPanel(plc, openTagTable: false);
-        win.PlcLadderEditor.SetSimulationMode(true);
-        win.PlcLadderEditor.CompileCurrentProgram();
-        win.PlcLadderEditor.RefreshOnlineMonitoring();
+        var ladderWin = new WiringSim.UI.Dialogs.PlcLadderWindow { Width = width, Height = height };
+        ladderWin.LadderEditor.BindPlc(plc, openTagTable: false);
+        ladderWin.LadderEditor.SetSimulationMode(true);
+        ladderWin.LadderEditor.CompileCurrentProgram();
+        ladderWin.LadderEditor.RefreshOnlineMonitoring();
+        ladderWin.UpdateWindowHeaderText();
 
-        var root = (FrameworkElement)win.Content;
-        win.Content = null;
-        root.Width = 1520;
-        root.Height = 900;
-        root.Measure(new Size(1520, 900));
-        root.Arrange(new Rect(0, 0, 1520, 900));
+        var root = (FrameworkElement)ladderWin.Content;
+        ladderWin.Content = null;
+        root.Width = width;
+        root.Height = height;
+        root.Measure(new Size(width, height));
+        root.Arrange(new Rect(0, 0, width, height));
         root.UpdateLayout();
 
-        win.WiringCanvas.ResetOrFitView();
-        root.UpdateLayout();
-
-        var rtb = new RenderTargetBitmap(1520, 900, 96, 96, PixelFormats.Pbgra32);
+        var rtb = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
         rtb.Render(root);
 
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(rtb));
         using var fs = File.Create(pngPath);
         encoder.Save(fs);
-        win.Close();
+        ladderWin.ForceClose();
     }
 
     private static void Assert(bool condition, string message)

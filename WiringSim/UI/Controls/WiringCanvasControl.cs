@@ -119,6 +119,8 @@ public sealed class WiringCanvasControl : FrameworkElement
         Focusable = true;
         ClipToBounds = true;
         AllowDrop = true;
+        UseLayoutRounding = true;
+        SnapsToDevicePixels = true;
 
         Loaded += (_, _) =>
         {

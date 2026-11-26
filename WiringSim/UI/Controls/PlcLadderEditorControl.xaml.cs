@@ -35,6 +35,12 @@ public partial class PlcLadderEditorControl : UserControl
 
     public PlcS71200Component? ActivePlc => _plc;
 
+    public bool ShowEmbeddedHeader
+    {
+        get => EmbeddedHeaderBar.Visibility == Visibility.Visible;
+        set => EmbeddedHeaderBar.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     public PlcLadderEditorControl()
     {
         InitializeComponent();

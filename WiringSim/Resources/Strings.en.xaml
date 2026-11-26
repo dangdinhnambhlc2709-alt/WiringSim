@@ -766,4 +766,8 @@
     <sys:String x:Key="Str.Plc.D.ROR">Rotate right by N bits</sys:String>
     <sys:String x:Key="Str.Plc.D.ROL">Rotate left by N bits</sys:String>
 
+    <!-- Hotfix v1.3.1: Floating PLC Ladder Window & Single-Row Toolbar -->
+    <sys:String x:Key="Str.Plc.WindowTitle">WiringSim — PLC S7-1200 Ladder Programmer</sys:String>
+    <sys:String x:Key="Str.Plc.CompactBtn">PLC Ladder</sys:String>
+
 </ResourceDictionary>

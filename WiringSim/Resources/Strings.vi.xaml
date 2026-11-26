@@ -766,4 +766,8 @@
     <sys:String x:Key="Str.Plc.D.ROR">Xoay vòng sang phải N bit</sys:String>
     <sys:String x:Key="Str.Plc.D.ROL">Xoay vòng sang trái N bit</sys:String>
 
+    <!-- Hotfix v1.3.1: Cửa sổ nổi PLC Ladder & Thanh công cụ một hàng -->
+    <sys:String x:Key="Str.Plc.WindowTitle">WiringSim — Trình lập trình PLC S7-1200</sys:String>
+    <sys:String x:Key="Str.Plc.CompactBtn">PLC Ladder</sys:String>
+
 </ResourceDictionary>

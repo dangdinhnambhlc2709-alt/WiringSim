@@ -72,7 +72,7 @@
                                 Margin="8,0,0,0"
                                 VerticalAlignment="Center">
                             <TextBlock x:Name="TxtAppVersionBadge"
-                                       Text="v1.3_Release"
+                                       Text="v1.3.1_Release"
                                        FontSize="10"
                                        FontWeight="SemiBold"
                                        Foreground="{DynamicResource AccentCyanBrush}" />
@@ -139,45 +139,54 @@
             </Border>
 
             <!-- =================================================================== -->
-            <!-- 1. TOP TOOLBAR CHUẨN CAD/EDA (4 NHÓM RÕ RÀNG CÓ VẠCH NGĂN CÁCH)     -->
+            <!-- 1. TOP TOOLBAR 1 HÀNG DUY NHẤT (GRID TỰ CO GIÃN KHÔNG RỚT DÒNG)     -->
             <!-- =================================================================== -->
             <Border Grid.Row="1"
                     Background="{DynamicResource ToolbarBgBrush}"
                     BorderBrush="{DynamicResource BorderSubtleBrush}"
                     BorderThickness="0,0,0,1"
-                    Padding="10,7">
-                <WrapPanel VerticalAlignment="Center" ItemHeight="34">
+                    Padding="8,5">
+                <Grid x:Name="TopToolbarGrid" Height="34">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                    <!-- NHÓM 1: TỆP (Mới, Mở, Lưu, Mạch mẫu) -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- TRÁI: NHÓM 1 (TỆP) + NHÓM 2 (THAO TÁC) -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="8,4"
                                 Click="OnNewCircuitClick"
-                                Margin="0,0,5,0"
+                                Margin="0,0,4,0"
                                 ToolTip="{DynamicResource Str.Toolbar.NewTip}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="📄 " />
-                                <TextBlock Text="{DynamicResource Str.Toolbar.New}" />
+                                <TextBlock Text="📄" />
+                                <TextBlock x:Name="TxtBtnNew" Text="{DynamicResource Str.Toolbar.New}" Margin="4,0,0,0" />
                             </StackPanel>
                         </Button>
                         <Button Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="8,4"
                                 Click="OnOpenJsonClick"
-                                Margin="0,0,5,0"
+                                Margin="0,0,4,0"
                                 ToolTip="{DynamicResource Str.Toolbar.OpenTip}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="📂 " />
-                                <TextBlock Text="{DynamicResource Str.Toolbar.Open}" />
+                                <TextBlock Text="📂" />
+                                <TextBlock x:Name="TxtBtnOpen" Text="{DynamicResource Str.Toolbar.Open}" Margin="4,0,0,0" />
                             </StackPanel>
                         </Button>
                         <Button Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="8,4"
                                 Click="OnSaveJsonClick"
-                                Margin="0,0,5,0"
+                                Margin="0,0,4,0"
                                 ToolTip="{DynamicResource Str.Toolbar.SaveTip}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="💾 " />
-                                <TextBlock Text="{DynamicResource Str.Toolbar.Save}" />
+                                <TextBlock Text="💾" />
+                                <TextBlock x:Name="TxtBtnSave" Text="{DynamicResource Str.Toolbar.Save}" Margin="4,0,0,0" />
                             </StackPanel>
                         </Button>
                         <Button Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="8,4"
                                 BorderBrush="{DynamicResource AccentBlueBrush}"
                                 Click="OnPresetMenuButtonClick"
                                 ToolTip="{DynamicResource Str.Toolbar.PresetsTip}">
@@ -185,118 +194,128 @@
                                 <ContextMenu x:Name="PresetContextMenu" />
                             </Button.ContextMenu>
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="📐 " />
-                                <TextBlock Text="{DynamicResource Str.Toolbar.Presets}" />
+                                <TextBlock Text="📐" />
+                                <TextBlock Text="{DynamicResource Str.Toolbar.Presets}" Margin="4,0,0,0" />
                             </StackPanel>
                         </Button>
-                    </StackPanel>
 
-                    <Rectangle Width="1" Height="22" Fill="{DynamicResource DividerBrush}" Margin="10,0" />
+                        <Rectangle Width="1" Height="20" Fill="{DynamicResource DividerBrush}" Margin="7,0" />
 
-                    <!-- NHÓM 2: THAO TÁC (Hoàn tác Undo, Làm lại Redo, Xóa) -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Button x:Name="BtnUndo"
                                 Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="8,4"
                                 Click="OnUndoClick"
                                 IsEnabled="False"
-                                Margin="0,0,5,0"
+                                Margin="0,0,4,0"
                                 ToolTip="{DynamicResource Str.Toolbar.UndoTip}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="↩ " />
-                                <TextBlock Text="{DynamicResource Str.Toolbar.Undo}" />
+                                <TextBlock Text="↩" />
+                                <TextBlock x:Name="TxtBtnUndo" Text="{DynamicResource Str.Toolbar.Undo}" Margin="4,0,0,0" />
                             </StackPanel>
                         </Button>
                         <Button x:Name="BtnRedo"
                                 Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="8,4"
                                 Click="OnRedoClick"
                                 IsEnabled="False"
-                                Margin="0,0,5,0"
+                                Margin="0,0,4,0"
                                 ToolTip="{DynamicResource Str.Toolbar.RedoTip}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="↪ " />
-                                <TextBlock Text="{DynamicResource Str.Toolbar.Redo}" />
+                                <TextBlock Text="↪" />
+                                <TextBlock x:Name="TxtBtnRedo" Text="{DynamicResource Str.Toolbar.Redo}" Margin="4,0,0,0" />
                             </StackPanel>
                         </Button>
                         <Button x:Name="BtnDeleteSelected"
                                 Style="{StaticResource DangerToolbarButtonStyle}"
+                                Padding="8,4"
                                 Click="OnDeleteSelectedClick"
                                 IsEnabled="False"
                                 ToolTip="{DynamicResource Str.Toolbar.DeleteTip}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="🗑 " />
-                                <TextBlock Text="{DynamicResource Str.Toolbar.Delete}" />
+                                <TextBlock Text="🗑" />
+                                <TextBlock x:Name="TxtBtnDelete" Text="{DynamicResource Str.Toolbar.Delete}" Margin="4,0,0,0" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
 
-                    <Rectangle Width="1" Height="22" Fill="{DynamicResource DividerBrush}" Margin="10,0" />
+                    <!-- GIỮA: NHÓM 3 (KIỂU DÂY & 5 MÀU TIÊU CHUẨN) -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Rectangle Width="1" Height="20" Fill="{DynamicResource DividerBrush}" Margin="6,0" />
 
-                    <!-- NHÓM 3: DÂY DẪN (Kiểu dây & 5 màu tiêu chuẩn) -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Button x:Name="BtnWireStyle"
                                 Style="{StaticResource ToolbarButtonStyle}"
+                                Padding="8,4"
                                 Click="OnToggleWireStyleClick"
-                                Margin="0,0,6,0"
+                                Margin="0,0,5,0"
                                 Content="{DynamicResource Str.Toolbar.WireOrthogonal}"
                                 ToolTip="{DynamicResource Str.Toolbar.WireStyleTip}" />
 
-                        <RadioButton x:Name="RbWireRed" GroupName="WireColorGroup" Style="{StaticResource WireSwatchRadioStyle}" Tag="#EF4444" IsChecked="True" Checked="OnWireColorChecked" Content="{DynamicResource Str.Wire.Red}" />
-                        <RadioButton x:Name="RbWireYellow" GroupName="WireColorGroup" Style="{StaticResource WireSwatchRadioStyle}" Tag="#EAB308" Checked="OnWireColorChecked" Content="{DynamicResource Str.Wire.Yellow}" />
-                        <RadioButton x:Name="RbWireBlue" GroupName="WireColorGroup" Style="{StaticResource WireSwatchRadioStyle}" Tag="#3B82F6" Checked="OnWireColorChecked" Content="{DynamicResource Str.Wire.Blue}" />
-                        <RadioButton x:Name="RbWireBlack" GroupName="WireColorGroup" Style="{StaticResource WireSwatchRadioStyle}" Tag="#475569" Checked="OnWireColorChecked" Content="{DynamicResource Str.Wire.Black}" />
-                        <RadioButton x:Name="RbWireGreen" GroupName="WireColorGroup" Style="{StaticResource WireSwatchRadioStyle}" Tag="#22C55E" Checked="OnWireColorChecked" Content="{DynamicResource Str.Wire.Green}" />
+                        <RadioButton x:Name="RbWireRed" GroupName="WireColorGroup" Style="{StaticResource WireSwatchRadioStyle}" IsChecked="True" Checked="OnWireColorChecked" ToolTip="{DynamicResource Str.Wire.FullRed}" Content="{DynamicResource Str.Wire.Red}">
+                            <RadioButton.Tag><SolidColorBrush Color="#EF4444" /></RadioButton.Tag>
+                        </RadioButton>
+                        <RadioButton x:Name="RbWireYellow" GroupName="WireColorGroup" Style="{StaticResource WireSwatchRadioStyle}" Checked="OnWireColorChecked" ToolTip="{DynamicResource Str.Wire.FullYellow}" Content="{DynamicResource Str.Wire.Yellow}">
+                            <RadioButton.Tag><SolidColorBrush Color="#EAB308" /></RadioButton.Tag>
+                        </RadioButton>
+                        <RadioButton x:Name="RbWireBlue" GroupName="WireColorGroup" Style="{StaticResource WireSwatchRadioStyle}" Checked="OnWireColorChecked" ToolTip="{DynamicResource Str.Wire.FullBlue}" Content="{DynamicResource Str.Wire.Blue}">
+                            <RadioButton.Tag><SolidColorBrush Color="#3B82F6" /></RadioButton.Tag>
+                        </RadioButton>
+                        <RadioButton x:Name="RbWireBlack" GroupName="WireColorGroup" Style="{StaticResource WireSwatchRadioStyle}" Checked="OnWireColorChecked" ToolTip="{DynamicResource Str.Wire.FullBlack}" Content="{DynamicResource Str.Wire.Black}">
+                            <RadioButton.Tag><SolidColorBrush Color="#475569" /></RadioButton.Tag>
+                        </RadioButton>
+                        <RadioButton x:Name="RbWireGreen" GroupName="WireColorGroup" Style="{StaticResource WireSwatchRadioStyle}" Checked="OnWireColorChecked" ToolTip="{DynamicResource Str.Wire.FullGreen}" Content="{DynamicResource Str.Wire.Green}">
+                            <RadioButton.Tag><SolidColorBrush Color="#22C55E" /></RadioButton.Tag>
+                        </RadioButton>
                     </StackPanel>
 
-                    <Rectangle Width="1" Height="22" Fill="{DynamicResource DividerBrush}" Margin="10,0" />
+                    <!-- PHẢI: NHÓM 4 (CHẾ ĐỘ THIẾT KẾ / MÔ PHỎNG + MỞ CỬA SỔ PLC LADDER) -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Rectangle Width="1" Height="20" Fill="{DynamicResource DividerBrush}" Margin="6,0" />
 
-                    <!-- NHÓM 4: MÔ PHỎNG (Chế độ Thiết kế / Chạy Mô Phỏng) -->
-                    <Border Background="{DynamicResource SubtleSurfaceBrush}"
-                            BorderBrush="{DynamicResource ButtonBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="7"
-                            Padding="3">
-                        <StackPanel Orientation="Horizontal">
-                            <RadioButton x:Name="RbDesignMode"
-                                         GroupName="AppModeGroup"
-                                         Style="{StaticResource ModeSwitchRadioStyle}"
-                                         Tag="#0284C7"
-                                         IsChecked="True"
-                                         Checked="OnModeRadioChecked"
-                                         Content="{DynamicResource Str.Mode.Design}" />
-                            <RadioButton x:Name="RbSimulationMode"
-                                         GroupName="AppModeGroup"
-                                         Style="{StaticResource ModeSwitchRadioStyle}"
-                                         Tag="#059669"
-                                         Checked="OnModeRadioChecked"
-                                         Content="{DynamicResource Str.Mode.Simulate}" />
-                        </StackPanel>
-                    </Border>
+                        <Border Background="{DynamicResource SubtleSurfaceBrush}"
+                                BorderBrush="{DynamicResource ButtonBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="7"
+                                Padding="2.5">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton x:Name="RbDesignMode"
+                                             GroupName="AppModeGroup"
+                                             Style="{StaticResource ModeSwitchRadioStyle}"
+                                             Tag="#0284C7"
+                                             IsChecked="True"
+                                             Checked="OnModeRadioChecked"
+                                             Content="{DynamicResource Str.Mode.Design}" />
+                                <RadioButton x:Name="RbSimulationMode"
+                                             GroupName="AppModeGroup"
+                                             Style="{StaticResource ModeSwitchRadioStyle}"
+                                             Tag="#059669"
+                                             Checked="OnModeRadioChecked"
+                                             Content="{DynamicResource Str.Mode.Simulate}" />
+                            </StackPanel>
+                        </Border>
 
-                    <Rectangle Width="1" Height="22" Fill="{DynamicResource DividerBrush}" Margin="10,0" />
-
-                    <!-- NÚT ẨN / HIỆN TRÌNH LẬP TRÌNH PLC LADDER -->
-                    <Button x:Name="BtnTogglePlcLadder"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            BorderBrush="#009999"
-                            Click="OnTogglePlcLadderClick"
-                            ToolTip="{DynamicResource Str.Toolbar.PlcLadderTip}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="💻 " />
-                            <TextBlock Text="{DynamicResource Str.Toolbar.PlcLadder}" />
-                        </StackPanel>
-                    </Button>
-                </WrapPanel>
+                        <Button x:Name="BtnTogglePlcLadder"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                BorderBrush="#009999"
+                                Padding="8,4"
+                                Margin="6,0,0,0"
+                                Click="OnTogglePlcLadderClick"
+                                ToolTip="{DynamicResource Str.Toolbar.PlcLadderTip}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="💻" />
+                                <TextBlock x:Name="TxtBtnPlcLadder" Text="{DynamicResource Str.Plc.CompactBtn}" Margin="5,0,0,0" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
             </Border>
 
             <!-- =================================================================== -->
-            <!-- 2. MAIN BODY: THƯ VIỆN + VÙNG VẼ CANVAS + KHUNG LADDER CO GIÃN     -->
+            <!-- 2. MAIN BODY: THƯ VIỆN CÓ NÚT THU GỌN (◀/▶) + VÙNG VẼ FULL CANVAS  -->
             <!-- =================================================================== -->
             <Grid Grid.Row="2">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition x:Name="PaletteColumn" Width="290" />
-                    <ColumnDefinition Width="*" MinWidth="360" />
-                    <ColumnDefinition x:Name="PlcSplitterColumn" Width="0" />
-                    <ColumnDefinition x:Name="PlcLadderColumn" Width="0" />
+                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <!-- 2A. THANH THƯ VIỆN BÊN TRÁI (CÓ NÚT ẨN / HIỆN ◀ ▶) -->
@@ -487,27 +506,6 @@
                         </StackPanel>
                     </Border>
                 </Grid>
-
-                <!-- 2C. THANH CHIA CO GIÃN (GRIDSPLITTER) & CỬA SỔ LẬP TRÌNH LADDER -->
-                <GridSplitter x:Name="PlcGridSplitter"
-                              Grid.Column="2"
-                              Width="5"
-                              HorizontalAlignment="Stretch"
-                              VerticalAlignment="Stretch"
-                              Background="{DynamicResource BorderSubtleBrush}"
-                              ResizeDirection="Columns"
-                              ResizeBehavior="PreviousAndNext"
-                              ShowsPreview="False"
-                              Visibility="Collapsed"
-                              Cursor="SizeWE" />
-
-                <Border x:Name="PlcLadderHostBorder"
-                        Grid.Column="3"
-                        BorderBrush="{DynamicResource BorderSubtleBrush}"
-                        BorderThickness="1,0,0,0"
-                        Visibility="Collapsed">
-                    <controls:PlcLadderEditorControl x:Name="PlcLadderEditor" />
-                </Border>
             </Grid>
 
             <!-- =================================================================== -->
