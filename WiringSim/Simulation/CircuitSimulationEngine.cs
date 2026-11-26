@@ -200,7 +200,7 @@ public sealed class CircuitSimulationEngine
         // 1. Đánh giá các tải tiêu thụ & điều khiển trước để biết tải nào đang hoạt động và tiêu thụ bao nhiêu Ampe
         foreach (var comp in _components)
         {
-            if (comp is AmmeterComponent or CurrentTransformerComponent or ThermalOverloadRelayComponent)
+            if (comp is AmmeterComponent or CurrentTransformerComponent or ThermalOverloadRelayComponent or FuseComponent)
                 continue;
 
             comp.EvaluateSimulationStep(deltaSeconds, _wires);
@@ -210,13 +210,15 @@ public sealed class CircuitSimulationEngine
             }
         }
 
-        // 2. Cập nhật dòng tải đầu ra Biến tần (VFD) & Rơ-le nhiệt
+        // 2. Cập nhật dòng tải đầu ra Biến tần (VFD), Rơ-le nhiệt & bảo vệ quá tải Cầu chì (RT18)
         UpdateVfdOutputCurrents();
         UpdateThermalOverloadRelayCurrents();
         foreach (var rn in _components.OfType<ThermalOverloadRelayComponent>())
         {
             rn.EvaluateSimulationStep(deltaSeconds, _wires);
         }
+
+        EvaluateFuseOverloadProtection(adj, allSources, deltaSeconds);
 
         // 3. Giải bài toán dòng điện nhánh nối tiếp cho Biến dòng CT (P1-P2) và Đồng hồ Ampe (I1-I2)
         SolveCurrentTransformersAndAmmeters(adj, allSources, deltaSeconds);
@@ -419,6 +421,27 @@ public sealed class CircuitSimulationEngine
                 step.Edge.Wire.HasCurrentFlow = true;
             }
             cur = step.From;
+        }
+    }
+
+    private void EvaluateFuseOverloadProtection(
+        Dictionary<Terminal, List<GraphEdge>> adj,
+        List<(Terminal Terminal, PotentialToken Token)> allSources,
+        double deltaSeconds)
+    {
+        foreach (var fuse in _components.OfType<FuseComponent>())
+        {
+            if (fuse.IsBlown) continue;
+
+            var (amps, _) = ComputeSeriesBranchCurrentThroughComponent(fuse, fuse.In1, fuse.Out2, adj, allSources);
+            fuse.MeasuredCurrentAmps = Math.Round(amps, 2);
+
+            bool wasBlown = fuse.IsBlown;
+            fuse.EvaluateSimulationStep(deltaSeconds, _wires);
+            if (!wasBlown && fuse.IsBlown && !string.IsNullOrWhiteSpace(fuse.BlownReason))
+            {
+                ComponentFaultAlert?.Invoke(fuse.BlownReason!);
+            }
         }
     }
 
@@ -671,6 +694,7 @@ public sealed class CircuitSimulationEngine
 
         var faultedWireIds = new HashSet<string>();
         var breakersToTrip = new HashSet<ICircuitBreaker>();
+        var fusesToBlow = new HashSet<FuseComponent>();
         AmmeterComponent? shortedAmmeter = null;
 
         foreach (var step in pathEdges)
@@ -684,13 +708,17 @@ public sealed class CircuitSimulationEngine
             {
                 breakersToTrip.Add(cb);
             }
+            if (step.Edge.InternalComponent is FuseComponent fuse && !fuse.IsBlown)
+            {
+                fusesToBlow.Add(fuse);
+            }
             if (step.Edge.InternalComponent is AmmeterComponent am)
             {
                 shortedAmmeter = am;
             }
         }
 
-        if (breakersToTrip.Count == 0)
+        if (breakersToTrip.Count == 0 && fusesToBlow.Count == 0)
         {
             foreach (var term in netTerminals)
             {
@@ -698,10 +726,20 @@ public sealed class CircuitSimulationEngine
                 {
                     breakersToTrip.Add(cb);
                 }
+                else if (term.Owner is FuseComponent fuse && !fuse.IsBlown)
+                {
+                    fusesToBlow.Add(fuse);
+                }
             }
         }
 
         var trippedNames = new List<string>();
+        var blownFuseNames = new List<string>();
+        foreach (var fuse in fusesToBlow)
+        {
+            fuse.Blow(reason);
+            blownFuseNames.Add(fuse.DisplayName);
+        }
         foreach (var cb in breakersToTrip)
         {
             cb.TripShortCircuit();
@@ -749,16 +787,30 @@ public sealed class CircuitSimulationEngine
                 faultPoint.Y);
         }
 
-        _unprotectedFaultLockout = trippedNames.Count == 0;
+        _unprotectedFaultLockout = trippedNames.Count == 0 && blownFuseNames.Count == 0;
 
         // Nếu ngắn mạch đi xuyên qua Đồng hồ Ampe (đấu nhầm song song vào nguồn), phát cảnh báo chuyên biệt!
         string headerTitle = shortedAmmeter is not null
             ? LocalizationManager.Get("Str.Fault.AmmeterParallelShort")
             : LocalizationManager.Get("Str.Fault.ShortHeader");
 
-        string actionText = trippedNames.Count > 0
-            ? LocalizationManager.Format("Str.Fault.TrippedMcb", string.Join(", ", trippedNames))
-            : LocalizationManager.Get("Str.Fault.NoMcbLockout");
+        string actionText;
+        if (blownFuseNames.Count > 0 && trippedNames.Count > 0)
+        {
+            actionText = $"{LocalizationManager.Format("Str.Fault.FuseBlownShort", string.Join(", ", blownFuseNames))} {LocalizationManager.Format("Str.Fault.TrippedMcb", string.Join(", ", trippedNames))}";
+        }
+        else if (blownFuseNames.Count > 0)
+        {
+            actionText = LocalizationManager.Format("Str.Fault.FuseBlownShort", string.Join(", ", blownFuseNames));
+        }
+        else if (trippedNames.Count > 0)
+        {
+            actionText = LocalizationManager.Format("Str.Fault.TrippedMcb", string.Join(", ", trippedNames));
+        }
+        else
+        {
+            actionText = LocalizationManager.Get("Str.Fault.NoMcbLockout");
+        }
 
         ActiveFault = new ShortCircuitFaultInfo
         {

@@ -55,6 +55,13 @@ public static class ComponentRenderer
     {
         var theme = ThemeManager.CanvasColors;
 
+        // Nút rẽ nhánh dây dẫn (Wire T-Junction): chỉ vẽ chấm tròn đặc cùng màu dây (không vẽ hộp chữ nhật)
+        if (comp is WireJunctionComponent junc)
+        {
+            DrawWireJunctionDot(dc, junc, isSelected, isHovered, hoveredTerminal, activeWireStartTerminal, isSimulating, theme);
+            return;
+        }
+
         double padTop = comp.Terminals.Any(t => t.Side == TerminalSide.Top) ? 6 : 0;
         double padBot = comp.Terminals.Any(t => t.Side == TerminalSide.Bottom) ? 6 : 0;
         double padLeft = comp.Terminals.Any(t => t.Side == TerminalSide.Left) ? 6 : 0;
@@ -120,6 +127,21 @@ public static class ComponentRenderer
             case PushButtonComponent pb:
                 DrawPushButton(dc, pb, bodyRect, theme, dpiScale, targetHitZones);
                 break;
+            case IlluminatedPushButtonComponent ipb:
+                DrawIlluminatedPushButton(dc, ipb, bodyRect, theme, dpiScale, targetHitZones);
+                break;
+            case EmergencyStopComponent estop:
+                DrawEmergencyStop(dc, estop, bodyRect, theme, dpiScale, targetHitZones);
+                break;
+            case FuseComponent fuse:
+                DrawFuse(dc, fuse, bodyRect, theme, dpiScale);
+                break;
+            case KnifeSwitchComponent knife:
+                DrawKnifeSwitch(dc, knife, bodyRect, theme, dpiScale, targetHitZones);
+                break;
+            case CamSwitchComponent cam:
+                DrawCamSwitch(dc, cam, bodyRect, theme, dpiScale, targetHitZones);
+                break;
             case LimitSwitchComponent ls:
                 DrawLimitSwitch(dc, ls, bodyRect, theme, dpiScale, targetHitZones);
                 break;
@@ -137,6 +159,9 @@ public static class ComponentRenderer
                 break;
             case TimerOnDelayComponent timer:
                 DrawTimerH3Cr(dc, timer, bodyRect, theme, dpiScale, targetHitZones);
+                break;
+            case RotaryTimerAh3Component ah3:
+                DrawRotaryTimerAh3(dc, ah3, bodyRect, theme, dpiScale, targetHitZones);
                 break;
             case IndustrialSensorComponent sensor:
                 DrawIndustrialSensor(dc, sensor, bodyRect, theme, dpiScale, targetHitZones);
@@ -160,6 +185,9 @@ public static class ComponentRenderer
                 break;
             case Motor1PhaseComponent m1:
                 DrawMotor1Phase(dc, m1, bodyRect, theme, dpiScale);
+                break;
+            case MotorLinearTrackComponent track:
+                DrawMotorLinearTrack(dc, track, bodyRect, theme, dpiScale);
                 break;
             case Motor3PhaseBaseComponent m3:
                 DrawMotor3Phase(dc, m3, bodyRect, theme, dpiScale);
@@ -189,7 +217,7 @@ public static class ComponentRenderer
         {
             string burnKey = comp switch
             {
-                PilotLightComponent or ResidentialLampComponent => "Str.Vis.BurnedLamp",
+                PilotLightComponent or ResidentialLampComponent or IlluminatedPushButtonComponent => "Str.Vis.BurnedLamp",
                 IndustrialSensorComponent => "Str.Vis.BurnedSensor",
                 _ => "Str.Vis.BurnedCoil"
             };
@@ -440,15 +468,16 @@ public static class ComponentRenderer
     private static void DrawPushButton(DrawingContext dc, PushButtonComponent pb, Rect body, CanvasThemeColors theme, double dpiScale, List<ComponentHitZone> hitZones)
     {
         Point center = new(body.X + body.Width / 2.0, body.Y + body.Height / 2.0);
-        dc.DrawEllipse(CreateSolid("#0F172A"), CreatePen("#64748B", 2.2), center, 24, 24);
+        dc.DrawEllipse(CreateSolid("#0F172A"), CreatePen("#64748B", 2.2), center, 23, 23);
 
         double pressOffset = pb.IsPressed ? 3.0 : 0.0;
-        double capRadius = pb.IsPressed ? 16.5 : 18.5;
+        double capRadius = pb.IsPressed ? 15.5 : 17.5;
 
         (string normalHex, string pressedHex, string ringHex) = pb.ButtonColor switch
         {
             PilotLightColor.Red => ("#EF4444", "#B91C1C", "#FCA5A5"),
             PilotLightColor.Yellow => ("#EAB308", "#A16207", "#FEF08A"),
+            PilotLightColor.Blue => ("#3B82F6", "#1D4ED8", "#93C5FD"),
             _ => ("#22C55E", "#15803D", "#86EFAC")
         };
 
@@ -461,63 +490,572 @@ public static class ComponentRenderer
         string cfgLabel = pb.ContactConfig switch
         {
             PushButtonContactConfig.Only1NC => "NC",
-            PushButtonContactConfig.Dual1NO1NC => "NO/NC",
+            PushButtonContactConfig.Dual1NO1NC => "LA38",
             _ => "NO"
         };
-        var ft = FormatText(cfgLabel, pb.ContactConfig == PushButtonContactConfig.Dual1NO1NC ? 8.8 : 10.5, BoldTypeface, Brushes.White, dpiScale);
+        var ft = FormatText(cfgLabel, 8.8, BoldTypeface, Brushes.White, dpiScale);
         dc.DrawText(ft, new Point(capCenter.X - ft.Width / 2, capCenter.Y - ft.Height / 2));
+
+        // Nhãn chân chuẩn LA38: 11-12 (NC) và 23-24 (NO)
+        if (pb.NcIn1 is not null && pb.NcOut2 is not null)
+        {
+            var t11 = FormatText("11", 7.6, BoldTypeface, CreateSolid("#FB923C"), dpiScale);
+            var t12 = FormatText("12", 7.6, BoldTypeface, CreateSolid("#FB923C"), dpiScale);
+            dc.DrawText(t11, new Point(pb.X + pb.NcIn1.RelX - t11.Width / 2, body.Top + 2));
+            dc.DrawText(t12, new Point(pb.X + pb.NcOut2.RelX - t12.Width / 2, body.Bottom - 12));
+        }
+        if (pb.NoIn3 is not null && pb.NoOut4 is not null)
+        {
+            var t23 = FormatText("23", 7.6, BoldTypeface, CreateSolid("#4ADE80"), dpiScale);
+            var t24 = FormatText("24", 7.6, BoldTypeface, CreateSolid("#4ADE80"), dpiScale);
+            dc.DrawText(t23, new Point(pb.X + pb.NoIn3.RelX - t23.Width / 2, body.Top + 2));
+            dc.DrawText(t24, new Point(pb.X + pb.NoOut4.RelX - t24.Width / 2, body.Bottom - 12));
+        }
 
         if (pb.ActionMode == PushButtonActionMode.Latching)
         {
-            var latchFt = FormatText(LocalizationManager.Get("Str.Vis.Latch"), 7.6, BoldTypeface, CreateSolid("#D97706"), dpiScale);
-            dc.DrawText(latchFt, new Point(body.X + 6, body.Top + 4));
+            var latchFt = FormatText(LocalizationManager.Get("Str.Vis.Latch"), 7.2, BoldTypeface, CreateSolid("#F59E0B"), dpiScale);
+            dc.DrawText(latchFt, new Point(center.X - latchFt.Width / 2, body.Top + 2));
         }
 
-        Rect hitRect = new(center.X - 25, center.Y - 25, 50, 50);
+        Rect hitRect = new(center.X - 24, center.Y - 24, 48, 48);
         string action = pb.ActionMode == PushButtonActionMode.Latching ? "PUSHBUTTON_LATCH" : "PUSHBUTTON_HOLD";
         hitZones.Add(new ComponentHitZone(pb, hitRect, action, AllowedInDesignMode: false));
     }
 
     // =========================================================================
-    // 2. CÔNG TẮC HÀNH TRÌNH (WLCA2 / ME-8108) & 4 CẢM BIẾN CÔNG NGHIỆP (PNP/NPN)
+    // 2. CÔNG TẮC HÀNH TRÌNH (ME-8104) & CÁC THIẾT BỊ v1.1
     // =========================================================================
 
     private static void DrawLimitSwitch(DrawingContext dc, LimitSwitchComponent ls, Rect body, CanvasThemeColors theme, double dpiScale, List<ComponentHitZone> hitZones)
     {
-        // Cửa sổ sơ đồ tiếp điểm bên trong thân WLCA2
-        Rect inner = new(body.X + 8, body.Y + 26, body.Width - 16, body.Height - 36);
-        dc.DrawRoundedRectangle(CreateSolid(theme.InsetPanelHex), CreatePen("#475569", 1.2), inner, 5, 5);
+        // Vỏ kim loại đúc xanh-đen đặc trưng kiểu ME-8104
+        Rect shell = new(body.X + 4, body.Y + 20, body.Width - 8, body.Height - 24);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#1E3A5F", "#0F172A"), CreatePen("#38BDF8", 1.1), shell, 5, 5);
 
-        DrawAuxPairColumn(dc, ls.X + ls.No13.RelX, inner, ls.IsActuated, "13-14", "#34D399", dpiScale);
-        DrawAuxPairColumn(dc, ls.X + ls.Nc21.RelX, inner, !ls.IsActuated, "21-22", "#FB923C", dpiScale);
+        Rect inner = new(body.X + 8, body.Y + 34, body.Width - 16, body.Height - 44);
+        dc.DrawRoundedRectangle(CreateSolid("#0B1120"), CreatePen("#475569", 1.1), inner, 4, 4);
 
-        // Đầu trục xoay & Cần gạt bánh xe (Roller Lever) ở góc trên giữa/phải
-        Point pivot = new(body.X + body.Width / 2.0, body.Y + 18);
-        double armAngle = ls.IsActuated ? 22.0 : -24.0;
+        // Tiếp điểm NC (1-2) trái và NO (3-4) phải
+        DrawAuxPairColumn(dc, ls.X + ls.Nc1.RelX, inner, !ls.IsActuated, "1-2 NC", "#FB923C", dpiScale);
+        DrawAuxPairColumn(dc, ls.X + ls.No3.RelX, inner, ls.IsActuated, "3-4 NO", "#34D399", dpiScale);
+
+        // Đầu trục xoay kim loại ME-8104 & cần gạt bánh xe con lăn phía trên
+        Rect turret = new(body.X + body.Width / 2.0 - 14, body.Y + 8, 28, 16);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#475569", "#1E293B"), CreatePen("#94A3B8", 1.1), turret, 3, 3);
+
+        Point pivot = new(body.X + body.Width / 2.0, body.Y + 16);
+        double armAngle = ls.IsActuated ? 30.0 : -26.0;
 
         dc.PushTransform(new RotateTransform(armAngle, pivot.X, pivot.Y));
-        dc.DrawRoundedRectangle(CreateSolid("#94A3B8"), CreatePen("#1E293B", 1.2), new Rect(pivot.X - 3, pivot.Y - 3, 34, 6), 2, 2);
-        // Bánh xe cao su đỏ/cam đầu cần gạt
-        dc.DrawEllipse(CreateSolid(ls.IsActuated ? "#22C55E" : "#F97316"), CreatePen("#F8FAFC", 1.3), new Point(pivot.X + 31, pivot.Y), 7.5, 7.5);
-        dc.DrawEllipse(CreateSolid("#0F172A"), null, new Point(pivot.X + 31, pivot.Y), 2.5, 2.5);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#E2E8F0", "#94A3B8"), CreatePen("#334155", 1.0), new Rect(pivot.X - 3, pivot.Y - 3, 36, 6), 2, 2);
+        // Bánh xe con lăn cao su đen viền cam/xanh
+        dc.DrawEllipse(CreateSolid(ls.IsActuated ? "#22C55E" : "#1E293B"), CreatePen(ls.IsActuated ? "#86EFAC" : "#F97316", 2.4), new Point(pivot.X + 33, pivot.Y), 7.5, 7.5);
+        dc.DrawEllipse(CreateSolid("#CBD5E1"), null, new Point(pivot.X + 33, pivot.Y), 2.5, 2.5);
         dc.Pop();
 
-        dc.DrawEllipse(CreateSolid("#334155"), CreatePen("#CBD5E1", 1.2), pivot, 5.5, 5.5);
+        dc.DrawEllipse(CreateSolid("#64748B"), CreatePen("#E2E8F0", 1.2), pivot, 5.0, 5.0);
 
-        // Đèn LED báo tác động trên thân
-        Point ledPt = new(body.X + body.Width / 2.0, inner.Bottom - 10);
+        // Đèn LED báo tác động
+        Point ledPt = new(body.X + body.Width / 2.0, inner.Bottom - 9);
         if (ls.IsActuated)
         {
-            dc.DrawEllipse(CreateRadialGlow("#AA22C55E", "#0022C55E"), null, ledPt, 10, 10);
-            dc.DrawEllipse(CreateSolid("#4ADE80"), null, ledPt, 4.0, 4.0);
+            dc.DrawEllipse(CreateRadialGlow("#AA22C55E", "#0022C55E"), null, ledPt, 9, 9);
+            dc.DrawEllipse(CreateSolid("#4ADE80"), null, ledPt, 3.8, 3.8);
         }
         else
         {
-            dc.DrawEllipse(CreateSolid("#334155"), null, ledPt, 3.5, 3.5);
+            dc.DrawEllipse(CreateSolid("#334155"), null, ledPt, 3.2, 3.2);
         }
 
         string action = ls.ActionMode == PushButtonActionMode.Latching ? "LIMIT_TOGGLE" : "LIMIT_HOLD";
         hitZones.Add(new ComponentHitZone(ls, new Rect(body.X, body.Y, body.Width, body.Height), action, AllowedInDesignMode: false));
+    }
+
+    private static void DrawWireJunctionDot(
+        DrawingContext dc,
+        WireJunctionComponent junc,
+        bool isSelected,
+        bool isHovered,
+        Terminal? hoveredTerminal,
+        Terminal? activeWireStartTerminal,
+        bool isSimulating,
+        CanvasThemeColors theme)
+    {
+        Point p = new(junc.NodeTerminal.CanvasX, junc.NodeTerminal.CanvasY);
+        var (baseHex, brightHex, glowHex) = WiringCanvasControl.GetWirePaletteColors(junc.DotColorPreset, theme.IsDark);
+
+        bool isHot = isSimulating && junc.NodeTerminal.IsEnergized;
+        bool isActive = isHovered || hoveredTerminal == junc.NodeTerminal || activeWireStartTerminal == junc.NodeTerminal;
+
+        if (isHot)
+            dc.DrawEllipse(CreateRadialGlow(glowHex, "#00000000"), null, p, 12, 12);
+        else if (isSelected || isActive)
+            dc.DrawEllipse(CreateRadialGlow("#8838BDF8", "#0038BDF8"), null, p, 12, 12);
+
+        double radius = isActive || isSelected ? 6.4 : 5.2;
+        string fillHex = isHot ? brightHex : baseHex;
+        Pen? ringPen = isSelected || isActive
+            ? CreatePen("#38BDF8", 1.8)
+            : CreatePen(theme.IsDark ? "#0B0F17" : "#FFFFFF", 1.2);
+
+        dc.DrawEllipse(CreateSolid(fillHex), ringPen, p, radius, radius);
+    }
+
+    private static void DrawIlluminatedPushButton(DrawingContext dc, IlluminatedPushButtonComponent ipb, Rect body, CanvasThemeColors theme, double dpiScale, List<ComponentHitZone> hitZones)
+    {
+        Point center = new(body.X + body.Width / 2.0, body.Y + body.Height / 2.0);
+        bool lit = ipb.IsLit && !ipb.IsBurnedOut;
+
+        (string dimHex, string litHex, string glowHex, string coreHex) = ipb.ButtonColor switch
+        {
+            PilotLightColor.Red => ("#7F1D1D", "#EF4444", "#CCEF4444", "#FEE2E2"),
+            PilotLightColor.Yellow => ("#713F12", "#FACC15", "#CCFACC15", "#FEF9C3"),
+            PilotLightColor.Blue => ("#1E3A8A", "#3B82F6", "#CC3B82F6", "#DBEAFE"),
+            PilotLightColor.White => ("#475569", "#F8FAFC", "#CCF8FAFC", "#FFFFFF"),
+            _ => ("#14532D", "#22C55E", "#CC22C55E", "#DCFCE7")
+        };
+
+        if (lit)
+            dc.DrawEllipse(CreateRadialGlow(glowHex, "#00000000"), null, center, 42, 42);
+
+        dc.DrawEllipse(CreateSolid("#0F172A"), CreatePen("#94A3B8", 2.2), center, 24, 24);
+        double offset = ipb.IsPressed ? 2.5 : 0.0;
+        double capR = ipb.IsPressed ? 17.0 : 19.0;
+        Point capCenter = new(center.X, center.Y + offset);
+
+        Brush capFill = lit ? CreateRadialGlow(coreHex, litHex) : CreateSolid(dimHex);
+        dc.DrawEllipse(capFill, CreatePen(lit ? "#FFFFFF" : "#64748B", lit ? 1.8 : 1.2), capCenter, capR, capR);
+
+        if (lit)
+            dc.DrawEllipse(CreateSolid("#99FFFFFF"), null, new Point(capCenter.X - 5, capCenter.Y - 5), 6, 6);
+
+        var (_, _, vSpec) = ElectricalAnalysisHelper.GetRatingSpec(ipb.VoltageRating);
+        var vFt = FormatText(vSpec, 7.6, BoldTypeface, CreateSolid(lit ? "#0F172A" : "#E2E8F0"), dpiScale);
+        dc.DrawText(vFt, new Point(capCenter.X - vFt.Width / 2, capCenter.Y - vFt.Height / 2));
+
+        // Nhãn 6 chân: 11-12 (NC), 23-24 (NO), X1-X2 (Đèn)
+        DrawPinLabel(dc, ipb.X + ipb.Nc11.RelX, body.Top + 2, "11", "#FB923C", dpiScale);
+        DrawPinLabel(dc, ipb.X + ipb.No23.RelX, body.Top + 2, "23", "#4ADE80", dpiScale);
+        DrawPinLabel(dc, ipb.X + ipb.LampX1.RelX, body.Top + 2, "X1", "#38BDF8", dpiScale);
+
+        DrawPinLabel(dc, ipb.X + ipb.Nc12.RelX, body.Bottom - 12, "12", "#FB923C", dpiScale);
+        DrawPinLabel(dc, ipb.X + ipb.No24.RelX, body.Bottom - 12, "24", "#4ADE80", dpiScale);
+        DrawPinLabel(dc, ipb.X + ipb.LampX2.RelX, body.Bottom - 12, "X2", "#38BDF8", dpiScale);
+
+        if (ipb.ActionMode == PushButtonActionMode.Latching)
+        {
+            var lFt = FormatText(LocalizationManager.Get("Str.Vis.Latch"), 7.2, BoldTypeface, CreateSolid("#F59E0B"), dpiScale);
+            dc.DrawText(lFt, new Point(body.X + 5, body.Y + 16));
+        }
+
+        DrawSupplyMismatchPill(dc, body, ipb.SupplyStatus, dpiScale);
+
+        Rect hitRect = new(center.X - 25, center.Y - 25, 50, 50);
+        string act = ipb.ActionMode == PushButtonActionMode.Latching ? "ILLUM_PB_LATCH" : "ILLUM_PB_HOLD";
+        hitZones.Add(new ComponentHitZone(ipb, hitRect, act, AllowedInDesignMode: false));
+    }
+
+    private static void DrawEmergencyStop(DrawingContext dc, EmergencyStopComponent es, Rect body, CanvasThemeColors theme, double dpiScale, List<ComponentHitZone> hitZones)
+    {
+        // Đế an toàn màu vàng công nghiệp nổi bật
+        Rect yellowBase = new(body.X + 4, body.Y + 12, body.Width - 8, body.Height - 24);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#FACC15", "#CA8A04"), CreatePen("#854D0E", 1.8), yellowBase, 7, 7);
+
+        Point center = new(body.X + body.Width / 2.0, body.Y + body.Height / 2.0);
+        double capR = es.IsEngaged ? 22.0 : 26.0;
+
+        if (!es.IsEngaged)
+            dc.DrawEllipse(CreateSolid("#66000000"), null, new Point(center.X, center.Y + 3.5), capR, capR);
+
+        // Đầu nấm màu đỏ lớn + vòng cảnh báo khi đang khóa
+        dc.DrawEllipse(CreateSolid("#7F1D1D"), CreatePen("#FDE047", 1.8), center, capR + 3, capR + 3);
+        dc.DrawEllipse(CreateVerticalGradient(es.IsEngaged ? "#B91C1C" : "#EF4444", "#991B1B"), CreatePen("#FCA5A5", 1.6), center, capR, capR);
+
+        string capTxt = es.IsEngaged ? "↻ LOCK" : "E-STOP";
+        var ft = FormatText(capTxt, 8.6, BoldTypeface, Brushes.White, dpiScale);
+        dc.DrawText(ft, new Point(center.X - ft.Width / 2, center.Y - ft.Height / 2));
+
+        // Nhãn chân
+        DrawPinLabel(dc, es.X + es.Nc11.RelX, body.Top + 1, "11", "#FB923C", dpiScale);
+        DrawPinLabel(dc, es.X + es.Nc12.RelX, body.Bottom - 12, "12", "#FB923C", dpiScale);
+        if (es.SecondTop is not null && es.SecondBot is not null)
+        {
+            string col = es.ContactConfig == EmergencyStopContactConfig.Dual2NC ? "#FB923C" : "#4ADE80";
+            DrawPinLabel(dc, es.X + es.SecondTop.RelX, body.Top + 1, es.SecondTop.Id, col, dpiScale);
+            DrawPinLabel(dc, es.X + es.SecondBot.RelX, body.Bottom - 12, es.SecondBot.Id, col, dpiScale);
+        }
+
+        hitZones.Add(new ComponentHitZone(es, yellowBase, "ESTOP_TOGGLE", AllowedInDesignMode: false));
+    }
+
+    private static void DrawFuse(DrawingContext dc, FuseComponent fuse, Rect body, CanvasThemeColors theme, double dpiScale)
+    {
+        double cx = body.X + body.Width / 2.0;
+
+        // Đầu chụp đồng trên & dưới
+        Rect capTop = new(cx - 11, body.Top + 10, 22, 14);
+        Rect capBot = new(cx - 11, body.Bottom - 24, 22, 14);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#CBD5E1", "#64748B"), CreatePen("#334155", 1.0), capTop, 3, 3);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#CBD5E1", "#64748B"), CreatePen("#334155", 1.0), capBot, 3, 3);
+
+        // Ống thủy tinh trong suốt ở giữa
+        Rect glass = new(cx - 9, capTop.Bottom, 18, capBot.Top - capTop.Bottom);
+        dc.DrawRectangle(CreateSolid(fuse.IsBlown ? "#44EF4444" : "#33E2E8F0"), CreatePen("#94A3B8", 1.2), glass);
+
+        if (!fuse.IsBlown)
+        {
+            // Sợi dây chì mảnh ánh vàng/bạc nguyên vẹn
+            dc.DrawLine(CreatePen("#FACC15", 2.0), new Point(cx, glass.Top), new Point(cx, glass.Bottom));
+        }
+        else
+        {
+            // Sợi chì bị đứt cháy ở giữa kèm vệt khói đen/đỏ
+            double midY = glass.Y + glass.Height / 2.0;
+            dc.DrawEllipse(CreateRadialGlow("#AAEF4444", "#00000000"), null, new Point(cx, midY), 10, 10);
+            dc.DrawLine(CreatePen("#94A3B8", 1.8), new Point(cx, glass.Top), new Point(cx - 3, midY - 7));
+            dc.DrawLine(CreatePen("#94A3B8", 1.8), new Point(cx + 3, midY + 7), new Point(cx, glass.Bottom));
+        }
+
+        // Nhãn dòng định mức / Cảnh báo đứt chì
+        string label = fuse.IsBlown ? LocalizationManager.Get("Str.Vis.FuseBlown") : $"{fuse.RatedAmps}A";
+        var ft = FormatText(label, fuse.IsBlown ? 7.6 : 9.0, BoldTypeface, CreateSolid(fuse.IsBlown ? "#FCA5A5" : "#FDE047"), dpiScale);
+        Rect pill = new(cx - ft.Width / 2 - 4, body.Y + body.Height / 2.0 - 8, ft.Width + 8, 16);
+        dc.DrawRoundedRectangle(CreateSolid(fuse.IsBlown ? "#DD991B1B" : "#CC0F172A"), CreatePen(fuse.IsBlown ? "#FCA5A5" : "#475569", 0.9), pill, 3, 3);
+        dc.DrawText(ft, new Point(cx - ft.Width / 2, pill.Y + 2));
+    }
+
+    private static void DrawKnifeSwitch(DrawingContext dc, KnifeSwitchComponent knife, Rect body, CanvasThemeColors theme, double dpiScale, List<ComponentHitZone> hitZones)
+    {
+        if (knife.SwitchKind == KnifeSwitchKind.Changeover3P_1_0_2)
+        {
+            // Cầu dao đảo chiều 2 ngả 1 - 0 - 2
+            var title = FormatText($"1-0-2 • POS {knife.Position}", 8.4, BoldTypeface, CreateSolid("#F59E0B"), dpiScale);
+            dc.DrawText(title, new Point(body.X + 8, body.Y + 6));
+
+            for (int i = 0; i < 3; i++)
+            {
+                double x = knife.X + knife.TopInputs[i].RelX;
+                Point pTop = new(x, body.Top + 26);
+                Point pMid = new(x, body.Y + body.Height / 2.0);
+                Point pBot = new(x, body.Bottom - 26);
+
+                dc.DrawEllipse(CreateSolid("#F59E0B"), null, pTop, 3.2, 3.2);
+                dc.DrawEllipse(CreateSolid("#F59E0B"), null, pBot, 3.2, 3.2);
+                dc.DrawEllipse(Brushes.White, CreatePen("#D97706", 1.2), pMid, 3.6, 3.6);
+
+                // Đường dẫn nối từ tâm ra chân chung A/B/C bên phải
+                double ry = knife.Y + knife.CommonOutputs[i].RelY;
+                dc.DrawLine(CreatePen("#64748B", 1.1), pMid, new Point(body.Right - 4, ry));
+
+                // Lưỡi dao đồng đảo chiều lên (1) / mở ngang (0) / xuống (2)
+                Point tip = knife.Position switch
+                {
+                    1 => pTop,
+                    2 => pBot,
+                    _ => new Point(x + 14, pMid.Y - 4)
+                };
+                dc.DrawLine(CreatePen(knife.Position == 0 ? "#94A3B8" : "#F59E0B", 3.4), pMid, tip);
+            }
+
+            // Tay nắm cách điện đỏ
+            double handleY = knife.Position switch { 1 => body.Top + 22, 2 => body.Bottom - 34, _ => body.Y + body.Height / 2.0 - 6 };
+            dc.DrawRoundedRectangle(CreateSolid("#DC2626"), CreatePen("#FCA5A5", 1.0), new Rect(body.X + 12, handleY, 96, 10), 4, 4);
+
+            // 3 vùng bấm nhanh: Ngả 1 (trên), OFF 0 (giữa), Ngả 2 (dưới)
+            hitZones.Add(new ComponentHitZone(knife, new Rect(body.X + 6, body.Top + 14, body.Width - 26, 36), "KNIFE_POS_1", AllowedInDesignMode: false));
+            hitZones.Add(new ComponentHitZone(knife, new Rect(body.X + 6, body.Y + body.Height / 2.0 - 16, body.Width - 26, 32), "KNIFE_POS_0", AllowedInDesignMode: false));
+            hitZones.Add(new ComponentHitZone(knife, new Rect(body.X + 6, body.Bottom - 50, body.Width - 26, 36), "KNIFE_POS_2", AllowedInDesignMode: false));
+            return;
+        }
+
+        // Cầu dao 1P (2 cực) hoặc 3P (3 cực)
+        bool closed = knife.Position == 1;
+        string stLbl = closed ? $"ON • {LocalizationManager.Get("Str.Vis.Closed")}" : $"OFF • {LocalizationManager.Get("Str.Vis.Open")}";
+        var hdr = FormatText(stLbl, 8.6, BoldTypeface, CreateSolid(closed ? "#4ADE80" : "#94A3B8"), dpiScale);
+        dc.DrawText(hdr, new Point(body.X + (body.Width - hdr.Width) / 2.0, body.Y + 6));
+
+        for (int i = 0; i < knife.TopInputs.Count; i++)
+        {
+            double x = knife.X + knife.TopInputs[i].RelX;
+            Point pTop = new(x, body.Top + 28);
+            Point pBot = new(x, body.Bottom - 26);
+
+            dc.DrawLine(CreatePen("#94A3B8", 1.8), new Point(x, body.Top + 4), pTop);
+            dc.DrawLine(CreatePen("#94A3B8", 1.8), pBot, new Point(x, body.Bottom - 4));
+
+            // Ngàm kẹp đồng trên & bản lề dưới
+            dc.DrawRoundedRectangle(CreateSolid("#D97706"), null, new Rect(x - 4, pTop.Y - 4, 8, 8), 2, 2);
+            dc.DrawEllipse(CreateSolid("#F59E0B"), CreatePen("#FEF08A", 0.9), pBot, 4.0, 4.0);
+
+            // Lưỡi dao đồng
+            Point tip = closed ? pTop : new Point(x + 16, pTop.Y + 14);
+            dc.DrawLine(CreatePen(closed ? "#F59E0B" : "#94A3B8", 3.6), pBot, tip);
+        }
+
+        // Thanh tay cầm cách điện màu đỏ nối các lưỡi dao
+        double barY = closed ? body.Top + 34 : body.Top + 50;
+        dc.DrawRoundedRectangle(CreateSolid("#DC2626"), CreatePen("#FCA5A5", 1.1), new Rect(body.X + 10, barY, body.Width - 20, 12), 5, 5);
+        hitZones.Add(new ComponentHitZone(knife, new Rect(body.X + 6, body.Y + 20, body.Width - 12, body.Height - 36), "KNIFE_TOGGLE", AllowedInDesignMode: false));
+    }
+
+    private static void DrawCamSwitch(DrawingContext dc, CamSwitchComponent cam, Rect body, CanvasThemeColors theme, double dpiScale, List<ComponentHitZone> hitZones)
+    {
+        // Mặt vuông nhôm bạc đặc trưng của chuyển mạch tủ điện KDE
+        Rect plate = new(body.X + 12, body.Y + 18, body.Width - 24, body.Height - 36);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#E2E8F0", "#CBD5E1"), CreatePen("#475569", 1.6), plate, 6, 6);
+
+        // 4 vít bắt tủ 4 góc
+        foreach (var pt in new[] { new Point(plate.Left + 6, plate.Top + 6), new Point(plate.Right - 6, plate.Top + 6), new Point(plate.Left + 6, plate.Bottom - 6), new Point(plate.Right - 6, plate.Bottom - 6) })
+            dc.DrawEllipse(CreateSolid("#64748B"), null, pt, 2.2, 2.2);
+
+        Point center = new(plate.X + plate.Width / 2.0, plate.Y + plate.Height / 2.0 + 4);
+        string[] labels = cam.GetPositionLabels();
+        int n = labels.Length;
+        double startDeg = n == 7 ? -120.0 : -75.0;
+        double endDeg = n == 7 ? 120.0 : 75.0;
+        double stepDeg = n > 1 ? (endDeg - startDeg) / (n - 1) : 0;
+
+        for (int i = 0; i < n; i++)
+        {
+            double deg = startDeg + i * stepDeg;
+            double rad = (deg - 90.0) * Math.PI / 180.0;
+            bool isActive = i == cam.PositionIndex;
+
+            Point tIn = new(center.X + Math.Cos(rad) * 26, center.Y + Math.Sin(rad) * 26);
+            Point tOut = new(center.X + Math.Cos(rad) * 32, center.Y + Math.Sin(rad) * 32);
+            dc.DrawLine(CreatePen(isActive ? "#0284C7" : "#334155", isActive ? 2.4 : 1.3), tIn, tOut);
+
+            Point lblPt = new(center.X + Math.Cos(rad) * 44, center.Y + Math.Sin(rad) * 44);
+            var ft = FormatText(labels[i], isActive ? 8.8 : 7.8, BoldTypeface, CreateSolid(isActive ? "#0369A1" : "#1E293B"), dpiScale);
+            dc.DrawText(ft, new Point(lblPt.X - ft.Width / 2.0, lblPt.Y - ft.Height / 2.0));
+        }
+
+        // Núm xoay đen kiểu KDE quay theo vị trí đang chọn
+        double activeDeg = startDeg + Math.Clamp(cam.PositionIndex, 0, n - 1) * stepDeg;
+        dc.DrawEllipse(CreateSolid("#0F172A"), CreatePen("#475569", 1.8), center, 21, 21);
+
+        dc.PushTransform(new RotateTransform(activeDeg, center.X, center.Y));
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#334155", "#0F172A"), CreatePen("#94A3B8", 1.1), new Rect(center.X - 5.5, center.Y - 21, 11, 38), 4, 4);
+        dc.DrawRoundedRectangle(CreateSolid("#38BDF8"), null, new Rect(center.X - 2.2, center.Y - 19, 4.4, 14), 2, 2);
+        dc.Pop();
+
+        // Nhãn chân vào/ra
+        foreach (var t in cam.Terminals)
+        {
+            double ty = t.Side == TerminalSide.Top ? body.Top + 2 : body.Bottom - 12;
+            DrawPinLabel(dc, cam.X + t.RelX, ty, t.Name, t.Side == TerminalSide.Top ? "#F59E0B" : "#38BDF8", dpiScale);
+        }
+
+        // Nửa trái giảm nấc, nửa phải tăng nấc (cho phép xoay trực tiếp cả ở Design và Simulation + lăn chuột)
+        hitZones.Add(new ComponentHitZone(cam, new Rect(plate.X, plate.Y, plate.Width / 2.0, plate.Height), "CAM_PREV", AllowedInDesignMode: true));
+        hitZones.Add(new ComponentHitZone(cam, new Rect(plate.X + plate.Width / 2.0, plate.Y, plate.Width / 2.0, plate.Height), "CAM_NEXT", AllowedInDesignMode: true));
+    }
+
+    private static void DrawRotaryTimerAh3(DrawingContext dc, RotaryTimerAh3Component ah3, Rect body, CanvasThemeColors theme, double dpiScale, List<ComponentHitZone> hitZones)
+    {
+        // Vỏ vuông màu kem-xám công nghiệp đặc trưng của CKC AH3-3
+        Rect shell = new(body.X + 8, body.Y + 14, body.Width - 16, body.Height - 28);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#DDD6C1", "#C2B9A1"), CreatePen("#78716C", 1.5), shell, 6, 6);
+
+        // 2 đèn LED trạng thái: ON (trái) và UP (phải)
+        Point onLed = new(shell.Left + 14, shell.Top + 12);
+        Point upLed = new(shell.Right - 14, shell.Top + 12);
+
+        if (ah3.IsCoilEnergized && !ah3.IsBurnedOut)
+        {
+            dc.DrawEllipse(CreateRadialGlow("#AA22C55E", "#0022C55E"), null, onLed, 9, 9);
+            dc.DrawEllipse(CreateSolid("#22C55E"), CreatePen("#DCFCE7", 0.9), onLed, 4.2, 4.2);
+        }
+        else
+        {
+            dc.DrawEllipse(CreateSolid("#334155"), CreatePen("#64748B", 0.8), onLed, 3.8, 3.8);
+        }
+
+        if (ah3.IsTimeUp && !ah3.IsBurnedOut)
+        {
+            dc.DrawEllipse(CreateRadialGlow("#AAEF4444", "#00EF4444"), null, upLed, 9, 9);
+            dc.DrawEllipse(CreateSolid("#EF4444"), CreatePen("#FEE2E2", 0.9), upLed, 4.2, 4.2);
+        }
+        else
+        {
+            dc.DrawEllipse(CreateSolid("#334155"), CreatePen("#64748B", 0.8), upLed, 3.8, 3.8);
+        }
+
+        dc.DrawText(FormatText("ON", 7.2, BoldTypeface, CreateSolid("#1E293B"), dpiScale), new Point(onLed.X + 6, onLed.Y - 4.5));
+        var upFt = FormatText("UP", 7.2, BoldTypeface, CreateSolid("#991B1B"), dpiScale);
+        dc.DrawText(upFt, new Point(upLed.X - upFt.Width - 6, upLed.Y - 4.5));
+
+        var hdrFt = FormatText($"AH3-3 • {ah3.RangeShortLabel}", 7.8, BoldTypeface, CreateSolid("#1E293B"), dpiScale);
+        dc.DrawText(hdrFt, new Point(shell.X + (shell.Width - hdrFt.Width) / 2.0, shell.Top + 5));
+
+        // Mặt đồng hồ tròn trong suốt ở giữa có vạch chia độ & kim đỏ xoay mượt
+        Point dialCenter = new(shell.X + shell.Width / 2.0, shell.Y + shell.Height / 2.0 + 4);
+        double dialR = 40.0;
+        dc.DrawEllipse(CreateVerticalGradient("#F8FAFC", "#E2E8F0"), CreatePen("#475569", 1.8), dialCenter, dialR, dialR);
+
+        // Vẽ cung tiến trình đếm thời gian thực khi cuộn 2-7 đang có điện
+        if (ah3.IsCoilEnergized && ah3.DelaySeconds > 0.05)
+        {
+            double progressRatio = Math.Clamp(ah3.ElapsedSeconds / ah3.DelaySeconds, 0.0, 1.0);
+            double maxSweep = ah3.GetDialAngleDegrees() - (-135.0);
+            int segs = Math.Max(2, (int)(progressRatio * 24));
+            if (progressRatio > 0.01 && maxSweep > 1.0)
+            {
+                var arcGeom = new StreamGeometry();
+                using (var ctx = arcGeom.Open())
+                {
+                    double a0 = (-135.0 - 90.0) * Math.PI / 180.0;
+                    ctx.BeginFigure(new Point(dialCenter.X + Math.Cos(a0) * 33, dialCenter.Y + Math.Sin(a0) * 33), false, false);
+                    for (int k = 1; k <= segs; k++)
+                    {
+                        double deg = -135.0 + maxSweep * progressRatio * (k / (double)segs);
+                        double rad = (deg - 90.0) * Math.PI / 180.0;
+                        ctx.LineTo(new Point(dialCenter.X + Math.Cos(rad) * 33, dialCenter.Y + Math.Sin(rad) * 33), true, true);
+                    }
+                }
+                arcGeom.Freeze();
+                dc.DrawGeometry(null, CreatePen(ah3.IsTimeUp ? "#EF4444" : "#0284C7", 4.2), arcGeom);
+            }
+        }
+
+        // 11 vạch chia độ từ -135° đến +135° kèm chữ số mốc 0 / giữa / max
+        double maxScale = ah3.TimeRange == Ah3TimeRange.Range_10m ? 10.0 : ah3.MaxRangeSeconds;
+        for (int t = 0; t <= 10; t++)
+        {
+            double deg = -135.0 + t * 27.0;
+            double rad = (deg - 90.0) * Math.PI / 180.0;
+            bool major = t % 2 == 0;
+            Point pIn = new(dialCenter.X + Math.Cos(rad) * (major ? 29 : 32), dialCenter.Y + Math.Sin(rad) * (major ? 29 : 32));
+            Point pOut = new(dialCenter.X + Math.Cos(rad) * 37, dialCenter.Y + Math.Sin(rad) * 37);
+            dc.DrawLine(CreatePen("#1E293B", major ? 1.5 : 0.9), pIn, pOut);
+
+            if (t is 0 or 5 or 10)
+            {
+                string num = $"{(maxScale * t / 10.0):0}";
+                var nFt = FormatText(num, 7.2, BoldTypeface, CreateSolid("#0F172A"), dpiScale);
+                Point np = new(dialCenter.X + Math.Cos(rad) * 22, dialCenter.Y + Math.Sin(rad) * 22);
+                dc.DrawText(nFt, new Point(np.X - nFt.Width / 2, np.Y - nFt.Height / 2));
+            }
+        }
+
+        // Núm xoay trong suốt & kim chỉ thị màu đỏ
+        dc.DrawEllipse(CreateVerticalGradient("#FFFFFF", "#CBD5E1"), CreatePen("#64748B", 1.3), dialCenter, 16, 16);
+        dc.PushTransform(new RotateTransform(ah3.GetDialAngleDegrees(), dialCenter.X, dialCenter.Y));
+        dc.DrawLine(CreatePen("#DC2626", 2.8), new Point(dialCenter.X, dialCenter.Y + 4), new Point(dialCenter.X, dialCenter.Y - 34));
+        dc.DrawEllipse(CreateSolid("#DC2626"), null, new Point(dialCenter.X, dialCenter.Y - 12), 2.5, 2.5);
+        dc.Pop();
+        dc.DrawEllipse(CreateSolid("#334155"), null, dialCenter, 3.8, 3.8);
+
+        // Hiển thị số giây đặt (hoặc thời gian đang đếm ngược)
+        string timeText = ah3.IsCoilEnergized
+            ? $"{ah3.FormatDuration(ah3.ElapsedSeconds)} / {ah3.FormatDuration(ah3.DelaySeconds)}"
+            : ah3.FormatDuration(ah3.DelaySeconds);
+        var valFt = FormatText(timeText, 8.0, MonoTypeface, Brushes.White, dpiScale);
+        Rect valPill = new(dialCenter.X - valFt.Width / 2 - 5, shell.Bottom - 16, valFt.Width + 10, 14);
+        dc.DrawRoundedRectangle(CreateSolid("#0F172A"), CreatePen("#475569", 0.8), valPill, 3, 3);
+        dc.DrawText(valFt, new Point(valPill.X + 5, valPill.Y + 1));
+
+        // Nhãn 8 chân đế tròn: Hàng trên 1,3,4,2 | Hàng dưới 8,6,5,7
+        foreach (var t in ah3.Terminals)
+        {
+            double ty = t.Side == TerminalSide.Top ? body.Top + 1 : body.Bottom - 12;
+            string hex = t.Id is "2" or "7" ? "#EF4444" : (t.Id is "1" or "8" ? "#38BDF8" : "#F59E0B");
+            DrawPinLabel(dc, ah3.X + t.RelX, ty, t.Id, hex, dpiScale);
+        }
+
+        DrawSupplyMismatchPill(dc, body, ah3.SupplyStatus, dpiScale);
+
+        Rect dialHit = new(dialCenter.X - dialR, dialCenter.Y - dialR, dialR * 2, dialR * 2);
+        hitZones.Add(new ComponentHitZone(ah3, dialHit, "AH3_DIAL", AllowedInDesignMode: true));
+    }
+
+    private static void DrawMotorLinearTrack(DrawingContext dc, MotorLinearTrackComponent track, Rect body, CanvasThemeColors theme, double dpiScale)
+    {
+        // 1. Cụm Động cơ 3 pha bên trái kéo trục vít me
+        Point motorCenter = new(body.X + 60, body.Y + body.Height / 2.0 - 2);
+        bool spinning = Math.Abs(track.CurrentAngularVelocity) > 2.0 && !track.IsPhaseLost;
+        string mBadge = spinning
+            ? $"{track.ConnectionModeLabel} • {track.OperatingCurrentAmps:0.#}A"
+            : $"{track.RatedPowerKw:0.#}kW • {track.CarriagePosition * 100.0:0}%";
+        DrawMotorStatorAndRotor(dc, motorCenter, 34, track.RotorAngle, spinning, track.RotationDirection, track.IsPhaseLost, mBadge, theme, dpiScale);
+
+        // 2. Khung bàn trượt & trục vít me (x: 106..348)
+        Rect trackBox = new(body.X + 108, body.Y + 26, body.Width - 118, body.Height - 54);
+        dc.DrawRoundedRectangle(CreateSolid(theme.InsetPanelHex), CreatePen("#475569", 1.3), trackBox, 6, 6);
+
+        double railY = trackBox.Y + trackBox.Height / 2.0 + 4;
+        double railLeft = trackBox.Left + 18;
+        double railRight = trackBox.Right - 18;
+
+        // Khớp nối trục từ động cơ vào trục vít me
+        dc.DrawRectangle(CreateSolid("#94A3B8"), CreatePen("#334155", 1.0), new Rect(body.X + 94, railY - 5, 16, 10));
+
+        // Thanh dẫn hướng trên/dưới + trục vít me có ren xoắn động
+        dc.DrawLine(CreatePen("#475569", 2.0), new Point(railLeft, railY - 18), new Point(railRight, railY - 18));
+        dc.DrawLine(CreatePen("#475569", 2.0), new Point(railLeft, railY + 18), new Point(railRight, railY + 18));
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#CBD5E1", "#64748B"), CreatePen("#334155", 0.9),
+            new Rect(railLeft, railY - 4.5, railRight - railLeft, 9), 2, 2);
+
+        Pen threadPen = CreatePen("#334155", 1.1);
+        for (double tx = railLeft + (track.LeadscrewPhase % 10.0); tx < railRight - 2; tx += 10.0)
+        {
+            dc.DrawLine(threadPen, new Point(tx, railY - 4), new Point(tx + 3, railY + 4));
+        }
+
+        // 3. Hai công tắc hành trình mini LS1 (đầu trái) & LS2 (đầu phải)
+        DrawMiniTrackLimitSwitch(dc, new Point(railLeft + 4, trackBox.Top + 18), "LS1", track.IsLs1Actuated, isRightSide: false, dpiScale);
+        DrawMiniTrackLimitSwitch(dc, new Point(railRight - 4, trackBox.Top + 18), "LS2", track.IsLs2Actuated, isRightSide: true, dpiScale);
+
+        // 4. Con trượt (Bàn máy) di chuyển mượt theo CarriagePosition (0.0 -> 1.0)
+        double travelMinX = railLeft + 26;
+        double travelMaxX = railRight - 26;
+        double cx = travelMinX + Math.Clamp(track.CarriagePosition, 0.0, 1.0) * (travelMaxX - travelMinX);
+
+        Rect carriage = new(cx - 20, railY - 22, 40, 44);
+        dc.DrawRoundedRectangle(CreateVerticalGradient("#0EA5E9", "#0369A1"), CreatePen("#E0F2FE", 1.5), carriage, 5, 5);
+        // Vấu cam gạt hành trình phía trên con trượt
+        dc.DrawRoundedRectangle(CreateSolid("#FACC15"), CreatePen("#854D0E", 1.0), new Rect(cx - 14, carriage.Top - 6, 28, 7), 2, 2);
+
+        var posFt = FormatText($"{track.CarriagePosition * 100.0:0}%", 8.5, MonoTypeface, Brushes.White, dpiScale);
+        dc.DrawText(posFt, new Point(cx - posFt.Width / 2.0, railY - posFt.Height / 2.0));
+
+        // 5. Nhãn 12 chân đấu nối: U1, V1, W1, PE (trên) & LS1(1-4), LS2(1-4) (dưới)
+        foreach (var t in track.Terminals)
+        {
+            double ty = t.Side == TerminalSide.Top ? body.Top + 2 : body.Bottom - 13;
+            string hex = t.Name switch
+            {
+                "U1" => "#EF4444",
+                "V1" => "#CA8A04",
+                "W1" => "#2563EB",
+                "PE" => "#16A34A",
+                _ when t.Id.EndsWith("_1") || t.Id.EndsWith("_2") => "#FB923C",
+                _ => "#4ADE80"
+            };
+            DrawPinLabel(dc, track.X + t.RelX, ty, t.Name, hex, dpiScale);
+        }
+    }
+
+    private static void DrawMiniTrackLimitSwitch(DrawingContext dc, Point pos, string label, bool actuated, bool isRightSide, double dpiScale)
+    {
+        Rect box = new(pos.X - 11, pos.Y - 10, 22, 18);
+        dc.DrawRoundedRectangle(CreateSolid(actuated ? "#166534" : "#1E293B"), CreatePen(actuated ? "#4ADE80" : "#F97316", 1.3), box, 3, 3);
+        var ft = FormatText(label, 7.2, BoldTypeface, Brushes.White, dpiScale);
+        dc.DrawText(ft, new Point(box.X + (box.Width - ft.Width) / 2.0, box.Y + 3));
+
+        // Cần gạt bánh xe nhỏ nghiêng xuống khi bị con trượt ép vào
+        Point pivot = new(pos.X, box.Bottom);
+        double dx = isRightSide ? -10 : 10;
+        double dy = actuated ? 4 : 11;
+        dc.DrawLine(CreatePen("#E2E8F0", 2.0), pivot, new Point(pivot.X + dx, pivot.Y + dy));
+        dc.DrawEllipse(CreateSolid(actuated ? "#4ADE80" : "#F97316"), null, new Point(pivot.X + dx, pivot.Y + dy), 3.6, 3.6);
+    }
+
+    private static void DrawPinLabel(DrawingContext dc, double cx, double y, string text, string hex, double dpiScale)
+    {
+        var ft = FormatText(text, 7.4, BoldTypeface, CreateSolid(hex), dpiScale);
+        dc.DrawText(ft, new Point(cx - ft.Width / 2.0, y));
     }
 
     private static void DrawIndustrialSensor(DrawingContext dc, IndustrialSensorComponent sens, Rect body, CanvasThemeColors theme, double dpiScale, List<ComponentHitZone> hitZones)

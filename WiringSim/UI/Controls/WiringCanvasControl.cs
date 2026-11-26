@@ -71,9 +71,19 @@ public sealed class WiringCanvasControl : FrameworkElement
     private Vector _panStartOffset;
 
     private PushButtonComponent? _heldPushButton;
+    private IlluminatedPushButtonComponent? _heldIllumPushButton;
     private LimitSwitchComponent? _heldLimitSwitch;
     private IndustrialSensorComponent? _heldSensor;
+    private RotaryTimerAh3Component? _draggingAh3Dial;
     private ShortCircuitFaultInfo? _activeFault;
+
+    // Trạng thái bắt dính & tách dây tạo điểm rẽ nhánh T-Junction
+    private WireModel? _hoveredBranchWire;
+    private Point? _hoveredBranchSnapPoint;
+    private int _hoveredBranchSplitIndex;
+    private WireJunctionComponent? _pendingCreatedJunction;
+    private WireModel? _pendingWireDragBranchSource;
+    private Point _pendingWireDragStartCanvasPt;
 
     public event Action<string>? StatusMessageChanged;
     public event Action<double>? ZoomChanged;
@@ -136,7 +146,7 @@ public sealed class WiringCanvasControl : FrameworkElement
             }
 
             if (_wires.Any(w => w.HasCurrentFlow || w.IsShortCircuitPath) ||
-                _components.Any(c => c is Motor1PhaseComponent or Motor3PhaseBaseComponent or VfdComponent or VoltmeterComponent or AmmeterComponent) ||
+                _components.Any(c => c is Motor1PhaseComponent or Motor3PhaseBaseComponent or VfdComponent or VoltmeterComponent or AmmeterComponent or RotaryTimerAh3Component) ||
                 _activeFault is not null)
             {
                 InvalidateVisual();
@@ -311,6 +321,7 @@ public sealed class WiringCanvasControl : FrameworkElement
         if (_selectedWire is not null && !_wires.Contains(_selectedWire)) SetSelection(null, null);
 
         RebuildWireRoutes();
+        CleanupRedundantJunctions();
         CircuitModified?.Invoke();
         StatusMessageChanged?.Invoke(LocalizationManager.Format("Str.Status.DeletedComp", comp.DisplayName));
         InvalidateVisual();
@@ -323,6 +334,7 @@ public sealed class WiringCanvasControl : FrameworkElement
         if (_selectedWire == wire) SetSelection(null, null);
         if (_hoveredWire == wire) _hoveredWire = null;
 
+        CleanupRedundantJunctions();
         RebuildWireRoutes();
         CircuitModified?.Invoke();
         StatusMessageChanged?.Invoke(LocalizationManager.Format(
@@ -450,6 +462,34 @@ public sealed class WiringCanvasControl : FrameworkElement
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {
         base.OnMouseWheel(e);
+
+        Point canvasPt = ScreenToCanvas(e.GetPosition(this));
+        var hz = FindHitZone(canvasPt);
+        if (hz is { ActionId: "AH3_DIAL", Component: RotaryTimerAh3Component ah3 })
+        {
+            ah3.StepDial(e.Delta > 0 ? +1 : -1);
+            if (CurrentMode == AppMode.Simulation)
+                UserInteractedInSimulation?.Invoke();
+            else
+                CircuitModified?.Invoke();
+            StatusMessageChanged?.Invoke(LocalizationManager.Format("Str.Status.UpdatedProp", ah3.DisplayName, ah3.FormatDuration(ah3.DelaySeconds)));
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+        if (hz is { ActionId: "CAM_PREV" or "CAM_NEXT", Component: CamSwitchComponent cam })
+        {
+            cam.StepPosition(e.Delta > 0 ? +1 : -1);
+            if (CurrentMode == AppMode.Simulation)
+                UserInteractedInSimulation?.Invoke();
+            else
+                CircuitModified?.Invoke();
+            StatusMessageChanged?.Invoke(LocalizationManager.Format("Str.Status.UpdatedProp", cam.DisplayName, cam.CurrentPositionLabel));
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+
         double factor = e.Delta > 0 ? 1.12 : (1.0 / 1.12);
         ApplyZoomAtScreenPoint(ZoomScale * factor, e.GetPosition(this));
         e.Handled = true;
@@ -497,6 +537,15 @@ public sealed class WiringCanvasControl : FrameworkElement
                 return;
             }
 
+            // Nếu người dùng bấm vào một điểm nằm trên thân một sợi dây đã có -> tạo T-Junction và nối nhánh ngay!
+            if (TryFindWireBranchSnap(canvasPt, out var targetWire, out Point snapPt, out int splitIdx))
+            {
+                var junc = SplitWireAtPoint(targetWire, snapPt, splitIdx);
+                CompleteOrCancelWireOnTerminal(junc.NodeTerminal);
+                StatusMessageChanged?.Invoke(LocalizationManager.Get("Str.Status.BranchCreated"));
+                return;
+            }
+
             bool shift = IsShiftDown();
             Point wp = RoutingStyle == WireRoutingStyle.Curved
                 ? SnapIfEnabled(canvasPt, shift)
@@ -541,6 +590,13 @@ public sealed class WiringCanvasControl : FrameworkElement
             var clickedWire = FindWireAt(canvasPt);
             if (clickedWire is not null)
             {
+                // Ctrl + Click trên thân dây: tạo ngay nút rẽ nhánh T-Junction và bắt đầu kéo nhánh mới!
+                if (Keyboard.Modifiers == ModifierKeys.Control && clickCount == 1)
+                {
+                    StartBranchFromWire(clickedWire, canvasPt);
+                    return;
+                }
+
                 SetSelection(null, clickedWire);
 
                 if (clickCount >= 2)
@@ -549,6 +605,9 @@ public sealed class WiringCanvasControl : FrameworkElement
                 }
                 else
                 {
+                    // Cho phép kéo chuột trực tiếp từ thân dây (> 8px) để tự động rẽ nhánh dây mới!
+                    _pendingWireDragBranchSource = clickedWire;
+                    _pendingWireDragStartCanvasPt = canvasPt;
                     StatusMessageChanged?.Invoke(LocalizationManager.Get("Str.Status.WireSelected"));
                 }
                 InvalidateVisual();
@@ -630,6 +689,41 @@ public sealed class WiringCanvasControl : FrameworkElement
                 InvalidateVisual();
                 return;
             }
+            if (comp is IlluminatedPushButtonComponent ipb)
+            {
+                if (ipb.ActionMode == PushButtonActionMode.Latching)
+                    ipb.IsPressed = !ipb.IsPressed;
+                else
+                {
+                    _heldIllumPushButton = ipb;
+                    ipb.IsPressed = true;
+                    CaptureMouse();
+                }
+                UserInteractedInSimulation?.Invoke();
+                InvalidateVisual();
+                return;
+            }
+            if (comp is EmergencyStopComponent es)
+            {
+                es.ToggleEngage();
+                UserInteractedInSimulation?.Invoke();
+                InvalidateVisual();
+                return;
+            }
+            if (comp is KnifeSwitchComponent knife)
+            {
+                knife.ToggleOrStep();
+                UserInteractedInSimulation?.Invoke();
+                InvalidateVisual();
+                return;
+            }
+            if (comp is CamSwitchComponent cam)
+            {
+                cam.StepPosition(+1);
+                UserInteractedInSimulation?.Invoke();
+                InvalidateVisual();
+                return;
+            }
 
             StartPanning(screenPt);
         }
@@ -685,6 +779,7 @@ public sealed class WiringCanvasControl : FrameworkElement
             clickedTerminal.Owner.DisplayName,
             clickedTerminal.Name);
 
+        _pendingCreatedJunction = null;
         CancelDraftWire();
         RebuildWireRoutes();
         CircuitModified?.Invoke();
@@ -717,6 +812,8 @@ public sealed class WiringCanvasControl : FrameworkElement
                 onChangeColor: newCol =>
                 {
                     wire.ColorPreset = newCol;
+                    if (wire.TerminalA.Owner is WireJunctionComponent jA) jA.DotColorPreset = newCol;
+                    if (wire.TerminalB.Owner is WireJunctionComponent jB) jB.DotColorPreset = newCol;
                     CircuitModified?.Invoke();
                     InvalidateVisual();
                 },
@@ -729,7 +826,8 @@ public sealed class WiringCanvasControl : FrameworkElement
                     CircuitModified?.Invoke();
                     InvalidateVisual();
                 },
-                onDeleteWire: () => DeleteWire(wire));
+                onDeleteWire: () => DeleteWire(wire),
+                onStartBranchHere: () => StartBranchFromWire(wire, rightClickPt));
 
             wireMenu.PlacementTarget = this;
             wireMenu.IsOpen = true;
@@ -965,6 +1063,40 @@ public sealed class WiringCanvasControl : FrameworkElement
             case "VFD_KEYPAD" when zone.Component is VfdComponent vfd:
                 OpenVfdKeypadRequested?.Invoke(vfd);
                 return;
+            case "ILLUM_PB_LATCH" when zone.Component is IlluminatedPushButtonComponent ipb:
+                ipb.IsPressed = !ipb.IsPressed;
+                break;
+            case "ILLUM_PB_HOLD" when zone.Component is IlluminatedPushButtonComponent ipb:
+                _heldIllumPushButton = ipb;
+                ipb.IsPressed = true;
+                CaptureMouse();
+                break;
+            case "ESTOP_TOGGLE" when zone.Component is EmergencyStopComponent es:
+                es.ToggleEngage();
+                break;
+            case "KNIFE_TOGGLE" when zone.Component is KnifeSwitchComponent knife:
+                knife.ToggleOrStep();
+                break;
+            case "KNIFE_POS_1" when zone.Component is KnifeSwitchComponent knife:
+                knife.Position = 1;
+                break;
+            case "KNIFE_POS_0" when zone.Component is KnifeSwitchComponent knife:
+                knife.Position = 0;
+                break;
+            case "KNIFE_POS_2" when zone.Component is KnifeSwitchComponent knife:
+                knife.Position = 2;
+                break;
+            case "CAM_PREV" when zone.Component is CamSwitchComponent cam:
+                cam.StepPosition(-1);
+                break;
+            case "CAM_NEXT" when zone.Component is CamSwitchComponent cam:
+                cam.StepPosition(+1);
+                break;
+            case "AH3_DIAL" when zone.Component is RotaryTimerAh3Component ah3:
+                _draggingAh3Dial = ah3;
+                CaptureMouse();
+                UpdateAh3DialFromCanvasPoint(ah3, _currentCanvasMousePos);
+                break;
         }
 
         if (CurrentMode == AppMode.Simulation)
@@ -987,6 +1119,28 @@ public sealed class WiringCanvasControl : FrameworkElement
             PanOffset = _panStartOffset + (screenPt - _panStartScreenPoint);
             InvalidateVisual();
             return;
+        }
+
+        if (_draggingAh3Dial is not null)
+        {
+            UpdateAh3DialFromCanvasPoint(_draggingAh3Dial, canvasPt);
+            if (CurrentMode == AppMode.Simulation)
+                UserInteractedInSimulation?.Invoke();
+            StatusMessageChanged?.Invoke(LocalizationManager.Format("Str.Status.UpdatedProp", _draggingAh3Dial.DisplayName, _draggingAh3Dial.FormatDuration(_draggingAh3Dial.DelaySeconds)));
+            InvalidateVisual();
+            return;
+        }
+
+        if (CurrentMode == AppMode.Design && _pendingWireDragBranchSource is not null && e.LeftButton == MouseButtonState.Pressed)
+        {
+            if ((canvasPt - _pendingWireDragStartCanvasPt).Length >= 8.0)
+            {
+                var srcWire = _pendingWireDragBranchSource;
+                Point startPt = _pendingWireDragStartCanvasPt;
+                _pendingWireDragBranchSource = null;
+                StartBranchFromWire(srcWire, startPt);
+                return;
+            }
         }
 
         if (CurrentMode == AppMode.Design && _selectedWire is not null)
@@ -1039,14 +1193,28 @@ public sealed class WiringCanvasControl : FrameworkElement
         var prevTerm = _hoveredTerminal;
         var prevWire = _hoveredWire;
         var prevComp = _hoveredComponent;
+        var prevSnap = _hoveredBranchSnapPoint;
 
         _hoveredTerminal = FindTerminalAt(canvasPt);
         _hoveredWire = _hoveredTerminal is null ? FindWireAt(canvasPt) : null;
         _hoveredComponent = FindComponentAt(canvasPt);
 
+        _hoveredBranchWire = null;
+        _hoveredBranchSnapPoint = null;
+        if (CurrentMode == AppMode.Design && _hoveredTerminal is null &&
+            (_wireStartTerminal is not null || Keyboard.Modifiers == ModifierKeys.Control))
+        {
+            if (TryFindWireBranchSnap(canvasPt, out var bw, out Point sp, out int sIdx))
+            {
+                _hoveredBranchWire = bw;
+                _hoveredBranchSnapPoint = sp;
+                _hoveredBranchSplitIndex = sIdx;
+            }
+        }
+
         UpdateCursorShape(canvasPt);
 
-        if (_wireStartTerminal is not null || prevTerm != _hoveredTerminal || prevWire != _hoveredWire || prevComp != _hoveredComponent)
+        if (_wireStartTerminal is not null || prevTerm != _hoveredTerminal || prevWire != _hoveredWire || prevComp != _hoveredComponent || prevSnap != _hoveredBranchSnapPoint)
             InvalidateVisual();
     }
 
@@ -1063,6 +1231,19 @@ public sealed class WiringCanvasControl : FrameworkElement
 
         if (e.ChangedButton == MouseButton.Left)
         {
+            _pendingWireDragBranchSource = null;
+
+            if (_draggingAh3Dial is not null)
+            {
+                _draggingAh3Dial = null;
+                ReleaseMouseCapture();
+                if (CurrentMode == AppMode.Design)
+                    CircuitModified?.Invoke();
+                else
+                    UserInteractedInSimulation?.Invoke();
+                InvalidateVisual();
+            }
+
             if (_draggingWaypointIndex >= 0 || _draggingParallelSegmentIndex >= 0)
             {
                 _draggingWaypointIndex = -1;
@@ -1080,7 +1261,7 @@ public sealed class WiringCanvasControl : FrameworkElement
                 InvalidateVisual();
             }
 
-            if (_heldPushButton is not null || _heldLimitSwitch is not null || _heldSensor is not null)
+            if (_heldPushButton is not null || _heldIllumPushButton is not null || _heldLimitSwitch is not null || _heldSensor is not null)
             {
                 ReleaseHeldControls();
                 ReleaseMouseCapture();
@@ -1093,6 +1274,8 @@ public sealed class WiringCanvasControl : FrameworkElement
         base.OnLostMouseCapture(e);
         _isPanning = false;
         _draggingComponent = null;
+        _draggingAh3Dial = null;
+        _pendingWireDragBranchSource = null;
         _draggingWaypointIndex = -1;
         _draggingParallelSegmentIndex = -1;
         ReleaseHeldControls();
@@ -1142,6 +1325,14 @@ public sealed class WiringCanvasControl : FrameworkElement
     {
         _wireStartTerminal = null;
         _draftWaypoints.Clear();
+        _hoveredBranchWire = null;
+        _hoveredBranchSnapPoint = null;
+        if (_pendingCreatedJunction is not null)
+        {
+            _pendingCreatedJunction = null;
+            CleanupRedundantJunctions();
+            RebuildWireRoutes();
+        }
     }
 
     private void ReleaseHeldControls()
@@ -1155,6 +1346,15 @@ public sealed class WiringCanvasControl : FrameworkElement
                 changed = true;
             }
             _heldPushButton = null;
+        }
+        if (_heldIllumPushButton is not null)
+        {
+            if (_heldIllumPushButton.ActionMode == PushButtonActionMode.Momentary)
+            {
+                _heldIllumPushButton.IsPressed = false;
+                changed = true;
+            }
+            _heldIllumPushButton = null;
         }
         if (_heldLimitSwitch is not null)
         {
@@ -1223,7 +1423,7 @@ public sealed class WiringCanvasControl : FrameworkElement
             Cursor = Cursors.Hand;
             return;
         }
-        if (CurrentMode == AppMode.Simulation && _hoveredComponent is ICircuitBreaker or SwitchComponent or PushButtonComponent or LimitSwitchComponent or IndustrialSensorComponent)
+        if (CurrentMode == AppMode.Simulation && _hoveredComponent is ICircuitBreaker or SwitchComponent or PushButtonComponent or IlluminatedPushButtonComponent or EmergencyStopComponent or KnifeSwitchComponent or CamSwitchComponent or RotaryTimerAh3Component or LimitSwitchComponent or IndustrialSensorComponent)
         {
             Cursor = Cursors.Hand;
             return;
@@ -1271,6 +1471,13 @@ public sealed class WiringCanvasControl : FrameworkElement
         if (CurrentMode == AppMode.Design && _wireStartTerminal is not null)
         {
             DrawDraftPolylinePreview(dc);
+        }
+
+        if (CurrentMode == AppMode.Design && _hoveredBranchSnapPoint.HasValue)
+        {
+            Point sp = _hoveredBranchSnapPoint.Value;
+            dc.DrawEllipse(ComponentRenderer.CreateRadialGlow("#AA22D3EE", "#0022D3EE"), null, sp, 14, 14);
+            dc.DrawEllipse(ComponentRenderer.CreateSolid("#22D3EE"), ComponentRenderer.CreatePen("#FFFFFF", 1.8), sp, 5.5, 5.5);
         }
 
         _hitZones.Clear();
@@ -1555,6 +1762,175 @@ public sealed class WiringCanvasControl : FrameworkElement
         Rect rect = new(x, y, boxW, boxH);
         dc.DrawRoundedRectangle(ComponentRenderer.CreateSolid(theme.TooltipBgHex), ComponentRenderer.CreatePen("#38BDF8", 1.3), rect, 6, 6);
         dc.DrawText(ft, new Point(rect.X + padX, rect.Y + padY));
+    }
+
+    // =========================================================================
+    // TƯƠNG TÁC NÚM XOAY AH3-3 & TÁCH DÂY TẠO NÚT RẼ NHÁNH (WIRE T-JUNCTION)
+    // =========================================================================
+
+    private static void UpdateAh3DialFromCanvasPoint(RotaryTimerAh3Component ah3, Point canvasPt)
+    {
+        Point center = ah3.TransformLocalPointToCanvas(ah3.Width / 2.0, ah3.Height / 2.0 + 4.0);
+        double dx = canvasPt.X - center.X;
+        double dy = canvasPt.Y - center.Y;
+        if (dx * dx + dy * dy < 9.0) return;
+
+        // Góc 0° ở 12 giờ, tăng dương theo chiều kim đồng hồ (bù góc xoay của thiết bị nếu đang xoay!)
+        double rad = Math.Atan2(dx, -dy);
+        double deg = rad * 180.0 / Math.PI - ah3.RotationAngle;
+        ah3.SetDelayFromDialAngle(deg);
+    }
+
+    private bool TryFindWireBranchSnap(Point canvasPt, out WireModel bestWire, out Point bestPoint, out int bestSplitIdx)
+    {
+        bestWire = null!;
+        bestPoint = canvasPt;
+        bestSplitIdx = 0;
+
+        double maxDist = 11.5 / Math.Max(0.6, ZoomScale);
+        double minFound = maxDist;
+
+        foreach (var wire in _wires)
+        {
+            double d = WireRouter.FindClosestPointOnWire(canvasPt, wire, RoutingStyle, out Point proj, out int idx);
+            if (d < minFound)
+            {
+                // Bỏ qua nếu điểm bấm quá sát hai đầu mút (chân thiết bị sẽ xử lý trực tiếp)
+                double dA = (proj - new Point(wire.TerminalA.CanvasX, wire.TerminalA.CanvasY)).Length;
+                double dB = (proj - new Point(wire.TerminalB.CanvasX, wire.TerminalB.CanvasY)).Length;
+                if (dA < 10.0 || dB < 10.0) continue;
+
+                minFound = d;
+                bestWire = wire;
+                bestPoint = proj;
+                bestSplitIdx = idx;
+            }
+        }
+
+        return bestWire is not null;
+    }
+
+    public WireJunctionComponent SplitWireAtPoint(WireModel wire, Point splitPt, int splitIdx)
+    {
+        if (RoutingStyle == WireRoutingStyle.Orthogonal)
+        {
+            wire.EnsureEditableWaypoints();
+            wire.SyncRoutedPointsFromWaypoints();
+        }
+
+        var junc = new WireJunctionComponent
+        {
+            CenterPoint = splitPt,
+            DotColorPreset = wire.ColorPreset
+        };
+        AttachComponentHooks(junc);
+        _components.Add(junc);
+
+        int clampedSplit = Math.Clamp(splitIdx, 0, wire.Waypoints.Count);
+        var wpBefore = wire.Waypoints.Take(clampedSplit).ToList();
+        var wpAfter = wire.Waypoints.Skip(clampedSplit).ToList();
+
+        var w1 = new WireModel(wire.TerminalA, junc.NodeTerminal, wire.ColorPreset, wpBefore.Count > 0 ? wpBefore : null);
+        var w2 = new WireModel(junc.NodeTerminal, wire.TerminalB, wire.ColorPreset, wpAfter.Count > 0 ? wpAfter : null);
+
+        int origIndex = _wires.IndexOf(wire);
+        if (origIndex >= 0)
+        {
+            _wires.RemoveAt(origIndex);
+            _wires.Insert(origIndex, w2);
+            _wires.Insert(origIndex, w1);
+        }
+        else
+        {
+            _wires.Add(w1);
+            _wires.Add(w2);
+        }
+
+        if (_selectedWire == wire) SetSelection(null, null);
+        if (_hoveredWire == wire) _hoveredWire = null;
+        RebuildWireRoutes();
+        return junc;
+    }
+
+    private void StartBranchFromWire(WireModel wire, Point clickCanvasPt)
+    {
+        if (CurrentMode != AppMode.Design) return;
+        WireRouter.FindClosestPointOnWire(clickCanvasPt, wire, RoutingStyle, out Point proj, out int splitIdx);
+        var junc = SplitWireAtPoint(wire, proj, splitIdx);
+        _pendingCreatedJunction = junc;
+        ActiveWireColor = wire.ColorPreset;
+        SetSelection(null, null);
+        _wireStartTerminal = junc.NodeTerminal;
+        _draftWaypoints.Clear();
+        StatusMessageChanged?.Invoke(LocalizationManager.Get("Str.Status.BranchStarted"));
+        InvalidateVisual();
+    }
+
+    /// <summary>
+    /// Tự động dọn dẹp các nút rẽ nhánh (T-Junction) dư thừa:
+    /// - Nếu chỉ còn 2 đoạn dây nối tiếp qua nút -> gộp liền lại thành 1 sợi dây duy nhất và xóa chấm Junction!
+    /// - Nếu còn 0 hoặc 1 đoạn cụt -> xóa bỏ gọn gàng.
+    /// </summary>
+    public void CleanupRedundantJunctions()
+    {
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            var junctions = _components.OfType<WireJunctionComponent>().ToList();
+            foreach (var junc in junctions)
+            {
+                if (junc == _pendingCreatedJunction) continue;
+
+                var attached = _wires
+                    .Where(w => w.TerminalA == junc.NodeTerminal || w.TerminalB == junc.NodeTerminal)
+                    .ToList();
+
+                if (attached.Count == 0)
+                {
+                    DetachComponentHooks(junc);
+                    _components.Remove(junc);
+                    changed = true;
+                }
+                else if (attached.Count == 1)
+                {
+                    _wires.Remove(attached[0]);
+                    DetachComponentHooks(junc);
+                    _components.Remove(junc);
+                    changed = true;
+                }
+                else if (attached.Count == 2)
+                {
+                    var w1 = attached[0];
+                    var w2 = attached[1];
+                    Terminal endA = w1.TerminalA == junc.NodeTerminal ? w1.TerminalB : w1.TerminalA;
+                    Terminal endB = w2.TerminalA == junc.NodeTerminal ? w2.TerminalB : w2.TerminalA;
+
+                    var combinedWp = new List<Point>();
+                    if (w1.Waypoints.Count > 0)
+                    {
+                        var list1 = w1.TerminalB == junc.NodeTerminal ? w1.Waypoints : w1.Waypoints.AsEnumerable().Reverse().ToList();
+                        combinedWp.AddRange(list1);
+                    }
+                    if (w2.Waypoints.Count > 0)
+                    {
+                        var list2 = w2.TerminalA == junc.NodeTerminal ? w2.Waypoints : w2.Waypoints.AsEnumerable().Reverse().ToList();
+                        combinedWp.AddRange(list2);
+                    }
+
+                    _wires.Remove(w1);
+                    _wires.Remove(w2);
+                    if (endA != endB && !_wires.Any(w => w.Connects(endA, endB)))
+                    {
+                        _wires.Add(new WireModel(endA, endB, w1.ColorPreset, combinedWp.Count > 0 ? combinedWp : null));
+                    }
+
+                    DetachComponentHooks(junc);
+                    _components.Remove(junc);
+                    changed = true;
+                }
+            }
+        }
     }
 
     // =========================================================================

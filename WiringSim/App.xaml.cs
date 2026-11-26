@@ -59,182 +59,197 @@ public partial class App : Application
                 }
             }
 
-            // 2. Kiểm tra Metadata phiên bản v1.0_Release & UpdateService.NormalizeVersion
+            // 2. Kiểm tra Metadata phiên bản v1.1_Release & UpdateService.NormalizeVersion
             string infoVer = UpdateService.GetCurrentInformationalVersion();
-            Assert(string.Equals(infoVer, "v1.0_Release", StringComparison.Ordinal),
-                $"Suite 2: InformationalVersion phải là 'v1.0_Release' (thực tế: '{infoVer}').");
-            Assert(UpdateService.NormalizeVersion("v1.0_Release") == new Version(1, 0, 0),
-                "Suite 2: NormalizeVersion('v1.0_Release') phải trả về 1.0.0.");
-            Assert(UpdateService.NormalizeVersion("V2.1.4-beta") == new Version(2, 1, 4),
-                "Suite 2: NormalizeVersion('V2.1.4-beta') phải trả về 2.1.4.");
-            Assert(UpdateService.DefaultApiUrl.Contains("dangdinhnambhlc2709-alt/WiringSim", StringComparison.Ordinal),
-                "Suite 2: DefaultApiUrl phải trỏ đúng repo dangdinhnambhlc2709-alt/WiringSim.");
+            Assert(string.Equals(infoVer, "v1.1_Release", StringComparison.Ordinal),
+                $"Suite 2: InformationalVersion phải là 'v1.1_Release' (thực tế: '{infoVer}').");
+            Assert(UpdateService.NormalizeVersion("v1.1_Release") == new Version(1, 1, 0),
+                "Suite 2: NormalizeVersion('v1.1_Release') phải trả về 1.1.0.");
 
-            // 3. Kiểm tra Canvas khởi động TRỐNG HOÀN TOÀN
+            // 3. Kiểm tra CKC AH3-3 Interactive Rotary Timer (8 chân: 2-7 PWR, 1-3-4 tức thời, 8-5-6 định thời + xoay góc)
             LocalizationManager.SetLanguage("vi");
-            ThemeManager.ApplyTheme(AppThemePreference.Dark);
-            var startupWin = new MainWindow();
-            Assert(startupWin.WiringCanvas.Components.Count == 0 && startupWin.WiringCanvas.Wires.Count == 0,
-                "Suite 3: Canvas phải trống hoàn toàn khi vừa khởi động ứng dụng!");
-            startupWin.Close();
-
-            // 4. Kiểm tra Biến tần (VFD) tăng tốc ACC / giảm tốc DEC, đảo chiều REV, đa cấp tốc độ DI1 & quay động cơ 3 pha 3 chân!
-            var vfdSrc = new Ac3PhaseSourceComponent();
-            var vfd = new VfdComponent
+            var ac1 = new Ac1PhaseSourceComponent();
+            var ah3 = new RotaryTimerAh3Component { CoilRating = CoilVoltageRating.AC_220V };
+            ah3.SetDelayFromDialAngle(0.0); // 12 giờ trên thang 0-10s = 5.0s!
+            Assert(Math.Abs(ah3.DelaySeconds - 5.0) < 0.3, $"Suite 3: Kim AH3-3 góc 0° phải là ~5s (thực tế: {ah3.DelaySeconds}s).");
+            ah3.SetDelaySeconds(1.0);
+            var hInst = new PilotLightComponent(PilotLightColor.Green);
+            var hTimed = new PilotLightComponent(PilotLightColor.Red);
+            var ah3Wires = new List<WireModel>
             {
-                P01_RunSource = 0,
-                P02_FreqSource = 0,
-                P03_MaxFreqHz = 50.0,
-                P04_AccelSeconds = 2.0,
-                P05_DecelSeconds = 2.0,
-                P06_Di1FreqHz = 25.0,
-                KeypadTargetFreqHz = 50.0
+                new(ac1.LineTerminal, ah3.Power2, WireColorPreset.Red_L1_DCPlus),
+                new(ac1.NeutralTerminal, ah3.Power7, WireColorPreset.Black_N_DCMinus),
+                new(ac1.LineTerminal, ah3.InstCom1, WireColorPreset.Red_L1_DCPlus),
+                new(ah3.InstNo3, hInst.X1, WireColorPreset.Red_L1_DCPlus),
+                new(ac1.NeutralTerminal, hInst.X2, WireColorPreset.Black_N_DCMinus),
+                new(ac1.LineTerminal, ah3.TimedCom8, WireColorPreset.Red_L1_DCPlus),
+                new(ah3.TimedNo6, hTimed.X1, WireColorPreset.Red_L1_DCPlus),
+                new(ac1.NeutralTerminal, hTimed.X2, WireColorPreset.Black_N_DCMinus)
             };
-            var m3Pin = new Motor3Phase3PinComponent { RatedPowerKw = 3.0, InternalConnection = Motor3PinConnection.Star_380V };
-            var swDi1 = new SwitchComponent();
-
-            var vfdWires = new List<WireModel>
-            {
-                new(vfdSrc.L1Terminal, vfd.R_In, WireColorPreset.Red_L1_DCPlus),
-                new(vfdSrc.L2Terminal, vfd.S_In, WireColorPreset.Yellow_L2),
-                new(vfdSrc.L3Terminal, vfd.T_In, WireColorPreset.Blue_L3),
-                new(vfd.U_Out, m3Pin.U1, WireColorPreset.Red_L1_DCPlus),
-                new(vfd.V_Out, m3Pin.V1, WireColorPreset.Yellow_L2),
-                new(vfd.W_Out, m3Pin.W1, WireColorPreset.Blue_L3),
-                new(vfd.Com, swDi1.ComOrInTerminal!, WireColorPreset.Black_N_DCMinus),
-                new(swDi1.Out1Terminal!, vfd.Di1, WireColorPreset.Blue_L3)
-            };
-
-            engine.BindCircuit([vfdSrc, vfd, m3Pin, swDi1], vfdWires);
+            engine.BindCircuit([ac1, ah3, hInst, hTimed], ah3Wires);
             engine.Start();
-            Assert(vfd.IsPowered && !vfd.IsRunning, "Suite 4: Biến tần phải có nguồn nhưng đang STOP.");
-
-            vfd.KeypadRunCommand = true;
-            for (int i = 0; i < 20; i++) engine.StepSimulation(0.05); // 1.0s -> ~25Hz (ACC=2s cho 50Hz)
-            Assert(vfd.IsRunning && vfd.CurrentOutputFreqHz > 20.0 && vfd.CurrentOutputFreqHz < 30.0,
-                $"Suite 4: Biến tần phải tăng tốc mượt (tại 1s kỳ vọng ~25Hz, thực tế: {vfd.CurrentOutputFreqHz:0.0}Hz).");
-
-            for (int i = 0; i < 25; i++) engine.StepSimulation(0.05); // đạt 50Hz
-            Assert(Math.Abs(vfd.CurrentOutputFreqHz - 50.0) < 0.5 && m3Pin.RotationDirection == 1 && vfd.OutputCurrentAmps >= 6.0,
-                $"Suite 4: Động cơ 3 chân qua VFD phải quay thuận 50Hz (Freq={vfd.CurrentOutputFreqHz:0.0}, Dir={m3Pin.RotationDirection}, I={vfd.OutputCurrentAmps:0.0}A).");
-
-            // Kích DI1 -> giảm mượt về 25Hz
-            swDi1.Position = 1;
-            for (int i = 0; i < 30; i++) engine.StepSimulation(0.05);
-            Assert(Math.Abs(vfd.CurrentOutputFreqHz - 25.0) < 0.5 && Math.Abs(m3Pin.AppliedFrequencyHz - 25.0) < 0.5,
-                $"Suite 4: Khi đóng DI1-COM, tần số phải về 25Hz (thực tế: VFD={vfd.CurrentOutputFreqHz:0.0}Hz, Motor={m3Pin.AppliedFrequencyHz:0.0}Hz).");
-
-            // Đảo chiều REV trên Keypad
-            vfd.KeypadReverse = true;
-            for (int i = 0; i < 50; i++) engine.StepSimulation(0.05);
-            Assert(vfd.CurrentSignedFreqHz < -20.0 && m3Pin.RotationDirection == -1,
-                $"Suite 4: Khi đảo REV, động cơ phải quay ngược (SignedHz={vfd.CurrentSignedFreqHz:0.0}, Dir={m3Pin.RotationDirection}).");
+            engine.StepSimulation(0.1);
+            Assert(ah3.IsCoilEnergized && hInst.IsLit && !ah3.IsTimeUp && !hTimed.IsLit,
+                "Suite 3: AH3-3 khi mới cấp nguồn phải bật ON, đóng 1-3 tức thời và CHƯA đóng 8-6.");
+            for (int i = 0; i < 25; i++) engine.StepSimulation(0.05);
+            Assert(ah3.IsTimeUp && hTimed.IsLit,
+                "Suite 3: AH3-3 sau khi hết thời gian trễ phải bật LED UP và đóng 8-6 làm sáng đèn định thời!");
             engine.Stop();
 
-            // 5. Kiểm tra Động cơ 3 pha 6 chân chế độ 2 cấp tốc độ Dahlander (Thấp Δ vs Cao YY)!
-            var m6Dahlander = new Motor3Phase6PinComponent { WindingType = Motor6PinWindingType.Dahlander2Speed, RatedPowerKw = 5.5 };
-            // 5A. Tốc độ THẤP: Cấp 3 pha vào U1,V1,W1; hở U2,V2,W2
-            var lowWires = new List<WireModel>
+            // 4. Kiểm tra Nút nhấn LA38 (kép NC 11-12 + NO 23-24), Nút nhấn có đèn 6 chân & E-Stop (nhấn khóa / xoay nhả)
+            var pbLa38 = new PushButtonComponent(isNormallyClosed: false);
+            Assert(pbLa38.ContactConfig == PushButtonContactConfig.Dual1NO1NC && pbLa38.Terminals.Count == 4 &&
+                   pbLa38.NcIn1?.Id == "11" && pbLa38.NcOut2?.Id == "12" && pbLa38.NoIn3?.Id == "23" && pbLa38.NoOut4?.Id == "24",
+                "Suite 4: Nút nhấn LA38 mặc định phải có đủ 4 chân 11-12(NC) và 23-24(NO)!");
+
+            var illumPb = new IlluminatedPushButtonComponent { VoltageRating = CoilVoltageRating.AC_220V };
+            var estop = new EmergencyStopComponent();
+            var hEstopNc = new PilotLightComponent(PilotLightColor.Green);
+            var hEstopNo = new PilotLightComponent(PilotLightColor.Red);
+            var pbWires = new List<WireModel>
             {
-                new(vfdSrc.L1Terminal, m6Dahlander.U1, WireColorPreset.Red_L1_DCPlus),
-                new(vfdSrc.L2Terminal, m6Dahlander.V1, WireColorPreset.Yellow_L2),
-                new(vfdSrc.L3Terminal, m6Dahlander.W1, WireColorPreset.Blue_L3)
+                new(ac1.LineTerminal, illumPb.LampX1, WireColorPreset.Red_L1_DCPlus),
+                new(ac1.NeutralTerminal, illumPb.LampX2, WireColorPreset.Black_N_DCMinus),
+                new(ac1.LineTerminal, estop.Nc11, WireColorPreset.Red_L1_DCPlus),
+                new(estop.Nc12, hEstopNc.X1, WireColorPreset.Red_L1_DCPlus),
+                new(ac1.NeutralTerminal, hEstopNc.X2, WireColorPreset.Black_N_DCMinus),
+                new(ac1.LineTerminal, estop.SecondTop!, WireColorPreset.Red_L1_DCPlus),
+                new(estop.SecondBot!, hEstopNo.X1, WireColorPreset.Red_L1_DCPlus),
+                new(ac1.NeutralTerminal, hEstopNo.X2, WireColorPreset.Black_N_DCMinus)
             };
-            engine.BindCircuit([vfdSrc, m6Dahlander], lowWires);
+            engine.BindCircuit([ac1, illumPb, estop, hEstopNc, hEstopNo], pbWires);
             engine.Start();
             engine.StepSimulation(0.05);
-            m6Dahlander.UpdateVisualAnimation(1.0, isSimulating: true);
-            double lowVel = Math.Abs(m6Dahlander.CurrentAngularVelocity);
-            Assert(m6Dahlander.RotationDirection == 1 && lowVel > 50.0,
-                $"Suite 5A: Dahlander tốc độ thấp phải quay ổn định (Vel={lowVel:0.0}).");
-            engine.Stop();
-
-            // 5B. Tốc độ CAO: Cấp 3 pha vào U2,V2,W2; chụm U1-V1-W1
-            var highWires = new List<WireModel>
-            {
-                new(vfdSrc.L1Terminal, m6Dahlander.U2, WireColorPreset.Red_L1_DCPlus),
-                new(vfdSrc.L2Terminal, m6Dahlander.V2, WireColorPreset.Yellow_L2),
-                new(vfdSrc.L3Terminal, m6Dahlander.W2, WireColorPreset.Blue_L3),
-                new(m6Dahlander.U1, m6Dahlander.V1, WireColorPreset.Black_N_DCMinus),
-                new(m6Dahlander.V1, m6Dahlander.W1, WireColorPreset.Black_N_DCMinus)
-            };
-            engine.BindCircuit([vfdSrc, m6Dahlander], highWires);
-            engine.Start();
+            Assert(illumPb.IsLit && hEstopNc.IsLit && !hEstopNo.IsLit,
+                "Suite 4: Đèn nút nhấn 6 chân phải sáng; E-Stop nhả phải đóng 11-12 và mở 23-24.");
+            estop.ToggleEngage();
             engine.StepSimulation(0.05);
-            m6Dahlander.UpdateVisualAnimation(1.0, isSimulating: true);
-            double highVel = Math.Abs(m6Dahlander.CurrentAngularVelocity);
-            Assert(m6Dahlander.RotationDirection == 1 && highVel > lowVel * 1.5,
-                $"Suite 5B: Dahlander tốc độ CAO phải quay nhanh hơn rõ rệt so với tốc độ THẤP (High={highVel:0.0}, Low={lowVel:0.0}).");
+            Assert(estop.IsEngaged && !hEstopNc.IsLit && hEstopNo.IsLit,
+                "Suite 4: E-Stop khi nhấn khóa phải mở 11-12 và đóng 23-24!");
             engine.Stop();
 
-            // 6. Kiểm tra Xoay (90° CW/CCW) & Lật (FlipH/V) cập nhật chính xác tọa độ chân + Lưu/Mở JSON round-trip!
-            var rotMcb = new Mcb1PhaseComponent { DisplayName = "Q_ROT", X = 200, Y = 100 }; // 80 x 120, center=(240,160), In1=(20,0)
-            double origX = rotMcb.In1.CanvasX;
-            double origY = rotMcb.In1.CanvasY;
-            rotMcb.RotateCW(); // 90° CW: dx=-20, dy=-60 -> (240 - (-60), 160 + (-20)) = (300, 140), Side: Top -> Right!
-            Assert(Math.Abs(rotMcb.In1.CanvasX - 300.0) < 0.1 && Math.Abs(rotMcb.In1.CanvasY - 140.0) < 0.1 && rotMcb.In1.EffectiveSide == TerminalSide.Right,
-                $"Suite 6: Xoay 90° CW tính sai tọa độ chân (thực tế: {rotMcb.In1.CanvasX},{rotMcb.In1.CanvasY} Side={rotMcb.In1.EffectiveSide}).");
-            rotMcb.FlipHorizontal();
-
-            string json = CircuitSerializer.SerializeToJsonString([rotMcb, vfd, m3Pin, m6Dahlander], [], "TestTransformV1");
-            var (loadedComps, _, _) = CircuitSerializer.DeserializeFromJsonString(json);
-            var loadedMcb = loadedComps.OfType<Mcb1PhaseComponent>().First();
-            Assert(loadedMcb.RotationAngle == 90 && loadedMcb.IsFlippedHorizontal && !loadedMcb.IsFlippedVertical,
-                "Suite 6: Trạng thái Xoay/Lật phải được lưu & nạp lại chính xác từ tệp JSON!");
-            var loadedVfd = loadedComps.OfType<VfdComponent>().First();
-            Assert(Math.Abs(loadedVfd.P04_AccelSeconds - 2.0) < 0.01 && Math.Abs(loadedVfd.P06_Di1FreqHz - 25.0) < 0.01,
-                "Suite 6: Thông số Biến tần P01–P06 phải lưu & nạp lại chính xác từ JSON!");
-            rotMcb.FlipHorizontal();
-            rotMcb.RotateCCW();
-            Assert(Math.Abs(rotMcb.In1.CanvasX - origX) < 0.1 && Math.Abs(rotMcb.In1.CanvasY - origY) < 0.1,
-                "Suite 6: Hoàn tác Xoay/Lật phải trả chân về đúng tọa độ ban đầu.");
-
-            // 7. Kiểm tra Đồng hồ Volt, Ampe nối tiếp, Biến dòng CT & Đấu nhầm Ampe kế song song!
+            // 5. Kiểm tra Cầu chì (đứt khi quá tải & đứt khi ngắn mạch) + Cầu dao đảo chiều + Chuyển mạch Volt KDE 7 vị trí
             var src3 = new Ac3PhaseSourceComponent();
-            var mcb3 = new Mcb3PhaseComponent { IsOn = true };
-            var ct = new CurrentTransformerComponent { Ratio = CtRatio.Ratio_50_5 };
-            var amDirect = new AmmeterComponent { MeasureKind = CurrentKind.AC, Range = AmmeterRange.Direct_30A };
-            var amViaCt = new AmmeterComponent { MeasureKind = CurrentKind.AC, Range = AmmeterRange.ViaCT_50_5 };
-            var vm380 = new VoltmeterComponent { MeasureKind = CurrentKind.AC, Range = VoltmeterRange.Range_500V };
-            var motor75 = new Motor3Phase3PinComponent { RatedPowerKw = 7.5 }; // In = 15.5A
-
-            var meterWires = new List<WireModel>
+            var fuse4A = new FuseComponent { RatedAmps = 4 };
+            var motor75 = new Motor3Phase3PinComponent { RatedPowerKw = 7.5 }; // 15.5A > 4A!
+            var fuseWires = new List<WireModel>
             {
-                new(src3.L1Terminal, mcb3.In1, WireColorPreset.Red_L1_DCPlus),
-                new(src3.L2Terminal, mcb3.In3, WireColorPreset.Yellow_L2),
-                new(src3.L3Terminal, mcb3.In5, WireColorPreset.Blue_L3),
-                new(mcb3.Out2, ct.P1, WireColorPreset.Red_L1_DCPlus),
-                new(ct.P2, motor75.U1, WireColorPreset.Red_L1_DCPlus),
-                new(mcb3.Out4, amDirect.I1, WireColorPreset.Yellow_L2),
-                new(amDirect.I2, motor75.V1, WireColorPreset.Yellow_L2),
-                new(mcb3.Out6, motor75.W1, WireColorPreset.Blue_L3),
-                new(ct.S1, amViaCt.I1, WireColorPreset.Blue_L3),
-                new(ct.S2, amViaCt.I2, WireColorPreset.Black_N_DCMinus),
-                new(mcb3.Out2, vm380.V1, WireColorPreset.Red_L1_DCPlus),
-                new(mcb3.Out4, vm380.V2, WireColorPreset.Yellow_L2)
+                new(src3.L1Terminal, fuse4A.In1, WireColorPreset.Red_L1_DCPlus),
+                new(fuse4A.Out2, motor75.U1, WireColorPreset.Red_L1_DCPlus),
+                new(src3.L2Terminal, motor75.V1, WireColorPreset.Yellow_L2),
+                new(src3.L3Terminal, motor75.W1, WireColorPreset.Blue_L3)
             };
-
-            engine.BindCircuit([src3, mcb3, ct, amDirect, amViaCt, vm380, motor75], meterWires);
+            engine.BindCircuit([src3, fuse4A, motor75], fuseWires);
             engine.Start();
-            engine.StepSimulation(0.05);
-            Assert(Math.Abs(vm380.MeasuredVoltage - 380.0) <= 3.0 &&
-                   Math.Abs(amDirect.DisplayedAmps - 15.5) < 0.2 &&
-                   Math.Abs(amViaCt.DisplayedAmps - 15.5) < 0.2,
-                $"Suite 7: Volt={vm380.MeasuredVoltage}, AmDirect={amDirect.DisplayedAmps}, AmCT={amViaCt.DisplayedAmps}.");
+            for (int i = 0; i < 6; i++) engine.StepSimulation(0.05);
+            Assert(fuse4A.IsBlown, $"Suite 5A: Cầu chì 4A cấp cho động cơ 7.5kW (15.5A) phải tự động ĐỨT CHÌ! (I={fuse4A.MeasuredCurrentAmps}A)");
+            fuse4A.ResetFuse();
+            Assert(!fuse4A.IsBlown, "Suite 5A: Thay cầu chì mới phải khôi phục trạng thái nguyên vẹn.");
             engine.Stop();
 
-            // 8. Kết xuất ảnh trực quan v1.0_Release (Dark VI có Biến tần VFD, Động cơ 3P/6P & thiết bị xoay 90°; Light EN)
+            // Chuyển mạch KDE 7 vị trí nối đồng hồ Volt 500V
+            var camVolt = new CamSwitchComponent();
+            var vm = new VoltmeterComponent { MeasureKind = CurrentKind.AC, Range = VoltmeterRange.Range_500V };
+            var camWires = new List<WireModel>
+            {
+                new(src3.L1Terminal, camVolt.InR, WireColorPreset.Red_L1_DCPlus),
+                new(src3.L2Terminal, camVolt.InS, WireColorPreset.Yellow_L2),
+                new(src3.L3Terminal, camVolt.InT, WireColorPreset.Blue_L3),
+                new(src3.NeutralTerminal, camVolt.InNOrCom!, WireColorPreset.Black_N_DCMinus),
+                new(camVolt.Out1, vm.V1, WireColorPreset.Red_L1_DCPlus),
+                new(camVolt.Out2, vm.V2, WireColorPreset.Black_N_DCMinus)
+            };
+            engine.BindCircuit([src3, camVolt, vm], camWires);
+            engine.Start();
+            engine.StepSimulation(0.05);
+            Assert(vm.MeasuredVoltage < 1.0, "Suite 5B: KDE ở nấc 0 phải đo 0V.");
+            camVolt.PositionIndex = 1; // RS -> 380V
+            engine.StepSimulation(0.05);
+            Assert(Math.Abs(vm.MeasuredVoltage - 380.0) <= 3.0, $"Suite 5B: KDE ở nấc RS phải đo ~380V (thực tế: {vm.MeasuredVoltage}V).");
+            camVolt.PositionIndex = 4; // RN -> 220V
+            engine.StepSimulation(0.05);
+            Assert(Math.Abs(vm.MeasuredVoltage - 220.0) <= 3.0, $"Suite 5B: KDE ở nấc RN phải đo ~220V (thực tế: {vm.MeasuredVoltage}V).");
+            engine.Stop();
+
+            // 6. Kiểm tra Module Bàn trượt Động cơ & 2 Công tắc hành trình (LS1 Trái & LS2 Phải) chạy thuận/nghịch tự động!
+            var track = new MotorLinearTrackComponent { InitialPosition = TrackInitialPosition.LeftAtLS1, TravelDurationSeconds = 2.0 };
+            track.ApplyInitialPosition();
+            Assert(track.IsLs1Actuated && !track.IsLs2Actuated, "Suite 6: Con trượt ban đầu ở trái phải gạt LS1.");
+            var fwdTrackWires = new List<WireModel>
+            {
+                new(src3.L1Terminal, track.U1, WireColorPreset.Red_L1_DCPlus),
+                new(src3.L2Terminal, track.V1, WireColorPreset.Yellow_L2),
+                new(src3.L3Terminal, track.W1, WireColorPreset.Blue_L3)
+            };
+            engine.BindCircuit([src3, track], fwdTrackWires);
+            engine.Start();
+            for (int i = 0; i < 45; i++) engine.StepSimulation(0.05); // 2.25s > 2.0s -> chạm đầu phải LS2!
+            Assert(!track.IsLs1Actuated && track.IsLs2Actuated && track.CarriagePosition >= 0.99,
+                $"Suite 6: Chạy thuận hết hành trình phải chạm và gạt LS2 (Pos={track.CarriagePosition:0.00}).");
+            engine.Stop();
+
+            // Đảo 2 pha L2 <-> L3 chạy ngược từ LS2 về LS1
+            track.InitialPosition = TrackInitialPosition.RightAtLS2;
+            track.ApplyInitialPosition();
+            var revTrackWires = new List<WireModel>
+            {
+                new(src3.L1Terminal, track.U1, WireColorPreset.Red_L1_DCPlus),
+                new(src3.L3Terminal, track.V1, WireColorPreset.Blue_L3),
+                new(src3.L2Terminal, track.W1, WireColorPreset.Yellow_L2)
+            };
+            engine.BindCircuit([src3, track], revTrackWires);
+            engine.Start();
+            for (int i = 0; i < 45; i++) engine.StepSimulation(0.05);
+            Assert(track.IsLs1Actuated && !track.IsLs2Actuated && track.CarriagePosition <= 0.01,
+                $"Suite 6: Đảo chiều pha phải kéo con trượt về chạm LS1 (Pos={track.CarriagePosition:0.00}).");
+            engine.Stop();
+
+            // 7. Kiểm tra Nút rẽ nhánh dây (Wire T-Junction): Tách dây -> truyền điện đồng thời 2 nhánh -> JSON round-trip -> xóa nhánh tự gộp dây!
+            var testWin = new MainWindow();
+            var l1 = new PilotLightComponent(PilotLightColor.Green) { X = 120, Y = 260 };
+            var l2 = new PilotLightComponent(PilotLightColor.Yellow) { X = 320, Y = 260 };
+            var srcT = new Ac1PhaseSourceComponent { X = 120, Y = 60 };
+            var wMain = new WireModel(srcT.LineTerminal, l1.X1, WireColorPreset.Red_L1_DCPlus);
+            var wN1 = new WireModel(srcT.NeutralTerminal, l1.X2, WireColorPreset.Black_N_DCMinus);
+            var wN2 = new WireModel(srcT.NeutralTerminal, l2.X2, WireColorPreset.Black_N_DCMinus);
+            testWin.WiringCanvas.LoadCircuit([srcT, l1, l2], [wMain, wN1, wN2], autoFit: false, raiseModified: false);
+
+            // Tách dây wMain tại giữa và rẽ nhánh sang đèn l2!
+            var junc = testWin.WiringCanvas.SplitWireAtPoint(wMain, new Point(140, 200), 0);
+            var wBranch = new WireModel(junc.NodeTerminal, l2.X1, WireColorPreset.Red_L1_DCPlus);
+            var allWiresWithBranch = testWin.WiringCanvas.Wires.Append(wBranch).ToList();
+            testWin.WiringCanvas.LoadCircuit(testWin.WiringCanvas.Components.ToList(), allWiresWithBranch, autoFit: false, raiseModified: false);
+
+            engine.BindCircuit(testWin.WiringCanvas.Components, testWin.WiringCanvas.Wires);
+            engine.Start();
+            engine.StepSimulation(0.05);
+            Assert(l1.IsLit && l2.IsLit, "Suite 7: Rẽ nhánh T-Junction phải cấp điện đồng thời sáng cả 2 đèn!");
+            engine.Stop();
+
+            // Kiểm tra JSON round-trip giữ nguyên WireJunctionComponent
+            string jJson = CircuitSerializer.SerializeToJsonString(testWin.WiringCanvas.Components, testWin.WiringCanvas.Wires, "TJunctionTest");
+            var (jComps, jWires, _) = CircuitSerializer.DeserializeFromJsonString(jJson);
+            Assert(jComps.OfType<WireJunctionComponent>().Count() == 1 && jWires.Count == 5,
+                $"Suite 7: Lưu/Mở JSON phải giữ trọn vẹn nút T-Junction (J={jComps.OfType<WireJunctionComponent>().Count()}, W={jWires.Count}).");
+
+            // Xóa dây nhánh -> Tự động gộp 2 đoạn thẳng nối tiếp và dọn sạch Junction Dot!
+            testWin.WiringCanvas.DeleteWire(wBranch);
+            Assert(!testWin.WiringCanvas.Components.OfType<WireJunctionComponent>().Any() && testWin.WiringCanvas.Wires.Count == 3,
+                $"Suite 7: Xóa nhánh T-Junction phải tự động gộp liền lại sợi dây gốc và xóa Junction Dot (J={testWin.WiringCanvas.Components.OfType<WireJunctionComponent>().Count()}, W={testWin.WiringCanvas.Wires.Count}).");
+            testWin.Close();
+
+            // 8. Kết xuất ảnh trực quan v1.1_Release (Dark VI & Light EN) trình diễn đầy đủ thiết bị mới + T-Junction!
             int previewIdx = Array.FindIndex(Environment.GetCommandLineArgs(), a => a == "--save-preview-dir");
             if (previewIdx >= 0 && previewIdx + 1 < Environment.GetCommandLineArgs().Length)
             {
                 string outDir = Environment.GetCommandLineArgs()[previewIdx + 1];
                 Directory.CreateDirectory(outDir);
 
-                RenderDemoScene(Path.Combine(outDir, "preview_v1_release_dark_vi.png"), useLight: false, lang: "vi");
-                RenderDemoScene(Path.Combine(outDir, "preview_v1_release_light_en.png"), useLight: true, lang: "en");
+                RenderV11Showcase(Path.Combine(outDir, "preview_v11_dark_vi.png"), useLight: false, lang: "vi");
+                RenderV11Showcase(Path.Combine(outDir, "preview_v11_light_en.png"), useLight: true, lang: "en");
             }
 
-            Console.WriteLine("SELF_VERIFY_PASSED: All v1.0_Release suites (Localization Parity, Version/UpdateService, Empty Startup, VFD Ramp+REV+DI1, 3-Pin & 6-Pin Dahlander Motors, Rotate/Flip+JSON, Meters/CT, Visual Render) passed!");
+            Console.WriteLine("SELF_VERIFY_PASSED: All v1.1_Release suites (Localization Parity, Version 1.1_Release, AH3-3 Rotary Timer, LA38 Dual PB + Illuminated PB + E-Stop, Fuse Overload/Short + KDE Cam Switch, Motor Linear Track LS1/LS2, Wire T-Junction Split/Sim/JSON/Cleanup, Visual Render) passed!");
             return 0;
         }
         catch (Exception ex)
@@ -244,7 +259,7 @@ public partial class App : Application
         }
     }
 
-    private static void RenderDemoScene(string pngPath, bool useLight, string lang)
+    private static void RenderV11Showcase(string pngPath, bool useLight, string lang)
     {
         var win = new MainWindow();
         LocalizationManager.SetLanguage(lang);
@@ -258,47 +273,54 @@ public partial class App : Application
         root.Arrange(new Rect(0, 0, 1520, 900));
         root.UpdateLayout();
 
-        if (!useLight)
+        var src3 = new Ac3PhaseSourceComponent { DisplayName = "3P 380V", X = 60, Y = 40 };
+        var knife = new KnifeSwitchComponent(KnifeSwitchKind.ThreePhase3Pole) { DisplayName = "CD1", X = 60, Y = 180, Position = 1 };
+        var fuse = new FuseComponent { DisplayName = "FU1", X = 260, Y = 180, RatedAmps = 10 };
+        var ah3 = new RotaryTimerAh3Component { DisplayName = "KT1", X = 380, Y = 120 };
+        ah3.SetDelaySeconds(6.0);
+        var cam = new CamSwitchComponent { DisplayName = "SA1", X = 600, Y = 120, PositionIndex = 1 };
+        var vm = new VoltmeterComponent { DisplayName = "PV1", X = 820, Y = 140, Range = VoltmeterRange.Range_500V };
+
+        var pbGreen = new PushButtonComponent(false) { DisplayName = "SB1", X = 60, Y = 380 };
+        var pbIllum = new IlluminatedPushButtonComponent { DisplayName = "SB2", X = 200, Y = 380, ButtonColor = PilotLightColor.Green };
+        var estop = new EmergencyStopComponent { DisplayName = "ES1", X = 380, Y = 380 };
+        var ls = new LimitSwitchComponent { DisplayName = "SQ1", X = 520, Y = 380, IsActuated = true };
+        var track = new MotorLinearTrackComponent { DisplayName = "MT1", X = 660, Y = 360, InitialPosition = TrackInitialPosition.Center };
+        track.ApplyInitialPosition();
+
+        var junc = new WireJunctionComponent { CenterPoint = new Point(290, 140), DotColorPreset = WireColorPreset.Red_L1_DCPlus };
+
+        var wires = new List<WireModel>
         {
-            // Trình diễn Biến tần VFD cấp nguồn Động cơ 3 chân, Động cơ 6 chân Dahlander và Aptomat xoay 90°!
-            var src3 = new Ac3PhaseSourceComponent { DisplayName = "AC 3P", X = 80, Y = 40 };
-            var mcb3 = new Mcb3PhaseComponent { DisplayName = "Q1", X = 80, Y = 180, IsOn = true };
-            var vfd = new VfdComponent { DisplayName = "VFD1", X = 280, Y = 120, KeypadRunCommand = true, KeypadTargetFreqHz = 38.5 };
-            var m3p = new Motor3Phase3PinComponent { DisplayName = "M1", X = 280, Y = 380, RatedPowerKw = 3.0 };
-            var m6p = new Motor3Phase6PinComponent { DisplayName = "M2", X = 600, Y = 360, WindingType = Motor6PinWindingType.Dahlander2Speed };
-            var rotSw = new SwitchComponent { DisplayName = "S1", X = 640, Y = 160 };
-            rotSw.RotateCW();
+            new(src3.L1Terminal, knife.TopInputs[0], WireColorPreset.Red_L1_DCPlus),
+            new(src3.L2Terminal, knife.TopInputs[1], WireColorPreset.Yellow_L2),
+            new(src3.L3Terminal, knife.TopInputs[2], WireColorPreset.Blue_L3),
+            new(src3.L1Terminal, junc.NodeTerminal, WireColorPreset.Red_L1_DCPlus),
+            new(junc.NodeTerminal, fuse.In1, WireColorPreset.Red_L1_DCPlus),
+            new(junc.NodeTerminal, cam.InR, WireColorPreset.Red_L1_DCPlus),
+            new(src3.L2Terminal, cam.InS, WireColorPreset.Yellow_L2),
+            new(src3.L3Terminal, cam.InT, WireColorPreset.Blue_L3),
+            new(src3.NeutralTerminal, cam.InNOrCom!, WireColorPreset.Black_N_DCMinus),
+            new(cam.Out1, vm.V1, WireColorPreset.Red_L1_DCPlus),
+            new(cam.Out2, vm.V2, WireColorPreset.Black_N_DCMinus),
+            new(fuse.Out2, pbIllum.LampX1, WireColorPreset.Red_L1_DCPlus),
+            new(src3.NeutralTerminal, pbIllum.LampX2, WireColorPreset.Black_N_DCMinus),
+            new(fuse.Out2, ah3.Power2, WireColorPreset.Red_L1_DCPlus),
+            new(src3.NeutralTerminal, ah3.Power7, WireColorPreset.Black_N_DCMinus),
+            new(knife.BottomTerminals[0], track.U1, WireColorPreset.Red_L1_DCPlus),
+            new(knife.BottomTerminals[1], track.V1, WireColorPreset.Yellow_L2),
+            new(knife.BottomTerminals[2], track.W1, WireColorPreset.Blue_L3)
+        };
 
-            var wires = new List<WireModel>
-            {
-                new(src3.L1Terminal, mcb3.In1, WireColorPreset.Red_L1_DCPlus),
-                new(src3.L2Terminal, mcb3.In3, WireColorPreset.Yellow_L2),
-                new(src3.L3Terminal, mcb3.In5, WireColorPreset.Blue_L3),
-                new(mcb3.Out2, vfd.R_In, WireColorPreset.Red_L1_DCPlus),
-                new(mcb3.Out4, vfd.S_In, WireColorPreset.Yellow_L2),
-                new(mcb3.Out6, vfd.T_In, WireColorPreset.Blue_L3),
-                new(vfd.U_Out, m3p.U1, WireColorPreset.Red_L1_DCPlus),
-                new(vfd.V_Out, m3p.V1, WireColorPreset.Yellow_L2),
-                new(vfd.W_Out, m3p.W1, WireColorPreset.Blue_L3),
-                new(vfd.Com, rotSw.ComOrInTerminal!, WireColorPreset.Black_N_DCMinus),
-                new(rotSw.Out1Terminal!, vfd.Fwd, WireColorPreset.Blue_L3)
-            };
+        var comps = new List<ElectricalComponent> { src3, knife, fuse, ah3, cam, vm, pbGreen, pbIllum, estop, ls, track, junc };
+        var sim = new CircuitSimulationEngine();
+        sim.BindCircuit(comps, wires);
+        sim.Start();
+        for (int i = 0; i < 30; i++) sim.StepSimulation(0.05);
+        track.UpdateVisualAnimation(0.5, true);
 
-            var sim = new CircuitSimulationEngine();
-            sim.BindCircuit([src3, mcb3, vfd, m3p, m6p, rotSw], wires);
-            sim.Start();
-            for (int i = 0; i < 60; i++) sim.StepSimulation(0.05);
-            m3p.UpdateVisualAnimation(0.4, true);
-
-            win.WiringCanvas.LoadCircuit([src3, mcb3, vfd, m3p, m6p, rotSw], wires, autoFit: true, raiseModified: false);
-            win.WiringCanvas.SetMode(AppMode.Simulation);
-        }
-        else
-        {
-            var (c3, w3) = PresetCircuitFactory.Presets[2].Builder();
-            win.WiringCanvas.LoadCircuit(c3, w3, autoFit: true, raiseModified: false);
-            win.WiringCanvas.SetRoutingStyle(WireRoutingStyle.Curved);
-        }
+        win.WiringCanvas.LoadCircuit(comps, wires, autoFit: true, raiseModified: false);
+        win.WiringCanvas.SetMode(AppMode.Simulation);
 
         root.UpdateLayout();
         var rtb = new RenderTargetBitmap(1520, 900, 96, 96, PixelFormats.Pbgra32);

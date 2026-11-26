@@ -36,6 +36,7 @@ public static class WireRouter
         var usedVerticals = new List<VerticalSegment>();
 
         var obstacleRects = components
+            .Where(c => c is not WiringSim.Models.Components.Control.WireJunctionComponent)
             .Select(c =>
             {
                 Rect vb = c.GetVisualBounds();
@@ -241,6 +242,70 @@ public static class WireRouter
         return geometry;
     }
 
+    /// <summary>
+    /// Tìm điểm gần nhất nằm trên thân sợi dây dẫn (phục vụ bắt dính &amp; tách dây tạo điểm rẽ nhánh T-Junction).
+    /// Trả về khoảng cách từ point tới dây, tọa độ hình chiếu exact trên dây và chỉ số đoạn/nhịp (splitIndex).
+    /// </summary>
+    public static double FindClosestPointOnWire(
+        Point queryPt,
+        WireModel wire,
+        WireRoutingStyle style,
+        out Point closestPoint,
+        out int splitIndex)
+    {
+        closestPoint = queryPt;
+        splitIndex = 0;
+
+        if (style == WireRoutingStyle.Curved)
+        {
+            var anchors = GetEffectiveAnchorPoints(wire, WireRoutingStyle.Curved);
+            var spans = ComputeSmoothCurveSpans(anchors, wire.TerminalA.EffectiveSide, wire.TerminalB.EffectiveSide);
+            double minDist = double.MaxValue;
+
+            for (int s = 0; s < spans.Count; s++)
+            {
+                var sp = spans[s];
+                for (int step = 0; step <= 20; step++)
+                {
+                    double t = step / 20.0;
+                    Point sample = EvaluateCubicBezier(sp.P0, sp.C1, sp.C2, sp.P3, t);
+                    double d = (queryPt - sample).Length;
+                    if (d < minDist)
+                    {
+                        minDist = d;
+                        splitIndex = s;
+                        closestPoint = sample;
+                    }
+                }
+            }
+            return minDist;
+        }
+
+        var poly = wire.RoutedPoints;
+        if (poly.Count < 2) return double.MaxValue;
+
+        double bestDist = double.MaxValue;
+        for (int i = 0; i < poly.Count - 1; i++)
+        {
+            Point a = poly[i];
+            Point b = poly[i + 1];
+            Vector ab = b - a;
+            double lenSq = ab.LengthSquared;
+            Point proj = lenSq < 0.0001
+                ? a
+                : a + ab * Math.Clamp(((queryPt - a) * ab) / lenSq, 0.0, 1.0);
+
+            double d = (queryPt - proj).Length;
+            if (d < bestDist)
+            {
+                bestDist = d;
+                splitIndex = i;
+                closestPoint = proj;
+            }
+        }
+        return bestDist;
+    }
+
     public static int FindNearestSpanIndex(
         Point clickPt,
         WireModel wire,
@@ -340,6 +405,35 @@ public static class WireRouter
         var tB = wire.TerminalB;
         Point pA = new(tA.CanvasX, tA.CanvasY);
         Point pB = new(tB.CanvasX, tB.CanvasY);
+
+        // Nếu một hoặc cả hai đầu là Nút rẽ nhánh T-Junction: đi dây gọn trực tiếp vào tâm nút (không thừa đoạn stub)
+        bool aIsJunc = tA.Owner is WiringSim.Models.Components.Control.WireJunctionComponent;
+        bool bIsJunc = tB.Owner is WiringSim.Models.Components.Control.WireJunctionComponent;
+        if (aIsJunc || bIsJunc)
+        {
+            if (Math.Abs(pA.X - pB.X) < 1.0 || Math.Abs(pA.Y - pB.Y) < 1.0)
+                return [pA, pB];
+
+            // Chọn điểm gập góc L tôn trọng hướng thoát của đầu là chân thiết bị
+            Point corner;
+            if (!aIsJunc)
+            {
+                corner = tA.EffectiveSide is TerminalSide.Top or TerminalSide.Bottom
+                    ? new Point(pA.X, pB.Y)
+                    : new Point(pB.X, pA.Y);
+            }
+            else if (!bIsJunc)
+            {
+                corner = tB.EffectiveSide is TerminalSide.Top or TerminalSide.Bottom
+                    ? new Point(pB.X, pA.Y)
+                    : new Point(pA.X, pB.Y);
+            }
+            else
+            {
+                corner = new Point(pB.X, pA.Y);
+            }
+            return SimplifyCollinear([pA, corner, pB]);
+        }
 
         TerminalSide sideA = tA.EffectiveSide;
         TerminalSide sideB = tB.EffectiveSide;

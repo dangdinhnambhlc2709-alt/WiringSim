@@ -280,7 +280,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(CancelEventArgs e)
     {
-        if (_isDirty)
+        if (_isDirty && IsVisible)
         {
             var choice = ConfirmSaveDialog.ShowPrompt(this);
             if (choice == UnsavedExitChoice.Cancel)
@@ -813,6 +813,7 @@ public partial class MainWindow : Window
 
     private void UpdateCircuitStats()
     {
-        TxtCircuitStats.Text = LocalizationManager.Format("Str.Status.StatsFormat", WiringCanvas.Components.Count, WiringCanvas.Wires.Count);
+        int deviceCount = WiringCanvas.Components.Count(c => c is not WireJunctionComponent);
+        TxtCircuitStats.Text = LocalizationManager.Format("Str.Status.StatsFormat", deviceCount, WiringCanvas.Wires.Count);
     }
 }

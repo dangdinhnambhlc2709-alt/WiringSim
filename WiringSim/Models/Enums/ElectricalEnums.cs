@@ -63,7 +63,8 @@ public enum PilotLightColor
     Green,
     Red,
     Yellow,
-    White
+    White,
+    Blue
 }
 
 public enum McbCurveType
@@ -198,4 +199,40 @@ public enum Motor6PinWindingType
 {
     StarDelta,
     Dahlander2Speed
+}
+
+public enum Ah3TimeRange
+{
+    Range_10s,
+    Range_30s,
+    Range_60s,
+    Range_10m
+}
+
+public enum EmergencyStopContactConfig
+{
+    Dual1NC1NO,
+    Only1NC,
+    Dual2NC
+}
+
+public enum KnifeSwitchKind
+{
+    SinglePhase2Pole,
+    ThreePhase3Pole,
+    Changeover3P_1_0_2
+}
+
+public enum CamSwitchMode
+{
+    Volt7Pos,
+    Volt4Pos,
+    Amp4Pos
+}
+
+public enum TrackInitialPosition
+{
+    LeftAtLS1,
+    Center,
+    RightAtLS2
 }

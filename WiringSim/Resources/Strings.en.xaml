@@ -116,12 +116,20 @@
     <sys:String x:Key="Str.Comp.Sw2W.Sub">Changeover COM - L1 - L2</sys:String>
     <sys:String x:Key="Str.Comp.SwRot.Title">3-Position Rotary Switch</sys:String>
     <sys:String x:Key="Str.Comp.SwRot.Sub">1 - 0 - 2 (Man / Off / Auto)</sys:String>
-    <sys:String x:Key="Str.Comp.PbNo.Title">Ø22 Pushbutton NO (Green)</sys:String>
-    <sys:String x:Key="Str.Comp.PbNo.Sub">XB2/LA38 • 1NO / 1NC / 1NO+1NC</sys:String>
-    <sys:String x:Key="Str.Comp.PbNc.Title">Ø22 Pushbutton NC (Red)</sys:String>
-    <sys:String x:Key="Str.Comp.PbNc.Sub">XB2/LA38 • Momentary or Latching</sys:String>
-    <sys:String x:Key="Str.Comp.LimitSw.Title">Limit Switch (Roller)</sys:String>
-    <sys:String x:Key="Str.Comp.LimitSw.Sub">ME-8108 / WLCA2 • 1NO(13-14) + 1NC(21-22)</sys:String>
+    <sys:String x:Key="Str.Comp.PbNo.Title">LA38 Pushbutton (Green)</sys:String>
+    <sys:String x:Key="Str.Comp.PbNo.Sub">LA38 • Dual NC(11-12) + NO(23-24)</sys:String>
+    <sys:String x:Key="Str.Comp.PbNc.Title">LA38 Pushbutton (Red)</sys:String>
+    <sys:String x:Key="Str.Comp.PbNc.Sub">LA38 • Dual NC(11-12) + NO(23-24)</sys:String>
+    <sys:String x:Key="Str.Comp.PbIllum.Title">Illuminated Pushbutton (6-Pin)</sys:String>
+    <sys:String x:Key="Str.Comp.PbIllum.Sub">X1-X2 Lamp • NC(11-12) + NO(23-24)</sys:String>
+    <sys:String x:Key="Str.Comp.EStop.Title">Emergency Stop (E-Stop)</sys:String>
+    <sys:String x:Key="Str.Comp.EStop.Sub">Push-Lock / Twist-Release • 11-12 &amp; 23-24</sys:String>
+    <sys:String x:Key="Str.Comp.Fuse.Title">Cartridge Fuse (RT18)</sys:String>
+    <sys:String x:Key="Str.Comp.Fuse.Sub">1A–32A • Blows on short / overload</sys:String>
+    <sys:String x:Key="Str.Comp.KnifeSw.Title">Knife Switch / Isolator</sys:String>
+    <sys:String x:Key="Str.Comp.KnifeSw.Sub">1P (2-Pole) / 3P (3-Pole) / Changeover 1-0-2</sys:String>
+    <sys:String x:Key="Str.Comp.LimitSw.Title">Limit Switch (ME-8104)</sys:String>
+    <sys:String x:Key="Str.Comp.LimitSw.Sub">Roller Lever • NC(1-2) + NO(3-4)</sys:String>
     <sys:String x:Key="Str.Comp.Contactor.Title">Contactor (LC1D / MC)</sys:String>
     <sys:String x:Key="Str.Comp.Contactor.Sub">24V–380V Coil • Aux 1NO / 1NC</sys:String>
     <sys:String x:Key="Str.Comp.Vfd.Title">VFD / Inverter Drive</sys:String>
@@ -133,6 +141,8 @@
     <sys:String x:Key="Str.Comp.Thermal.Sub">L1-T1..L3-T3 • 95-96(NC), 97-98(NO)</sys:String>
     <sys:String x:Key="Str.Comp.Timer.Title">Multi-Mode Timer (Omron H3CR)</sys:String>
     <sys:String x:Key="Str.Comp.Timer.Sub">ON-Delay / OFF-Delay / Star-Delta</sys:String>
+    <sys:String x:Key="Str.Comp.TimerAh3.Title">Rotary Dial Timer (CKC AH3-3)</sys:String>
+    <sys:String x:Key="Str.Comp.TimerAh3.Sub">8-Pin (2-7, 1-3-4, 8-5-6) • Interactive Dial</sys:String>
 
     <sys:String x:Key="Str.Comp.SensInd.Title">Inductive Proximity Sensor</sys:String>
     <sys:String x:Key="Str.Comp.SensInd.Sub">Metal detection • PNP/NPN 10–30VDC</sys:String>
@@ -149,6 +159,8 @@
     <sys:String x:Key="Str.Comp.Ammeter.Sub">Series I1-I2 or via CT</sys:String>
     <sys:String x:Key="Str.Comp.Ct.Title">Current Transformer (CT)</sys:String>
     <sys:String x:Key="Str.Comp.Ct.Sub">Primary P1-P2 • Secondary S1-S2 (/5A)</sys:String>
+    <sys:String x:Key="Str.Comp.CamSw.Title">Selector Cam Switch (KDE 4–7 Pos)</sys:String>
+    <sys:String x:Key="Str.Comp.CamSw.Sub">Volt 7-Pos / Volt 4-Pos / Ammeter 4-Pos</sys:String>
 
     <sys:String x:Key="Str.Comp.PilotG.Title">Pilot Indicator Light</sys:String>
     <sys:String x:Key="Str.Comp.PilotG.Sub">12VDC / 24VDC / 220VAC • 4 Colors</sys:String>
@@ -160,6 +172,8 @@
     <sys:String x:Key="Str.Comp.Motor3P3.Sub">U1,V1,W1 + PE • Internal Star 380V / Δ 220V</sys:String>
     <sys:String x:Key="Str.Comp.Motor3P6.Title">3-Phase Motor (6-Terminal)</sys:String>
     <sys:String x:Key="Str.Comp.Motor3P6.Sub">U1..W1 &amp; U2..W2 • Star-Delta / Dahlander</sys:String>
+    <sys:String x:Key="Str.Comp.MotorTrack.Title">Motor Linear Track &amp; Dual LS</sys:String>
+    <sys:String x:Key="Str.Comp.MotorTrack.Sub">3P Motor + Leadscrew + LS1 (Left) &amp; LS2 (Right)</sys:String>
 
     <!-- Vector Canvas Device Badges -->
     <sys:String x:Key="Str.Vis.Pulled">ON</sys:String>
@@ -400,6 +414,50 @@
     <sys:String x:Key="Str.Exit.Cancel">Cancel</sys:String>
 
     <sys:String x:Key="Str.Settings.VersionInfo">Application Version: {0}</sys:String>
-    <sys:String x:Key="Str.Tips.Line5">• Key R: Quick rotate selected component 90°</sys:String>
+    <sys:String x:Key="Str.Tips.Line5">• Key R: Rotate 90° | Ctrl+Click / Drag wire: T-Junction</sys:String>
+
+    <!-- v1.1 Strings: AH3-3, LA38, Illuminated PB, E-Stop, Fuse, Knife Switch, KDE Cam, Linear Track, T-Junction -->
+    <sys:String x:Key="Str.Color.Blue">Blue</sys:String>
+    <sys:String x:Key="Str.Menu.Only1NO_LA38">Only 1NO (23 - 24)</sys:String>
+    <sys:String x:Key="Str.Menu.Only1NC_LA38">Only 1NC (11 - 12)</sys:String>
+    <sys:String x:Key="Str.Menu.Dual1NO1NC_LA38">Dual NC (11-12) + NO (23-24)</sys:String>
+
+    <sys:String x:Key="Str.Menu.Ah3Range">⏱ Time Scale Range ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.Ah3Range10s">0 – 10 seconds (10S)</sys:String>
+    <sys:String x:Key="Str.Menu.Ah3Range30s">0 – 30 seconds (30S)</sys:String>
+    <sys:String x:Key="Str.Menu.Ah3Range60s">0 – 60 seconds (60S)</sys:String>
+    <sys:String x:Key="Str.Menu.Ah3Range10m">0 – 10 minutes (10M)</sys:String>
+    <sys:String x:Key="Str.Menu.Ah3CustomPrompt">Enter target delay (seconds, 0.1 to {0:0.#}):</sys:String>
+
+    <sys:String x:Key="Str.Menu.EStopDual1NC1NO">1NC (11-12) + 1NO (23-24)</sys:String>
+    <sys:String x:Key="Str.Menu.EStopOnly1NC">Only 1NC (11-12)</sys:String>
+    <sys:String x:Key="Str.Menu.EStopDual2NC">2NC (11-12 &amp; 21-22)</sys:String>
+    <sys:String x:Key="Str.Vis.EStopLocked">LOCKED</sys:String>
+
+    <sys:String x:Key="Str.Menu.FuseRating">⚡ Fuse Rated Current ({0}A)</sys:String>
+    <sys:String x:Key="Str.Menu.FuseReset">🔧 Replace Fuse (Reset Fuse)</sys:String>
+    <sys:String x:Key="Str.Vis.FuseBlown">BLOWN!</sys:String>
+    <sys:String x:Key="Str.Fault.FuseBlownOverload">FUSE BLOWN [{0}]: Load current {1:0.0}A exceeded {2}A rating!</sys:String>
+    <sys:String x:Key="Str.Fault.FuseBlownShort">Short-circuit protection — FUSE BLOWN: {0}.</sys:String>
+
+    <sys:String x:Key="Str.Menu.KnifeType">🔪 Knife Switch Type ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.Knife1P">1-Phase Isolator (2-Pole)</sys:String>
+    <sys:String x:Key="Str.Menu.Knife3P">3-Phase Isolator (3-Pole)</sys:String>
+    <sys:String x:Key="Str.Menu.KnifeChangeover">Double-Throw Changeover (1 - 0 - 2)</sys:String>
+
+    <sys:String x:Key="Str.Menu.CamMode">🎛 Cam Switch Mode ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.CamVolt7">7-Pos Voltmeter Switch (0-RS-ST-TR-RN-SN-TN)</sys:String>
+    <sys:String x:Key="Str.Menu.CamVolt4">4-Pos Voltmeter Switch (0-RS-ST-TR)</sys:String>
+    <sys:String x:Key="Str.Menu.CamAmp4">4-Pos Ammeter Switch (0-L1-L2-L3)</sys:String>
+
+    <sys:String x:Key="Str.Menu.TrackInitPos">📍 Initial Carriage Position ({0})</sys:String>
+    <sys:String x:Key="Str.Menu.TrackPosLeft">Left End (Touching LS1)</sys:String>
+    <sys:String x:Key="Str.Menu.TrackPosCenter">Center of Track</sys:String>
+    <sys:String x:Key="Str.Menu.TrackPosRight">Right End (Touching LS2)</sys:String>
+    <sys:String x:Key="Str.Menu.TrackDuration">⏱ Full-Stroke Travel Time ({0:0.#}s)</sys:String>
+
+    <sys:String x:Key="Str.Menu.WireBranchHere">🔀 Start Branch Wire Here (T-Junction)</sys:String>
+    <sys:String x:Key="Str.Status.BranchCreated">Created wire T-Junction splice node.</sys:String>
+    <sys:String x:Key="Str.Status.BranchStarted">Drawing new branch wire from T-Junction — click any terminal or wire to connect.</sys:String>
 
 </ResourceDictionary>

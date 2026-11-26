@@ -4,9 +4,9 @@ using WiringSim.UI.Services;
 namespace WiringSim.Models.Components.Control;
 
 /// <summary>
-/// Công tắc hành trình công nghiệp (Limit Switch — kiểu ME-8108 / Omron WLCA2):
-/// - Có cần gạt bánh xe trực quan &amp; đèn LED báo tác động trên thân.
-/// - Tích hợp 2 cặp tiếp điểm độc lập: 1NO (13-14) và 1NC (21-22).
+/// Công tắc hành trình công nghiệp tay gạt bánh xe con lăn (kiểu ME-8104):
+/// - Thân xanh/đen công nghiệp có cần gạt kim loại gắn bánh xe con lăn nhô phía trên.
+/// - Tích hợp 2 cặp tiếp điểm độc lập: NC (1-2) và NO (3-4).
 /// - Hỗ trợ 2 chế độ thử nghiệm: Nhấn giữ (Momentary) hoặc Nhấn khóa (Latching).
 /// </summary>
 public sealed class LimitSwitchComponent : ElectricalComponent
@@ -18,25 +18,31 @@ public sealed class LimitSwitchComponent : ElectricalComponent
     public PushButtonActionMode ActionMode { get; set; } = PushButtonActionMode.Latching;
     public bool IsActuated { get; set; }
 
-    public Terminal No13 { get; }
-    public Terminal No14 { get; }
-    public Terminal Nc21 { get; }
-    public Terminal Nc22 { get; }
+    public Terminal Nc1 { get; }
+    public Terminal Nc2 { get; }
+    public Terminal No3 { get; }
+    public Terminal No4 { get; }
+
+    // Tương thích ngược cho mã cũ
+    public Terminal No13 => No3;
+    public Terminal No14 => No4;
+    public Terminal Nc21 => Nc1;
+    public Terminal Nc22 => Nc2;
 
     public LimitSwitchComponent() : base("SQ", 100, 120)
     {
-        No13 = AddTerminal("13", "13(NO)", 20, 0, TerminalSide.Top);
-        Nc21 = AddTerminal("21", "21(NC)", 80, 0, TerminalSide.Top);
-        No14 = AddTerminal("14", "14(NO)", 20, 120, TerminalSide.Bottom);
-        Nc22 = AddTerminal("22", "22(NC)", 80, 120, TerminalSide.Bottom);
+        Nc1 = AddTerminal("1", "1(NC)", 20, 0, TerminalSide.Top, "Tiếp điểm thường đóng NC (1)");
+        No3 = AddTerminal("3", "3(NO)", 80, 0, TerminalSide.Top, "Tiếp điểm thường mở NO (3)");
+        Nc2 = AddTerminal("2", "2(NC)", 20, 120, TerminalSide.Bottom, "Tiếp điểm thường đóng NC (2)");
+        No4 = AddTerminal("4", "4(NO)", 80, 120, TerminalSide.Bottom, "Tiếp điểm thường mở NO (4)");
     }
 
     public override IEnumerable<InternalConductivePath> GetInternalConductivePaths()
     {
         if (IsActuated)
-            yield return new InternalConductivePath(No13, No14, $"{DisplayName} (13-14 NO)");
+            yield return new InternalConductivePath(No3, No4, $"{DisplayName} (3-4 NO)");
         else
-            yield return new InternalConductivePath(Nc21, Nc22, $"{DisplayName} (21-22 NC)");
+            yield return new InternalConductivePath(Nc1, Nc2, $"{DisplayName} (1-2 NC)");
     }
 
     public override void ResetSimulationState()

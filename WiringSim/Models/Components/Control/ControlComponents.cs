@@ -365,21 +365,23 @@ public sealed class Switch3WayComponent : SwitchComponent
 }
 
 /// <summary>
-/// Nút nhấn công nghiệp chuẩn phi 22 (kiểu XB2 / LA38):
-/// - Kiểu tác động: Momentary (Không nhớ / Tự nhả) hoặc Latching (Có nhớ / Giữ trạng thái).
-/// - Cấu hình tiếp điểm: Chỉ 1NO (3-4), Chỉ 1NC (1-2), hoặc Khối kép 1NO + 1NC (1-2 và 3-4 độc lập).
-/// - Màu nút: Xanh lá, Đỏ, Vàng.
+/// Nút nhấn công nghiệp chuẩn phi 22 (kiểu LA38 / XB2):
+/// - Mặc định tích hợp sẵn 2 cặp tiếp điểm độc lập: NC (11 - 12) và NO (23 - 24) (tổng 4 chân).
+/// - Kiểu tác động: Momentary (Không tự duy trì / Tự nhả) hoặc Latching (Tự duy trì / Có nhớ).
+/// - Hỗ trợ đổi màu (Xanh lá, Đỏ, Vàng, Xanh dương) hoặc thu gọn về 1NO / 1NC.
 /// </summary>
 public sealed class PushButtonComponent : ElectricalComponent
 {
     public const string TypeIdNO = "PUSHBUTTON_NO";
     public const string TypeIdNC = "PUSHBUTTON_NC";
 
+    private readonly bool _preferNcPrimary;
+
     public PushButtonActionMode ActionMode { get; set; } = PushButtonActionMode.Momentary;
     public PushButtonContactConfig ContactConfig { get; private set; }
     public PilotLightColor ButtonColor { get; set; }
 
-    public override string TypeKey => ContactConfig == PushButtonContactConfig.Only1NC ? TypeIdNC : TypeIdNO;
+    public override string TypeKey => _preferNcPrimary ? TypeIdNC : TypeIdNO;
     public override ComponentCategory Category => ComponentCategory.SwitchingAndControl;
 
     /// <summary>Trạng thái nút đang lún xuống (do giữ chuột ở Momentary hoặc đã chốt ở Latching).</summary>
@@ -390,15 +392,20 @@ public sealed class PushButtonComponent : ElectricalComponent
     public Terminal? NoIn3 { get; private set; }
     public Terminal? NoOut4 { get; private set; }
 
-    // Thuộc tính tiện ích tương thích với Preset (lấy cặp chân chính khi nút ở cấu hình đơn)
-    public Terminal TopTerminal => (ContactConfig == PushButtonContactConfig.Only1NC ? NcIn1 : NoIn3) ?? _terminals[0];
-    public Terminal BottomTerminal => (ContactConfig == PushButtonContactConfig.Only1NC ? NcOut2 : NoOut4) ?? _terminals[1];
-    public bool IsNormallyClosed => ContactConfig == PushButtonContactConfig.Only1NC;
+    // Thuộc tính tiện ích tương thích 100% với Preset (nút Đỏ ưu tiên cặp NC 11-12, nút Xanh ưu tiên cặp NO 23-24)
+    public Terminal TopTerminal =>
+        (_preferNcPrimary || ContactConfig == PushButtonContactConfig.Only1NC ? NcIn1 : NoIn3)
+        ?? NcIn1 ?? NoIn3 ?? _terminals[0];
+    public Terminal BottomTerminal =>
+        (_preferNcPrimary || ContactConfig == PushButtonContactConfig.Only1NC ? NcOut2 : NoOut4)
+        ?? NcOut2 ?? NoOut4 ?? _terminals[1];
+    public bool IsNormallyClosed => _preferNcPrimary || ContactConfig == PushButtonContactConfig.Only1NC;
 
     public PushButtonComponent(bool isNormallyClosed = false)
-        : base(isNormallyClosed ? "Nút nhấn NC" : "Nút nhấn NO", 80, 100)
+        : base(isNormallyClosed ? "Nút nhấn Đỏ" : "Nút nhấn Xanh", 100, 100)
     {
-        ContactConfig = isNormallyClosed ? PushButtonContactConfig.Only1NC : PushButtonContactConfig.Only1NO;
+        _preferNcPrimary = isNormallyClosed;
+        ContactConfig = PushButtonContactConfig.Dual1NO1NC;
         ButtonColor = isNormallyClosed ? PilotLightColor.Red : PilotLightColor.Green;
         RebuildTerminals();
     }
@@ -420,36 +427,36 @@ public sealed class PushButtonComponent : ElectricalComponent
         switch (ContactConfig)
         {
             case PushButtonContactConfig.Only1NO:
-                NoIn3 = AddOrReuseTerminal(existing, "3", "3(NO)", 40, 0, TerminalSide.Top, "Tiếp điểm thường mở 3 (NO)");
-                NoOut4 = AddOrReuseTerminal(existing, "4", "4(NO)", 40, 100, TerminalSide.Bottom, "Tiếp điểm thường mở 4 (NO)");
+                NoIn3 = AddOrReuseTerminal(existing, "23", "23(NO)", 40, 0, TerminalSide.Top, "Tiếp điểm thường mở 23 (NO)");
+                NoOut4 = AddOrReuseTerminal(existing, "24", "24(NO)", 40, 100, TerminalSide.Bottom, "Tiếp điểm thường mở 24 (NO)");
                 break;
 
             case PushButtonContactConfig.Only1NC:
-                NcIn1 = AddOrReuseTerminal(existing, "1", "1(NC)", 40, 0, TerminalSide.Top, "Tiếp điểm thường đóng 1 (NC)");
-                NcOut2 = AddOrReuseTerminal(existing, "2", "2(NC)", 40, 100, TerminalSide.Bottom, "Tiếp điểm thường đóng 2 (NC)");
+                NcIn1 = AddOrReuseTerminal(existing, "11", "11(NC)", 40, 0, TerminalSide.Top, "Tiếp điểm thường đóng 11 (NC)");
+                NcOut2 = AddOrReuseTerminal(existing, "12", "12(NC)", 40, 100, TerminalSide.Bottom, "Tiếp điểm thường đóng 12 (NC)");
                 break;
 
             case PushButtonContactConfig.Dual1NO1NC:
-                NcIn1 = AddOrReuseTerminal(existing, "1", "1(NC)", 20, 0, TerminalSide.Top, "Khối NC chân 1 (Thường đóng)");
-                NoIn3 = AddOrReuseTerminal(existing, "3", "3(NO)", 80, 0, TerminalSide.Top, "Khối NO chân 3 (Thường mở)");
-                NcOut2 = AddOrReuseTerminal(existing, "2", "2(NC)", 20, 100, TerminalSide.Bottom, "Khối NC chân 2 (Thường đóng)");
-                NoOut4 = AddOrReuseTerminal(existing, "4", "4(NO)", 80, 100, TerminalSide.Bottom, "Khối NO chân 4 (Thường mở)");
+                NcIn1 = AddOrReuseTerminal(existing, "11", "11(NC)", 20, 0, TerminalSide.Top, "Khối NC chân 11 (Thường đóng)");
+                NoIn3 = AddOrReuseTerminal(existing, "23", "23(NO)", 80, 0, TerminalSide.Top, "Khối NO chân 23 (Thường mở)");
+                NcOut2 = AddOrReuseTerminal(existing, "12", "12(NC)", 20, 100, TerminalSide.Bottom, "Khối NC chân 12 (Thường đóng)");
+                NoOut4 = AddOrReuseTerminal(existing, "24", "24(NO)", 80, 100, TerminalSide.Bottom, "Khối NO chân 24 (Thường mở)");
                 break;
         }
     }
 
     public override IEnumerable<InternalConductivePath> GetInternalConductivePaths()
     {
-        // Tiếp điểm NC đóng khi KHÔNG nhấn, mở khi nhấn
+        // Tiếp điểm NC (11-12) đóng khi KHÔNG nhấn, mở khi nhấn
         if (!IsPressed && NcIn1 is not null && NcOut2 is not null)
         {
-            yield return new InternalConductivePath(NcIn1, NcOut2, $"{DisplayName} (1-2 NC)");
+            yield return new InternalConductivePath(NcIn1, NcOut2, $"{DisplayName} (11-12 NC)");
         }
 
-        // Tiếp điểm NO đóng khi ĐANG nhấn
+        // Tiếp điểm NO (23-24) đóng khi ĐANG nhấn
         if (IsPressed && NoIn3 is not null && NoOut4 is not null)
         {
-            yield return new InternalConductivePath(NoIn3, NoOut4, $"{DisplayName} (3-4 NO)");
+            yield return new InternalConductivePath(NoIn3, NoOut4, $"{DisplayName} (23-24 NO)");
         }
     }
 

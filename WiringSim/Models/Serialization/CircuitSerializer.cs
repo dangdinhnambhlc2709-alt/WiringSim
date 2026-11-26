@@ -182,7 +182,35 @@ public static class CircuitSerializer
         var direct = comp.GetTerminal(terminalId);
         if (direct is not null) return direct;
 
-        return terminalId.ToUpperInvariant() switch
+        string idUp = terminalId.ToUpperInvariant();
+
+        // Tương thích ngược nút nhấn LA38 (1/2/3/4 cũ -> 11/12/23/24 mới)
+        if (comp is WiringSim.Models.Components.Control.PushButtonComponent)
+        {
+            return idUp switch
+            {
+                "1" => comp.GetTerminal("11"),
+                "2" => comp.GetTerminal("12"),
+                "3" => comp.GetTerminal("23"),
+                "4" => comp.GetTerminal("24"),
+                _ => null
+            };
+        }
+
+        // Tương thích ngược công tắc hành trình ME-8104 (13/14/21/22 cũ -> 3/4/1/2 mới)
+        if (comp is WiringSim.Models.Components.Control.LimitSwitchComponent)
+        {
+            return idUp switch
+            {
+                "13" => comp.GetTerminal("3"),
+                "14" => comp.GetTerminal("4"),
+                "21" => comp.GetTerminal("1"),
+                "22" => comp.GetTerminal("2"),
+                _ => null
+            };
+        }
+
+        return idUp switch
         {
             "NC1" or "NO1" => comp.GetTerminal("COM"),
             "NC2" => comp.GetTerminal("NC"),

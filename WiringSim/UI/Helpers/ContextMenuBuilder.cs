@@ -59,6 +59,21 @@ public static class ContextMenuBuilder
             case PushButtonComponent pb:
                 BuildPushButtonItems(menu, pb, isDesign, onChangedMessage);
                 break;
+            case IlluminatedPushButtonComponent ipb:
+                BuildIlluminatedPushButtonItems(menu, ipb, onChangedMessage);
+                break;
+            case EmergencyStopComponent estop:
+                BuildEmergencyStopItems(menu, estop, isDesign, onChangedMessage);
+                break;
+            case FuseComponent fuse:
+                BuildFuseItems(menu, fuse, onChangedMessage);
+                break;
+            case KnifeSwitchComponent knife:
+                BuildKnifeSwitchItems(menu, knife, isDesign, onChangedMessage);
+                break;
+            case CamSwitchComponent cam:
+                BuildCamSwitchItems(menu, cam, isDesign, onChangedMessage);
+                break;
             case SwitchComponent sw:
                 BuildSwitchItems(menu, sw, isDesign, onChangedMessage);
                 break;
@@ -83,6 +98,9 @@ public static class ContextMenuBuilder
             case TimerOnDelayComponent timer:
                 BuildTimerItems(menu, timer, isDesign, ownerWindow, onChangedMessage);
                 break;
+            case RotaryTimerAh3Component ah3:
+                BuildRotaryTimerAh3Items(menu, ah3, ownerWindow, onChangedMessage);
+                break;
             case IndustrialSensorComponent sensor:
                 BuildSensorItems(menu, sensor, isDesign, onChangedMessage);
                 break;
@@ -100,6 +118,9 @@ public static class ContextMenuBuilder
                 break;
             case ResidentialLampComponent lamp:
                 BuildResidentialLampItems(menu, lamp, onChangedMessage);
+                break;
+            case MotorLinearTrackComponent track:
+                BuildMotorLinearTrackItems(menu, track, onChangedMessage);
                 break;
             case Motor3Phase3PinComponent m3p:
                 BuildMotor3PinItems(menu, m3p, onChangedMessage);
@@ -166,7 +187,8 @@ public static class ContextMenuBuilder
         Action onAddWaypointHere,
         Action onRemoveNearestWaypoint,
         Action onResetAutoRoute,
-        Action onDeleteWire)
+        Action onDeleteWire,
+        Action? onStartBranchHere = null)
     {
         bool isDesign = currentMode == AppMode.Design;
         var menu = new ContextMenu();
@@ -177,6 +199,13 @@ public static class ContextMenuBuilder
             $"{wire.TerminalB.Owner.DisplayName}:{wire.TerminalB.Name}");
         menu.Items.Add(CreateSectionHeader(wireTitle));
         menu.Items.Add(new Separator());
+
+        if (onStartBranchHere is not null)
+        {
+            var branchItem = CreateActionItem(LocalizationManager.Get("Str.Menu.WireBranchHere"), onStartBranchHere, "#38BDF8");
+            branchItem.IsEnabled = isDesign;
+            menu.Items.Add(branchItem);
+        }
 
         var colorSub = CreateSubMenu(LocalizationManager.Get("Str.Menu.WireChangeColor"));
         (WireColorPreset Preset, string Key)[] colors =
@@ -339,9 +368,9 @@ public static class ContextMenuBuilder
         contactSub.IsEnabled = isDesign;
         (PushButtonContactConfig Cfg, string Key)[] cfgs =
         [
-            (PushButtonContactConfig.Only1NO, "Str.Menu.Only1NO"),
-            (PushButtonContactConfig.Only1NC, "Str.Menu.Only1NC"),
-            (PushButtonContactConfig.Dual1NO1NC, "Str.Menu.Dual1NO1NC")
+            (PushButtonContactConfig.Dual1NO1NC, "Str.Menu.Dual1NO1NC_LA38"),
+            (PushButtonContactConfig.Only1NO, "Str.Menu.Only1NO_LA38"),
+            (PushButtonContactConfig.Only1NC, "Str.Menu.Only1NC_LA38")
         ];
         foreach (var (cfg, key) in cfgs)
         {
@@ -358,7 +387,8 @@ public static class ContextMenuBuilder
         [
             (PilotLightColor.Green, "Str.Color.Green"),
             (PilotLightColor.Red, "Str.Color.Red"),
-            (PilotLightColor.Yellow, "Str.Color.Yellow")
+            (PilotLightColor.Yellow, "Str.Color.Yellow"),
+            (PilotLightColor.Blue, "Str.Color.Blue")
         ];
         foreach (var (col, key) in btnCols)
         {
@@ -369,6 +399,251 @@ public static class ContextMenuBuilder
             }));
         }
         menu.Items.Add(colSub);
+    }
+
+    private static void BuildIlluminatedPushButtonItems(ContextMenu menu, IlluminatedPushButtonComponent ipb, Action<string> notify)
+    {
+        var (_, _, vSpec) = ElectricalAnalysisHelper.GetRatingSpec(ipb.VoltageRating);
+        var vSub = CreateSubMenu(LocalizationManager.Format("Str.Menu.CoilVoltage", vSpec));
+        foreach (var r in new[] { CoilVoltageRating.DC_12V, CoilVoltageRating.DC_24V, CoilVoltageRating.AC_220V })
+        {
+            var target = r;
+            var (_, _, lbl) = ElectricalAnalysisHelper.GetRatingSpec(target);
+            vSub.Items.Add(CreateCheckOption(lbl, ipb.VoltageRating == target, () =>
+            {
+                ipb.VoltageRating = target;
+                ipb.RepairBurnout();
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", ipb.DisplayName, lbl));
+            }));
+        }
+        menu.Items.Add(vSub);
+
+        var actSub = CreateSubMenu(LocalizationManager.Get("Str.Menu.ActionMode"));
+        actSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.Momentary"), ipb.ActionMode == PushButtonActionMode.Momentary, () =>
+        {
+            ipb.ActionMode = PushButtonActionMode.Momentary;
+            ipb.IsPressed = false;
+            notify(LocalizationManager.Format("Str.Status.UpdatedProp", ipb.DisplayName, "Momentary"));
+        }));
+        actSub.Items.Add(CreateCheckOption(LocalizationManager.Get("Str.Menu.Latching"), ipb.ActionMode == PushButtonActionMode.Latching, () =>
+        {
+            ipb.ActionMode = PushButtonActionMode.Latching;
+            notify(LocalizationManager.Format("Str.Status.UpdatedProp", ipb.DisplayName, "Latching"));
+        }));
+        menu.Items.Add(actSub);
+
+        var colSub = CreateSubMenu(LocalizationManager.Get("Str.Menu.Color"));
+        (PilotLightColor Col, string Key)[] cols =
+        [
+            (PilotLightColor.Green, "Str.Color.Green"),
+            (PilotLightColor.Red, "Str.Color.Red"),
+            (PilotLightColor.Yellow, "Str.Color.Yellow"),
+            (PilotLightColor.Blue, "Str.Color.Blue"),
+            (PilotLightColor.White, "Str.Color.White")
+        ];
+        foreach (var (col, key) in cols)
+        {
+            colSub.Items.Add(CreateCheckOption(LocalizationManager.Get(key), ipb.ButtonColor == col, () =>
+            {
+                ipb.ButtonColor = col;
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", ipb.DisplayName, LocalizationManager.Get(key)));
+            }));
+        }
+        menu.Items.Add(colSub);
+    }
+
+    private static void BuildEmergencyStopItems(ContextMenu menu, EmergencyStopComponent es, bool isDesign, Action<string> notify)
+    {
+        var cfgSub = CreateSubMenu(LocalizationManager.Get("Str.Menu.ContactCfg"));
+        cfgSub.IsEnabled = isDesign;
+        (EmergencyStopContactConfig Cfg, string Key)[] cfgs =
+        [
+            (EmergencyStopContactConfig.Dual1NC1NO, "Str.Menu.EStopDual1NC1NO"),
+            (EmergencyStopContactConfig.Only1NC, "Str.Menu.EStopOnly1NC"),
+            (EmergencyStopContactConfig.Dual2NC, "Str.Menu.EStopDual2NC")
+        ];
+        foreach (var (cfg, key) in cfgs)
+        {
+            cfgSub.Items.Add(CreateCheckOption(LocalizationManager.Get(key), es.ContactConfig == cfg, () =>
+            {
+                es.SetContactConfig(cfg);
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", es.DisplayName, cfg.ToString()));
+            }));
+        }
+        menu.Items.Add(cfgSub);
+    }
+
+    private static void BuildFuseItems(ContextMenu menu, FuseComponent fuse, Action<string> notify)
+    {
+        if (fuse.IsBlown)
+        {
+            menu.Items.Add(CreateActionItem(LocalizationManager.Get("Str.Menu.FuseReset"), () =>
+            {
+                fuse.ResetFuse();
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", fuse.DisplayName, "RESET OK"));
+            }, "#22C55E"));
+            menu.Items.Add(new Separator());
+        }
+
+        var rSub = CreateSubMenu(LocalizationManager.Format("Str.Menu.FuseRating", fuse.RatedAmps));
+        foreach (int amps in FuseComponent.SupportedRatings)
+        {
+            int target = amps;
+            rSub.Items.Add(CreateCheckOption($"{target}A", fuse.RatedAmps == target, () =>
+            {
+                fuse.RatedAmps = target;
+                fuse.ResetFuse();
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", fuse.DisplayName, $"{target}A"));
+            }));
+        }
+        menu.Items.Add(rSub);
+    }
+
+    private static void BuildKnifeSwitchItems(ContextMenu menu, KnifeSwitchComponent knife, bool isDesign, Action<string> notify)
+    {
+        string curLbl = knife.SwitchKind switch
+        {
+            KnifeSwitchKind.SinglePhase2Pole => "1P",
+            KnifeSwitchKind.Changeover3P_1_0_2 => "1-0-2",
+            _ => "3P"
+        };
+        var kSub = CreateSubMenu(LocalizationManager.Format("Str.Menu.KnifeType", curLbl));
+        kSub.IsEnabled = isDesign;
+        (KnifeSwitchKind K, string Key)[] kinds =
+        [
+            (KnifeSwitchKind.SinglePhase2Pole, "Str.Menu.Knife1P"),
+            (KnifeSwitchKind.ThreePhase3Pole, "Str.Menu.Knife3P"),
+            (KnifeSwitchKind.Changeover3P_1_0_2, "Str.Menu.KnifeChangeover")
+        ];
+        foreach (var (k, key) in kinds)
+        {
+            kSub.Items.Add(CreateCheckOption(LocalizationManager.Get(key), knife.SwitchKind == k, () =>
+            {
+                knife.SetSwitchKind(k);
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", knife.DisplayName, k.ToString()));
+            }));
+        }
+        menu.Items.Add(kSub);
+    }
+
+    private static void BuildCamSwitchItems(ContextMenu menu, CamSwitchComponent cam, bool isDesign, Action<string> notify)
+    {
+        string mLbl = cam.Mode switch
+        {
+            CamSwitchMode.Volt4Pos => "Volt 4P",
+            CamSwitchMode.Amp4Pos => "Amp 4P",
+            _ => "Volt 7P"
+        };
+        var mSub = CreateSubMenu(LocalizationManager.Format("Str.Menu.CamMode", mLbl));
+        mSub.IsEnabled = isDesign;
+        (CamSwitchMode M, string Key)[] modes =
+        [
+            (CamSwitchMode.Volt7Pos, "Str.Menu.CamVolt7"),
+            (CamSwitchMode.Volt4Pos, "Str.Menu.CamVolt4"),
+            (CamSwitchMode.Amp4Pos, "Str.Menu.CamAmp4")
+        ];
+        foreach (var (m, key) in modes)
+        {
+            mSub.Items.Add(CreateCheckOption(LocalizationManager.Get(key), cam.Mode == m, () =>
+            {
+                cam.SetMode(m);
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", cam.DisplayName, m.ToString()));
+            }));
+        }
+        menu.Items.Add(mSub);
+    }
+
+    private static void BuildRotaryTimerAh3Items(ContextMenu menu, RotaryTimerAh3Component ah3, Window? ownerWindow, Action<string> notify)
+    {
+        var (_, _, cSpec) = ElectricalAnalysisHelper.GetRatingSpec(ah3.CoilRating);
+        var coilSub = CreateSubMenu(LocalizationManager.Format("Str.Menu.CoilVoltage", cSpec));
+        foreach (var r in new[] { CoilVoltageRating.DC_12V, CoilVoltageRating.DC_24V, CoilVoltageRating.AC_110V, CoilVoltageRating.AC_220V })
+        {
+            var target = r;
+            var (_, _, lbl) = ElectricalAnalysisHelper.GetRatingSpec(target);
+            coilSub.Items.Add(CreateCheckOption(lbl, ah3.CoilRating == target, () =>
+            {
+                ah3.CoilRating = target;
+                ah3.RepairBurnout();
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", ah3.DisplayName, lbl));
+            }));
+        }
+        menu.Items.Add(coilSub);
+
+        var rSub = CreateSubMenu(LocalizationManager.Format("Str.Menu.Ah3Range", ah3.RangeShortLabel));
+        (Ah3TimeRange R, string Key)[] ranges =
+        [
+            (Ah3TimeRange.Range_10s, "Str.Menu.Ah3Range10s"),
+            (Ah3TimeRange.Range_30s, "Str.Menu.Ah3Range30s"),
+            (Ah3TimeRange.Range_60s, "Str.Menu.Ah3Range60s"),
+            (Ah3TimeRange.Range_10m, "Str.Menu.Ah3Range10m")
+        ];
+        foreach (var (r, key) in ranges)
+        {
+            rSub.Items.Add(CreateCheckOption(LocalizationManager.Get(key), ah3.TimeRange == r, () =>
+            {
+                ah3.SetTimeRange(r);
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", ah3.DisplayName, ah3.RangeShortLabel));
+            }));
+        }
+        menu.Items.Add(rSub);
+
+        menu.Items.Add(CreateActionItem(LocalizationManager.Get("Str.Menu.CustomDelay"), () =>
+        {
+            string? input = InputPromptDialog.Prompt(
+                ownerWindow,
+                LocalizationManager.Get("Str.Menu.CustomDelayTitle"),
+                LocalizationManager.Format("Str.Menu.Ah3CustomPrompt", ah3.MaxRangeSeconds),
+                ah3.DelaySeconds.ToString("0.#", CultureInfo.InvariantCulture));
+
+            if (!string.IsNullOrWhiteSpace(input) &&
+                double.TryParse(input.Replace(',', '.'), CultureInfo.InvariantCulture, out double val))
+            {
+                ah3.SetDelaySeconds(val);
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", ah3.DisplayName, ah3.FormatDuration(ah3.DelaySeconds)));
+            }
+        }));
+    }
+
+    private static void BuildMotorLinearTrackItems(ContextMenu menu, MotorLinearTrackComponent track, Action<string> notify)
+    {
+        string posLbl = track.InitialPosition switch
+        {
+            TrackInitialPosition.Center => "50%",
+            TrackInitialPosition.RightAtLS2 => "LS2",
+            _ => "LS1"
+        };
+        var posSub = CreateSubMenu(LocalizationManager.Format("Str.Menu.TrackInitPos", posLbl));
+        (TrackInitialPosition P, string Key)[] positions =
+        [
+            (TrackInitialPosition.LeftAtLS1, "Str.Menu.TrackPosLeft"),
+            (TrackInitialPosition.Center, "Str.Menu.TrackPosCenter"),
+            (TrackInitialPosition.RightAtLS2, "Str.Menu.TrackPosRight")
+        ];
+        foreach (var (p, key) in positions)
+        {
+            posSub.Items.Add(CreateCheckOption(LocalizationManager.Get(key), track.InitialPosition == p, () =>
+            {
+                track.InitialPosition = p;
+                track.ApplyInitialPosition();
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", track.DisplayName, p.ToString()));
+            }));
+        }
+        menu.Items.Add(posSub);
+
+        var durSub = CreateSubMenu(LocalizationManager.Format("Str.Menu.TrackDuration", track.TravelDurationSeconds));
+        foreach (double s in MotorLinearTrackComponent.SupportedTravelDurations)
+        {
+            double target = s;
+            durSub.Items.Add(CreateCheckOption(LocalizationManager.Format("Str.Menu.SecUnit", target), Math.Abs(track.TravelDurationSeconds - target) < 0.1, () =>
+            {
+                track.TravelDurationSeconds = target;
+                notify(LocalizationManager.Format("Str.Status.UpdatedProp", track.DisplayName, $"{target:0.#}s"));
+            }));
+        }
+        menu.Items.Add(durSub);
+
+        AddMotorPowerSubmenu(menu, track, notify);
     }
 
     private static void BuildSwitchItems(ContextMenu menu, SwitchComponent sw, bool isDesign, Action<string> notify)
